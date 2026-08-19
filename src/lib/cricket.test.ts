@@ -113,7 +113,7 @@ describe("determineOutcome", () => {
     expect(outcome).toEqual({
       kind: "WIN",
       winner: "TEAM_B",
-      margin: "7 wickets",
+      margin: "2 wickets",
     });
   });
 

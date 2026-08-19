@@ -155,12 +155,40 @@ export async function recalculateStandings() {
       innings2Wickets: inn2?.wickets ?? null,
     });
 
+    const battingFirstId = inn1.battingTeamId;
+    const battingSecondId =
+      inn2?.battingTeamId ||
+      inn1.bowlingTeamId ||
+      (m.teamAId === battingFirstId ? m.teamBId : m.teamAId);
+
     const winnerTeamId =
       outcome.kind === "WIN"
         ? outcome.winner === "TEAM_A"
-          ? inn1.battingTeamId
-          : inn1.bowlingTeamId
+          ? battingFirstId
+          : battingSecondId
         : null;
+
+    let expectedResultText: string | null = null;
+    if (outcome.kind === "TIE") {
+      expectedResultText = "Match tied";
+    } else if (outcome.kind === "NO_RESULT") {
+      expectedResultText = "No result";
+    } else if (winnerTeamId) {
+      const winnerName = teams.find((t) => t.id === winnerTeamId)?.name ?? "Team";
+      expectedResultText = `${winnerName} won by ${outcome.margin}`;
+    }
+
+    if (
+      expectedResultText &&
+      m.status === "COMPLETED" &&
+      (m.resultText !== expectedResultText || m.winningTeamId !== winnerTeamId)
+    ) {
+      await updateDoc(matchDoc(m.id), {
+        winningTeamId: winnerTeamId,
+        resultText: expectedResultText,
+        updatedAt: now(),
+      });
+    }
 
     if (outcome.kind === "TIE") {
       aA.tied += 1; aB.tied += 1;
@@ -336,6 +364,12 @@ export async function finalizeMatch(matchId: string) {
   const inn1 = matchInnings.find((i) => i.inningsNumber === 1);
   const inn2 = matchInnings.find((i) => i.inningsNumber === 2);
 
+  // Synchronize latest database scorecard totals before calculating outcome
+  const [inn1Totals, inn2Totals] = await Promise.all([
+    inn1 ? syncInningsTotals(inn1.id) : Promise.resolve(null),
+    inn2 ? syncInningsTotals(inn2.id) : Promise.resolve(null),
+  ]);
+
   let winningTeamId: string | null = null;
   let resultText = "Match ended without a result";
   let status: "COMPLETED" | "NO_RESULT" = "COMPLETED";
@@ -344,26 +378,39 @@ export async function finalizeMatch(matchId: string) {
     status = "NO_RESULT";
     resultText = "No result";
   } else {
+    const inn1Runs = inn1Totals ? inn1Totals.runs : inn1.runs;
+    const inn1Balls = inn1Totals ? inn1Totals.balls : inn1.balls;
+    const inn1AllOut = inn1Totals ? inn1Totals.allOut : inn1.allOut;
+    const inn1Wickets = inn1Totals ? inn1Totals.wickets : inn1.wickets;
+
+    const inn2Runs = inn2Totals ? inn2Totals.runs : (inn2?.runs ?? null);
+    const inn2Balls = inn2Totals ? inn2Totals.balls : (inn2?.balls ?? null);
+    const inn2AllOut = inn2Totals ? inn2Totals.allOut : (inn2?.allOut ?? false);
+    const inn2Wickets = inn2Totals ? inn2Totals.wickets : (inn2?.wickets ?? null);
+
     const outcome = determineOutcome({
-      innings1Runs: inn1.runs,
-      innings1Balls: inn1.balls,
-      innings1AllOut: inn1.allOut,
-      innings1Wickets: inn1.wickets,
-      innings2Runs: inn2?.runs ?? null,
-      innings2Balls: inn2?.balls ?? null,
-      innings2AllOut: inn2?.allOut ?? false,
-      innings2Wickets: inn2?.wickets ?? null,
+      innings1Runs: inn1Runs,
+      innings1Balls: inn1Balls,
+      innings1AllOut: inn1AllOut,
+      innings1Wickets: inn1Wickets,
+      innings2Runs: inn2Runs,
+      innings2Balls: inn2Balls,
+      innings2AllOut: inn2AllOut,
+      innings2Wickets: inn2Wickets,
     });
 
     const battingFirstId = inn1.battingTeamId;
-    const battingSecondId = inn1.bowlingTeamId;
+    const battingSecondId =
+      inn2?.battingTeamId ||
+      inn1.bowlingTeamId ||
+      (match.teamAId === battingFirstId ? match.teamBId : match.teamAId);
 
-    const [teamASnap, teamBSnap] = await Promise.all([
+    const [team1Snap, team2Snap] = await Promise.all([
       getDoc(teamDoc(battingFirstId)),
       getDoc(teamDoc(battingSecondId)),
     ]);
     const nameOf = (id: string) =>
-      (id === battingFirstId ? teamASnap : teamBSnap).data()?.name ?? "Team";
+      (id === battingFirstId ? team1Snap : team2Snap).data()?.name ?? "Team";
 
     if (outcome.kind === "TIE") {
       resultText = "Match tied";

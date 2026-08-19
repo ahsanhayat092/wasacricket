@@ -908,7 +908,7 @@ function InningsLiveConsole({
         noBalls: r.noBalls,
       }));
 
-    save.mutate({
+    return save.mutateAsync({
       matchId,
       inningsNumber,
       wides: newExtras.wides,
@@ -966,28 +966,35 @@ function InningsLiveConsole({
     if (inningsNumber === 1) {
       if (isOversDone || isAllOut) {
         setClosed(true);
-        triggerSave(newBat, newBowl, newExtras, true);
+        triggerSave(newBat, newBowl, newExtras, true)
+          .then(() => {
+            setTimeout(() => {
+              onInningsCompleted?.();
+            }, 400);
+          })
+          .catch(() => {});
         const reason = isAllOut ? "All Out (5 wickets fallen)" : `${maxMatchOvers} Overs Completed`;
         toast.success(
           `🏁 1st Innings Complete (${reason})! Target for 2nd Innings is ${newTotalRuns + 1} runs.`,
           { duration: 6000 },
         );
-        setTimeout(() => {
-          onInningsCompleted?.();
-        }, 800);
         return true;
       }
     } else if (inningsNumber === 2 && target !== null) {
       const targetReached = newTotalRuns >= target;
       if (targetReached || isOversDone || isAllOut) {
         setClosed(true);
-        triggerSave(newBat, newBowl, newExtras, true);
-        setTimeout(() => {
-          onAutoFinalizeMatch?.();
-        }, 800);
+        triggerSave(newBat, newBowl, newExtras, true)
+          .then(() => {
+            setTimeout(() => {
+              onAutoFinalizeMatch?.();
+            }, 400);
+          })
+          .catch(() => {});
         if (targetReached) {
+          const wicketsRemaining = Math.max(1, 5 - newTotalWickets);
           toast.success(
-            `🏆 Target Reached! ${battingTeam?.name ?? "Chasing Team"} won the match!`,
+            `🏆 Target Reached! ${battingTeam?.name ?? "Chasing Team"} won by ${wicketsRemaining} wicket${wicketsRemaining === 1 ? "" : "s"}!`,
             { duration: 8000 },
           );
         } else {
