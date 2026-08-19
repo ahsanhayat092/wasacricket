@@ -53,6 +53,7 @@ import {
   CheckCircle2,
   Flame,
   Award,
+  Users,
 } from "lucide-react";
 import type { Match, Team, Player, Innings, BattingScore, BowlingScore } from "@/lib/firestore";
 
