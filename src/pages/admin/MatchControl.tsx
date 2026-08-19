@@ -221,57 +221,49 @@ export default function AdminMatchControl() {
 
         {/* Tab 1: Live Scoring */}
         <TabsContent value="scoring" className="mt-4 space-y-6">
-          {(canEnterScores || match.status === "COMPLETED") && (inn1 || canEnterScores) && (
-            <Tabs defaultValue={inn2 ? "2" : "1"} className="w-full">
-              <div className="flex items-center justify-between border-b pb-2">
-                <TabsList className="grid w-72 grid-cols-2">
-                  <TabsTrigger value="1" className="text-xs font-bold">
-                    1st Innings {inn1 ? `(${inn1.runs}/${inn1.wickets})` : ""}
-                  </TabsTrigger>
-                  <TabsTrigger value="2" disabled={!inn1 && canEnterScores} className="text-xs font-bold">
-                    2nd Innings {inn2 ? `(${inn2.runs}/${inn2.wickets})` : ""}
-                  </TabsTrigger>
-                </TabsList>
-              </div>
+          <Tabs defaultValue={inn2 ? "2" : "1"} className="w-full">
+            <div className="flex items-center justify-between border-b pb-2">
+              <TabsList className="grid w-72 grid-cols-2">
+                <TabsTrigger value="1" className="text-xs font-bold">
+                  1st Innings {inn1 ? `(${inn1.runs}/${inn1.wickets})` : ""}
+                </TabsTrigger>
+                <TabsTrigger value="2" className="text-xs font-bold">
+                  2nd Innings {inn2 ? `(${inn2.runs}/${inn2.wickets})` : ""}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-              <TabsContent value="1" className="mt-4">
-                <InningsLiveConsole
-                  key={`i1-${inn1?.id ?? "new"}-${match.status}`}
-                  matchId={match.id}
-                  inningsNumber={1}
-                  workspace={data}
-                  readOnly={!canEnterScores}
-                  onSaved={() => {
-                    refetch();
-                    invalidate();
-                  }}
-                />
-              </TabsContent>
+            <TabsContent value="1" className="mt-4">
+              <InningsLiveConsole
+                key={`i1-${inn1?.id ?? "new"}-${match.status}`}
+                matchId={match.id}
+                inningsNumber={1}
+                workspace={data}
+                readOnly={false}
+                onSaved={() => {
+                  refetch();
+                  invalidate();
+                }}
+              />
+            </TabsContent>
 
-              <TabsContent value="2" className="mt-4">
-                {inn1 ? (
-                  <InningsLiveConsole
-                    key={`i2-${inn2?.id ?? "new"}-${match.status}`}
-                    matchId={match.id}
-                    inningsNumber={2}
-                    workspace={data}
-                    readOnly={!canEnterScores}
-                    onSaved={() => {
-                      refetch();
-                      invalidate();
-                    }}
-                  />
-                ) : (
-                  <p className="text-muted-foreground text-sm py-8 text-center">
-                    Please complete and save the 1st Innings first.
-                  </p>
-                )}
-              </TabsContent>
-            </Tabs>
-          )}
+            <TabsContent value="2" className="mt-4">
+              <InningsLiveConsole
+                key={`i2-${inn2?.id ?? "new"}-${match.status}`}
+                matchId={match.id}
+                inningsNumber={2}
+                workspace={data}
+                readOnly={false}
+                onSaved={() => {
+                  refetch();
+                  invalidate();
+                }}
+              />
+            </TabsContent>
+          </Tabs>
 
           {/* Complete Match & Declare Winner */}
-          {canEnterScores && inn1 && (
+          {(inn1 || inn2) && (
             <CompleteMatchCard
               players={players}
               pending={completeMatch.isPending}
