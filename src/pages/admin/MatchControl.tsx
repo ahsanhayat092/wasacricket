@@ -5,6 +5,7 @@ import {
   startMatch as fbStartMatch,
   completeMatch as fbCompleteMatch,
   reopenMatch as fbReopenMatch,
+  resetMatch as fbResetMatch,
   saveInnings as fbSaveInnings,
   updateMatchLineups as fbUpdateMatchLineups,
 } from "@/lib/mutations";
@@ -117,6 +118,16 @@ export default function AdminMatchControl() {
     onError: (e) => toast.error(e.message),
   });
 
+  const resetMatch = useMutation({
+    mutationFn: () => fbResetMatch(id!),
+    onSuccess: () => {
+      toast.success("Match completely reset! All scorecards cleared and match is now UPCOMING.");
+      refetch();
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   // Sync tab when data loads or updates
   const inn1 = data?.innings?.find((i) => i.inningsNumber === 1);
   const inn2 = data?.innings?.find((i) => i.inningsNumber === 2);
@@ -187,6 +198,23 @@ export default function AdminMatchControl() {
               <Zap className="h-3.5 w-3.5" /> View Live Public Screen
             </Button>
           </Link>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="text-xs gap-1.5 bg-rose-600 hover:bg-rose-500 text-white shadow-sm font-semibold"
+            disabled={resetMatch.isPending}
+            onClick={() => {
+              if (
+                confirm(
+                  `⚠️ RESTART THIS MATCH?\n\nThis will permanently delete all innings, scorecards, batting/bowling statistics, and toss selection for ${teamA?.name ?? "Team A"} vs ${teamB?.name ?? "Team B"}.\n\nThe match will be reset to a clean UPCOMING state so you can start fresh.\n\nDo you want to proceed?`
+                )
+              ) {
+                resetMatch.mutate();
+              }
+            }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Restart Match (Reset DB)
+          </Button>
         </div>
       </div>
 

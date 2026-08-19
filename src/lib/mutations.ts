@@ -610,6 +610,78 @@ export async function reopenMatch(matchId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Reset / Restart match from scratch (delete innings, scorecards, lineups)
+// ---------------------------------------------------------------------------
+
+export async function resetMatch(matchId: string) {
+  const snap = await getDoc(matchDoc(matchId));
+  if (!snap.exists()) throw new Error("Match not found");
+  const match = { id: snap.id, ...snap.data() } as Match;
+
+  // 1. Fetch all innings for this match
+  const inningsSnap = await getDocs(
+    query(inningsCol(), where("matchId", "==", matchId)),
+  );
+  const inningsIds = inningsSnap.docs.map((d) => d.id);
+
+  // 2. Fetch batting and bowling score records
+  const [battingSnaps, bowlingSnaps] = await Promise.all([
+    Promise.all(
+      inningsIds.map((id) =>
+        getDocs(query(battingScoresCol(), where("inningsId", "==", id))),
+      ),
+    ),
+    Promise.all(
+      inningsIds.map((id) =>
+        getDocs(query(bowlingScoresCol(), where("inningsId", "==", id))),
+      ),
+    ),
+  ]);
+
+  // 3. Batch delete all scorecards and innings docs
+  const batch = writeBatch(db);
+
+  for (const s of battingSnaps) {
+    s.docs.forEach((d) => batch.delete(d.ref));
+  }
+  for (const s of bowlingSnaps) {
+    s.docs.forEach((d) => batch.delete(d.ref));
+  }
+  for (const d of inningsSnap.docs) {
+    batch.delete(d.ref);
+  }
+
+  // 4. Reset match document back to clean UPCOMING state
+  batch.update(matchDoc(matchId), {
+    status: "UPCOMING",
+    tossWinnerId: null,
+    tossDecision: null,
+    winningTeamId: null,
+    resultText: null,
+    playerOfMatchId: null,
+    completedAt: null,
+    teamAPlayingVI: null,
+    teamAReserveId: null,
+    teamBPlayingVI: null,
+    teamBReserveId: null,
+    updatedAt: now(),
+  });
+
+  await batch.commit();
+
+  if (match.stage === "FINAL") {
+    await updateDoc(tournamentDoc(), {
+      championTeamId: null,
+      updatedAt: now(),
+    });
+  }
+
+  // 5. Recalculate standings so points table reflects the reset
+  await recalculateStandings();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Set match status (No Result / Abandoned)
 // ---------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
 import { getSchedule } from "@/lib/queries";
-import { updateMatchDetails, setMatchStatus } from "@/lib/mutations";
+import { updateMatchDetails, setMatchStatus, resetMatch as fbResetMatch } from "@/lib/mutations";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { statusBadgeClass, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
+import { RotateCcw } from "lucide-react";
 
 export default function AdminMatches() {
   const { data: matches, isLoading } = useQuery({
@@ -25,12 +26,22 @@ export default function AdminMatches() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["schedule"] });
     queryClient.invalidateQueries({ queryKey: ["standings"] });
+    queryClient.invalidateQueries({ queryKey: ["statistics"] });
   };
 
   const setStatus = useMutation({
     mutationFn: (args: { matchId: string; status: "NO_RESULT" | "ABANDONED" }) =>
       setMatchStatus(args),
     onSuccess: () => { toast.success("Status updated"); invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const resetMatchMutation = useMutation({
+    mutationFn: (matchId: string) => fbResetMatch(matchId),
+    onSuccess: () => {
+      toast.success("Match reset successfully! All scorecards and toss data cleared.");
+      invalidate();
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -46,7 +57,7 @@ export default function AdminMatches() {
               <TableHead>Teams</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Result</TableHead>
-              <TableHead className="w-64" />
+              <TableHead className="w-72" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -57,12 +68,12 @@ export default function AdminMatches() {
             )}
             {matches?.map((m) => (
               <TableRow key={m.id}>
-                <TableCell className="font-medium whitespace-nowrap">
-                  {m.stage === "FINAL" ? "🏆 Final" : `M${m.matchNumber}`}
+                <TableCell className="font-bold">
+                  {m.stage === "FINAL" ? "🏆 Final" : `Match ${m.matchNumber}`}
                 </TableCell>
-                <TableCell>{m.day}</TableCell>
-                <TableCell>
-                  {m.teamA?.name ?? "Rank 1"} vs {m.teamB?.name ?? "Rank 2"}
+                <TableCell className="text-sm">{m.day}</TableCell>
+                <TableCell className="font-semibold">
+                  {m.teamA?.shortName ?? "TBD"} vs {m.teamB?.shortName ?? "TBD"}
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -76,7 +87,7 @@ export default function AdminMatches() {
                   {m.resultText ?? "—"}
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 items-center">
                     <Link to={`/admin/matches/${m.id}`}>
                       <Button size="sm">Manage</Button>
                     </Link>
@@ -105,6 +116,25 @@ export default function AdminMatches() {
                           Abandon
                         </Button>
                       </>
+                    )}
+                    {m.status !== "UPCOMING" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 text-xs gap-1"
+                        disabled={resetMatchMutation.isPending}
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `⚠️ Reset & Restart Match ${m.matchNumber} (${m.teamA?.name ?? "Team A"} vs ${m.teamB?.name ?? "Team B"})?\n\nThis will permanently delete all innings, scorecards, and toss data for this match and start fresh.`
+                            )
+                          ) {
+                            resetMatchMutation.mutate(m.id);
+                          }
+                        }}
+                      >
+                        <RotateCcw className="h-3 w-3" /> Reset
+                      </Button>
                     )}
                   </div>
                 </TableCell>
