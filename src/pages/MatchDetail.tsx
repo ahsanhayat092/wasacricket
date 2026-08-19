@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { statusBadgeClass, ballsToOversText, type MatchStatus } from "@/lib/cricket";
+import { statusBadgeClass, ballsToOversText, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import {
   Award,
   CalendarDays,
@@ -100,7 +100,7 @@ export default function MatchDetail() {
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} ·{" "}
-              {match.day} · WASA Premier League
+              {formatMatchDay(match.day, match.date)} · WASA Premier League
             </span>
             <Badge
               variant="outline"

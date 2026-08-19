@@ -175,11 +175,18 @@ export function teamColor(shortName?: string | null): string {
         "bg-cyan-600",
       ];
       let hash = 0;
-      for (let i = 0; i < name.length; i++) {
-        hash = (hash + name.charCodeAt(i)) % colors.length;
-      }
       return colors[hash];
     }
   }
+}
+
+/** Format match day display text consistently */
+export function formatMatchDay(day?: string | null, date?: string | null): string {
+  if (!day && !date) return "";
+  const d = (day || "").toUpperCase().trim();
+  if (d === "FRIDAY" || d === "WEDNESDAY") return "Wed, 26 Aug";
+  if (d === "SATURDAY" || d === "THURSDAY") return "Thu, 27 Aug";
+  if (d === "SUNDAY") return "Sun (Finals)";
+  return date ? `${day} · ${date}` : (day || "");
 }
 

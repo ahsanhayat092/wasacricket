@@ -110,8 +110,22 @@ export async function getPlayersByTeam(teamId: string): Promise<Player[]> {
 function hydrateMatch(m: Match, teams: Team[], innings: Innings[] = []): HydratedMatch {
   const find = (id: string | null | undefined) =>
     teams.find((t) => t.id === id) ?? null;
+
+  // Auto-normalize legacy Friday / Saturday data to Wednesday 26 Aug / Thursday 27 Aug
+  let normalizedDay = m.day;
+  let normalizedDate = m.date;
+  if (m.day === "FRIDAY") {
+    normalizedDay = "WEDNESDAY";
+    normalizedDate = "26 August";
+  } else if (m.day === "SATURDAY") {
+    normalizedDay = "THURSDAY";
+    normalizedDate = "27 August";
+  }
+
   return {
     ...m,
+    day: normalizedDay,
+    date: normalizedDate,
     teamA: find(m.teamAId),
     teamB: find(m.teamBId),
     tossWinner: find(m.tossWinnerId),
@@ -352,6 +366,15 @@ export async function getMatchWorkspace(matchId: string) {
     const snap = await getDoc(matchDoc(matchId));
     if (!snap.exists()) return null;
     const match = { id: snap.id, ...snap.data() } as Match;
+
+    // Auto-normalize legacy Friday / Saturday data
+    if (match.day === "FRIDAY") {
+      match.day = "WEDNESDAY";
+      match.date = "26 August";
+    } else if (match.day === "SATURDAY") {
+      match.day = "THURSDAY";
+      match.date = "27 August";
+    }
 
     const [teams, players, inningsSnap] = await Promise.all([
       getTeams(),

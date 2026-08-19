@@ -4,6 +4,7 @@ import { getStandings } from "@/lib/queries";
 import { recalculateStandings } from "@/lib/tournament-logic";
 import { setTiebreak } from "@/lib/mutations";
 import { StandingsTable } from "@/components/StandingsTable";
+import { NRRExplanation } from "@/components/NRRExplanation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -104,6 +105,8 @@ export default function AdminPointsTable() {
           </Table>
         </div>
       </div>
+
+      <NRRExplanation />
     </div>
   );
 }

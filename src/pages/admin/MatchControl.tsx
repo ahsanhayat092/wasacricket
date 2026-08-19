@@ -41,7 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TeamBadge } from "@/components/TeamBadge";
-import { statusBadgeClass, oversToBalls, ballsToOversText, type MatchStatus } from "@/lib/cricket";
+import { statusBadgeClass, oversToBalls, ballsToOversText, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -175,7 +175,7 @@ export default function AdminMatchControl() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {match.day} · {match.venue ?? "Askari XI, Lahore"} · {match.oversPerSide ?? 10} Overs Match
+              {formatMatchDay(match.day, match.date)} · {match.venue ?? "Askari XI, Lahore"} · {match.oversPerSide ?? 10} Overs Match
             </p>
           </div>
         </div>

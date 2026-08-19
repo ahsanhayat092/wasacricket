@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TeamBadge } from "@/components/TeamBadge";
-import { statusBadgeClass, ballsToOversText, type MatchStatus } from "@/lib/cricket";
+import { statusBadgeClass, ballsToOversText, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { CalendarDays, MapPin, Zap, Trophy, Target } from "lucide-react";
 import type { HydratedMatch } from "@/lib/firestore";
 
@@ -58,7 +58,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
           <div className="flex items-center justify-between gap-2 border-b pb-2.5">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               {match.stage === "FINAL" ? "🏆 Final Match" : `Match #${match.matchNumber}`} ·{" "}
-              {match.day}
+              {formatMatchDay(match.day, match.date)}
             </span>
             <Badge
               variant="outline"

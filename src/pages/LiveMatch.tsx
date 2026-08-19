@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ballsToOversText } from "@/lib/cricket";
+import { ballsToOversText, formatMatchDay } from "@/lib/cricket";
 import type { Match, Innings, BattingScore, BowlingScore, Team, Player } from "@/lib/firestore";
 import { getSchedule } from "@/lib/queries";
 import { Trophy, Users, ArrowRightLeft, Zap } from "lucide-react";
@@ -169,7 +169,7 @@ export default function LiveMatch() {
               LIVE MATCH
             </Badge>
             <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} · {match.day}
+              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} · {formatMatchDay(match.day, match.date)}
             </span>
           </div>
 
