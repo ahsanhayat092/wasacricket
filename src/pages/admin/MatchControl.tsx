@@ -74,6 +74,8 @@ export default function AdminMatchControl() {
     refetchInterval: 10000,
   });
 
+  const [activeInningsTab, setActiveInningsTab] = useState<string>("1");
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["matchWorkspace", id] });
     queryClient.invalidateQueries({ queryKey: ["schedule"] });
@@ -114,6 +116,16 @@ export default function AdminMatchControl() {
     onError: (e) => toast.error(e.message),
   });
 
+  // Sync tab when data loads or updates
+  const inn1 = data?.innings?.find((i) => i.inningsNumber === 1);
+  const inn2 = data?.innings?.find((i) => i.inningsNumber === 2);
+
+  useEffect(() => {
+    if (inn2 && inn1?.completed && activeInningsTab === "1") {
+      setActiveInningsTab("2");
+    }
+  }, [inn2, inn1?.completed, activeInningsTab]);
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-4 max-w-7xl mx-auto">
@@ -140,19 +152,7 @@ export default function AdminMatchControl() {
   const { match, teams = [], players = [], innings = [] } = data;
   const teamA = teams.find((t) => t.id === match.teamAId) ?? null;
   const teamB = teams.find((t) => t.id === match.teamBId) ?? null;
-  const inn1 = innings.find((i) => i.inningsNumber === 1);
-  const inn2 = innings.find((i) => i.inningsNumber === 2);
   const canEnterScores = match.status === "LIVE";
-  const [activeInningsTab, setActiveInningsTab] = useState<string>(() =>
-    inn2 ? "2" : (inn1?.completed ? "2" : "1"),
-  );
-
-  // Sync tab if inn2 appears
-  useEffect(() => {
-    if (inn2 && activeInningsTab === "1" && inn1?.completed) {
-      setActiveInningsTab("2");
-    }
-  }, [inn2, inn1?.completed]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
