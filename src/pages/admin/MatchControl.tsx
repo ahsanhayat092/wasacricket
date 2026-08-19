@@ -481,21 +481,21 @@ function InningsLiveConsole({
 
   const [closed, setClosed] = useState(existing?.completed ?? false);
 
-  // ICC Live Active Batsmen & Bowler Selection
-  const [strikerId, setStrikerId] = useState<string>(() => {
-    const notOut = batRows.filter((b) => b.batted && !b.isOut);
-    return notOut[0]?.playerId ?? battingPlayers[0]?.id ?? "";
-  });
-
-  const [nonStrikerId, setNonStrikerId] = useState<string>(() => {
-    const notOut = batRows.filter((b) => b.batted && !b.isOut);
-    return notOut[1]?.playerId ?? battingPlayers[1]?.id ?? "";
-  });
-
-  const [currentBowlerId, setCurrentBowlerId] = useState<string>(() => {
-    const activeBowlers = bowlRows.filter((b) => b.bowled);
-    return activeBowlers[activeBowlers.length - 1]?.playerId ?? bowlingPlayers[0]?.id ?? "";
-  });
+  // Auto-select initial batsmen and bowler if not yet selected
+  useEffect(() => {
+    if (!strikerId && battingPlayers.length > 0) {
+      const notOut = batRows.filter((b) => b.batted && !b.isOut);
+      setStrikerId(notOut[0]?.playerId ?? battingPlayers[0]?.id ?? "");
+    }
+    if (!nonStrikerId && battingPlayers.length > 1) {
+      const notOut = batRows.filter((b) => b.batted && !b.isOut);
+      setNonStrikerId(notOut[1]?.playerId ?? battingPlayers[1]?.id ?? "");
+    }
+    if (!currentBowlerId && bowlingPlayers.length > 0) {
+      const activeBowlers = bowlRows.filter((b) => b.bowled);
+      setCurrentBowlerId(activeBowlers[activeBowlers.length - 1]?.playerId ?? bowlingPlayers[0]?.id ?? "");
+    }
+  }, [battingPlayers, bowlingPlayers, batRows, bowlRows, strikerId, nonStrikerId, currentBowlerId]);
 
   // Recent Balls Feed (History for this session)
   const [recentBalls, setRecentBalls] = useState<string[]>([]);
@@ -944,6 +944,18 @@ function InningsLiveConsole({
           </div>
         </CardContent>
       </Card>
+
+      {/* Warning if squad players are missing */}
+      {(battingPlayers.length === 0 || bowlingPlayers.length === 0) && (
+        <Card className="border-amber-500/40 bg-amber-500/10 p-4">
+          <p className="text-xs font-bold text-amber-500 flex items-center gap-2">
+            ⚠️ Player squad not found for {battingPlayers.length === 0 ? (battingTeam?.name ?? "Batting Team") : (bowlingTeam?.name ?? "Bowling Team")}.
+            <Link to="/admin/players" className="underline font-black text-amber-400 ml-1">
+              Add squad players in Admin ➔ Players
+            </Link>
+          </p>
+        </Card>
+      )}
 
       {/* ICC Live On-Field Players & Keypad Controls */}
       {!readOnly && (
