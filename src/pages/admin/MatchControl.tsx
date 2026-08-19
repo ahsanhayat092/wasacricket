@@ -45,6 +45,7 @@ import { statusBadgeClass, oversToBalls, ballsToOversText, formatMatchDay, type 
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  ArrowRight,
   Crown,
   RotateCcw,
   Zap,
