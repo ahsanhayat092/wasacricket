@@ -240,6 +240,15 @@ export async function recalculateStandings() {
       x.teamName.localeCompare(y.teamName),
   );
 
+  const allLeagueMatchesCompleted =
+    leagueMatches.length > 0 &&
+    leagueMatches.every(
+      (m) =>
+        m.status === "COMPLETED" ||
+        m.status === "NO_RESULT" ||
+        m.status === "ABANDONED",
+    );
+
   const batch = writeBatch(db);
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -258,7 +267,7 @@ export async function recalculateStandings() {
       ballsAgainst: r.ballsAgainst,
       nrr: r.nrr,
       position: i + 1,
-      qualified: i < 2 && r.played > 0,
+      qualified: allLeagueMatchesCompleted && i < 2,
       adminTiebreak: r.adminTiebreak,
       updatedAt: now(),
     });
