@@ -49,6 +49,9 @@ export type Player = {
   name: string;
   jerseyNumber?: number | null;
   role: "Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper";
+  isCaptain?: boolean;
+  isViceCaptain?: boolean;
+  designation?: "Captain" | "Vice Captain" | "Team Member";
   battingStyle?: string | null;
   bowlingStyle?: string | null;
   photoUrl?: string | null;

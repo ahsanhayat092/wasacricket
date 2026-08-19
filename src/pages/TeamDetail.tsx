@@ -99,23 +99,42 @@ export default function TeamDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {players.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="text-muted-foreground">
-                      {p.jerseyNumber ?? "—"}
-                    </TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{p.role}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {p.battingStyle ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {p.bowlingStyle ?? "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {players.map((p) => {
+                  const isCap = p.isCaptain || p.designation === "Captain";
+                  const isVc = p.isViceCaptain || p.designation === "Vice Captain";
+
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="text-muted-foreground font-mono">
+                        {p.jerseyNumber ?? "—"}
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          <span>{p.name}</span>
+                          {isCap && (
+                            <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px] py-0 px-1.5 font-bold">
+                              (C) Captain
+                            </Badge>
+                          )}
+                          {isVc && (
+                            <Badge className="bg-sky-600 hover:bg-sky-600 text-white text-[10px] py-0 px-1.5 font-bold">
+                              (VC)
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{p.role}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {p.battingStyle ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {p.bowlingStyle ?? "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

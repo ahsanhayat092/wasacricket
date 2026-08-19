@@ -133,15 +133,29 @@ export async function upsertPlayer(input: {
   name: string;
   jerseyNumber?: number;
   role: "Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper";
+  isCaptain?: boolean;
+  isViceCaptain?: boolean;
+  designation?: "Captain" | "Vice Captain" | "Team Member";
   battingStyle?: string;
   bowlingStyle?: string;
   photoUrl?: string;
 }) {
+  const isCaptain =
+    input.isCaptain === true || input.designation === "Captain";
+  const isViceCaptain =
+    input.isViceCaptain === true || input.designation === "Vice Captain";
+  const designation =
+    input.designation ||
+    (isCaptain ? "Captain" : isViceCaptain ? "Vice Captain" : "Team Member");
+
   const data = {
     teamId: input.teamId,
     name: input.name,
     jerseyNumber: input.jerseyNumber ?? null,
     role: input.role,
+    isCaptain,
+    isViceCaptain,
+    designation,
     battingStyle: input.battingStyle ?? null,
     bowlingStyle: input.bowlingStyle ?? null,
     photoUrl: input.photoUrl ?? null,
