@@ -803,6 +803,10 @@ function InningsLiveConsole({
   const [outPlayerId, setOutPlayerId] = useState<string>("");
   const [incomingPlayerId, setIncomingPlayerId] = useState<string>("");
 
+  // No Ball Dialog State (for scoring runs off No Ball)
+  const [noBallModalOpen, setNoBallModalOpen] = useState(false);
+  const [noBallCustomRuns, setNoBallCustomRuns] = useState<string>("0");
+
   // End of Over - Next Bowler Selection Modal State
   const [nextBowlerModalOpen, setNextBowlerModalOpen] = useState(false);
   const [completedOverNum, setCompletedOverNum] = useState<number>(1);
@@ -1229,6 +1233,87 @@ function InningsLiveConsole({
     }
   };
 
+  // Record No Ball with runs scored off the bat (0, 1, 2, 3, 4, 6, or custom)
+  const recordNoBall = (batsmanRuns = 0, isByeOrLegBye = false) => {
+    if (closed) {
+      toast.info("Innings is completed.");
+      return;
+    }
+    if (!strikerId || !currentBowlerId) {
+      toast.error("Please select both Striker and Bowler.");
+      return;
+    }
+    if (isBowlerQuotaExhausted(currentBowlerId)) {
+      toast.info("Over completed! Please select the bowler for the next over.");
+      triggerNextBowlerDialog(totalLegalBalls, currentBowlerId);
+      return;
+    }
+
+    pushHistory();
+
+    const newExtras = { ...extras };
+    newExtras.noBalls += 1; // 1 penalty run for No Ball
+
+    let newBat = [...batRows];
+    let newBowl = [...bowlRows];
+
+    // Total runs scored on this delivery conceded by bowler = 1 Nb + batsmanRuns
+    const totalRunsThisBall = 1 + batsmanRuns;
+
+    if (batsmanRuns > 0 && !isByeOrLegBye) {
+      newBat = newBat.map((b) => {
+        if (b.playerId === strikerId) {
+          return {
+            ...b,
+            batted: true,
+            runs: b.runs + batsmanRuns,
+            balls: b.balls + 1,
+            fours: batsmanRuns === 4 ? b.fours + 1 : b.fours,
+            sixes: batsmanRuns === 6 ? b.sixes + 1 : b.sixes,
+          };
+        }
+        return b;
+      });
+    } else if (!isByeOrLegBye) {
+      newBat = newBat.map((b) =>
+        b.playerId === strikerId ? { ...b, batted: true, balls: b.balls + 1 } : b,
+      );
+    }
+
+    // Bowler figures: bowled is true, runs += totalRunsThisBall, noBalls count += 1 (balls NOT incremented)
+    newBowl = newBowl.map((b) =>
+      b.playerId === currentBowlerId
+        ? {
+            ...b,
+            bowled: true,
+            runs: b.runs + totalRunsThisBall,
+            noBalls: b.noBalls + 1,
+          }
+        : b,
+    );
+
+    // Rotate strike if odd runs scored off bat
+    if (batsmanRuns % 2 === 1) {
+      const temp = strikerId;
+      setStrikerId(nonStrikerId);
+      setNonStrikerId(temp);
+    }
+
+    // Recent ball display tag
+    const tag = batsmanRuns > 0 ? `Nb+${batsmanRuns}` : "Nb";
+    setRecentBalls((prev) => [...prev.slice(-11), tag]);
+
+    setExtras(newExtras);
+    setBowlRows(newBowl);
+    setBatRows(newBat);
+    setNoBallModalOpen(false);
+
+    const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, totalLegalBalls);
+    if (!isFinished) {
+      triggerSave(newBat, newBowl, newExtras);
+    }
+  };
+
   // Open Wicket Popup
   const promptWicket = () => {
     if (closed) {
@@ -1623,7 +1708,7 @@ function InningsLiveConsole({
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Extras & Dismissals
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 sm:gap-2.5">
                   <Button
                     type="button"
                     variant="outline"
@@ -1635,10 +1720,18 @@ function InningsLiveConsole({
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-12 font-bold text-xs bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/30 text-indigo-400 rounded-xl"
-                    onClick={() => recordExtra("NO_BALL", 1)}
+                    className="h-12 font-bold text-xs bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-500 rounded-xl"
+                    onClick={() => setNoBallModalOpen(true)}
                   >
-                    +1 No Ball (Nb)
+                    ⚡ No Ball (Nb)...
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 font-bold text-xs bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-400 rounded-xl"
+                    onClick={() => recordNoBall(0)}
+                  >
+                    +1 Nb (Dot)
                   </Button>
                   <Button
                     type="button"
@@ -1661,7 +1754,7 @@ function InningsLiveConsole({
                     className="h-12 font-black text-sm bg-red-600 hover:bg-red-500 text-white rounded-xl shadow-md col-span-2 sm:col-span-1"
                     onClick={promptWicket}
                   >
-                    🔴 WICKET (OUT)
+                    🔴 WICKET
                   </Button>
                 </div>
               </div>
@@ -2079,6 +2172,116 @@ function InningsLiveConsole({
               onClick={confirmWicket}
             >
               Confirm Wicket
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* No Ball Scoring Dialog (Allows runs scored off bat on No Ball) */}
+      <Dialog open={noBallModalOpen} onOpenChange={setNoBallModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-amber-500 flex items-center gap-2 text-base font-bold">
+              ⚡ Record No Ball (NB)
+            </DialogTitle>
+            <CardDescription className="text-xs">
+              Striker: <strong>{currentStriker?.name ?? "Striker"}</strong> · Bowler: <strong>{currentBowler?.name ?? "Bowler"}</strong>
+            </CardDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-foreground space-y-1">
+              <p className="font-semibold text-amber-500">
+                Select runs scored by batsman off the No Ball:
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Total Runs = 1 No Ball penalty + runs scored off bat.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-14 flex flex-col gap-0.5 rounded-xl border-amber-500/30 hover:bg-amber-500/10"
+                onClick={() => recordNoBall(0)}
+              >
+                <span className="text-sm font-black text-foreground">0 Runs</span>
+                <span className="text-[10px] text-muted-foreground">1 run total (1 Nb)</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-14 flex flex-col gap-0.5 rounded-xl border-emerald-500/30 hover:bg-emerald-500/10"
+                onClick={() => recordNoBall(1)}
+              >
+                <span className="text-sm font-black text-emerald-500">1 Run</span>
+                <span className="text-[10px] text-muted-foreground">2 runs (1b+1Nb) 🔄</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-14 flex flex-col gap-0.5 rounded-xl border-emerald-500/30 hover:bg-emerald-500/10"
+                onClick={() => recordNoBall(2)}
+              >
+                <span className="text-sm font-black text-emerald-500">2 Runs</span>
+                <span className="text-[10px] text-muted-foreground">3 runs (2b+1Nb)</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-14 flex flex-col gap-0.5 rounded-xl border-emerald-500/30 hover:bg-emerald-500/10"
+                onClick={() => recordNoBall(3)}
+              >
+                <span className="text-sm font-black text-emerald-500">3 Runs</span>
+                <span className="text-[10px] text-muted-foreground">4 runs (3b+1Nb) 🔄</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-14 flex flex-col gap-0.5 rounded-xl border-sky-500/40 bg-sky-500/5 hover:bg-sky-500/15"
+                onClick={() => recordNoBall(4)}
+              >
+                <span className="text-sm font-black text-sky-500">🏏 4 (FOUR)</span>
+                <span className="text-[10px] text-muted-foreground">5 runs (4b+1Nb)</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-14 flex flex-col gap-0.5 rounded-xl border-purple-500/40 bg-purple-500/5 hover:bg-purple-500/15"
+                onClick={() => recordNoBall(6)}
+              >
+                <span className="text-sm font-black text-purple-500">🚀 6 (SIX)</span>
+                <span className="text-[10px] text-muted-foreground">7 runs (6b+1Nb)</span>
+              </Button>
+            </div>
+
+            <div className="pt-2 border-t space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Custom Runs off No Ball:
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={noBallCustomRuns}
+                  onChange={(e) => setNoBallCustomRuns(e.target.value)}
+                  className="h-9 w-24 text-center font-bold text-sm"
+                />
+                <Button
+                  type="button"
+                  className="flex-1 h-9 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs"
+                  onClick={() => recordNoBall(Math.max(0, Number(noBallCustomRuns) || 0))}
+                >
+                  Record {1 + Math.max(0, Number(noBallCustomRuns) || 0)} Runs Total (1 Nb + {Math.max(0, Number(noBallCustomRuns) || 0)} Bat)
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setNoBallModalOpen(false)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
