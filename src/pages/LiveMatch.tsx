@@ -70,7 +70,9 @@ export default function LiveMatch() {
   }
 
   const { match, innings } = liveData;
-  const quotaBalls = (tournament?.oversPerSide ?? 10) * 6;
+  const isFinal = match.stage === "FINAL";
+  const matchOvers = isFinal ? 5 : (match.oversPerSide ?? 4);
+  const quotaBalls = matchOvers * 6;
 
   const inn1 = innings.find((i) => i.inningsNumber === 1);
   const inn2 = innings.find((i) => i.inningsNumber === 2);

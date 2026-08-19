@@ -424,9 +424,11 @@ export default function MatchDetail() {
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-4 border-b pb-3">
-                <span className="text-muted-foreground">Match Format:</span>
+                <span className="text-muted-foreground">Match Format & Rules:</span>
                 <span className="font-semibold text-foreground">
-                  6-a-side Indoor Cricket ({match.oversPerSide ?? 10} Overs Per Side)
+                  {match.stage === "FINAL"
+                    ? "6-a-side Indoor Cricket (5 Overs Per Side · 1 Bowler max 2 Overs, others max 1 Over)"
+                    : "6-a-side Indoor Cricket (4 Overs Per Side · Maximum 1 Over per Bowler)"}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-4 border-b pb-3">

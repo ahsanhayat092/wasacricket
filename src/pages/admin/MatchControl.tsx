@@ -603,6 +603,35 @@ function InningsLiveConsole({
     });
   };
 
+  const isFinal = match.stage === "FINAL";
+  const maxMatchOvers = isFinal ? 5 : (match.oversPerSide ?? 4);
+  const maxLegalBallsInnings = maxMatchOvers * 6;
+
+  // Check how many bowlers have bowled 2 overs (in Final)
+  const bowlersWith2Overs = bowlRows.filter((b) => b.balls >= 12);
+  const alreadyHas2OverBowler = bowlersWith2Overs.length >= 1;
+
+  const getBowlerMaxBalls = (playerId: string) => {
+    if (!isFinal) return 6; // League: strictly 1 over (6 balls) max
+    // Final: 1 bowler can bowl up to 2 overs (12 balls), others 1 over (6 balls)
+    const bowler = bowlRows.find((b) => b.playerId === playerId);
+    const bowlerBalls = bowler?.balls ?? 0;
+    if (bowlerBalls >= 6) {
+      if (!alreadyHas2OverBowler || bowlersWith2Overs.some((b) => b.playerId === playerId)) {
+        return 12; // Eligible to bowl 2nd over
+      }
+      return 6; // Another bowler already took the 2-over quota
+    }
+    return 12; // Potentially eligible for 2 overs
+  };
+
+  const isBowlerQuotaExhausted = (playerId: string) => {
+    const bowler = bowlRows.find((b) => b.playerId === playerId);
+    const currentBalls = bowler?.balls ?? 0;
+    const maxBalls = getBowlerMaxBalls(playerId);
+    return currentBalls >= maxBalls;
+  };
+
   // Push snapshot to history stack for UNDO
   const pushHistory = () => {
     setHistoryStack((prev) => [
@@ -650,6 +679,22 @@ function InningsLiveConsole({
   const recordBall = (runsScored: number) => {
     if (!strikerId || !currentBowlerId) {
       toast.error("Please select both Striker and Bowler first.");
+      return;
+    }
+
+    if (totalLegalBalls >= maxLegalBallsInnings) {
+      toast.error(
+        `Innings limit reached (${maxMatchOvers} overs). Please complete the innings.`,
+      );
+      return;
+    }
+
+    if (isBowlerQuotaExhausted(currentBowlerId)) {
+      toast.error(
+        isFinal
+          ? "Bowler quota reached (Max 1 over for this bowler, or 2 overs already taken)."
+          : "Bowler quota reached! In League matches, bowlers are strictly limited to 1 over max.",
+      );
       return;
     }
 
@@ -702,7 +747,9 @@ function InningsLiveConsole({
       const temp = nextStriker;
       nextStriker = nextNonStriker;
       nextNonStriker = temp;
-      toast.info(`Over completed (${Math.floor(bowlerBalls / 6)} ov). Strike rotated.`);
+      toast.info(
+        `Over completed (${Math.floor(bowlerBalls / 6)} ov). Select the next bowler for Over ${Math.floor((totalLegalBalls + 1) / 6) + 1}.`,
+      );
     }
 
     setStrikerId(nextStriker);
@@ -846,7 +893,7 @@ function InningsLiveConsole({
                   {totalRuns}/{totalWickets}
                 </span>
                 <span className="text-sm font-semibold text-muted-foreground font-mono">
-                  ({ballsToOversText(totalLegalBalls)} / {match.oversPerSide ?? 10} ov)
+                  ({ballsToOversText(totalLegalBalls)} / {maxMatchOvers} ov)
                 </span>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
@@ -861,7 +908,7 @@ function InningsLiveConsole({
                     Target: <strong>{inn1.runs + 1}</strong> (Need{" "}
                     <strong>{Math.max(0, inn1.runs + 1 - totalRuns)}</strong> runs from{" "}
                     <strong>
-                      {Math.max(0, (match.oversPerSide ?? 10) * 6 - totalLegalBalls)}
+                      {Math.max(0, maxLegalBallsInnings - totalLegalBalls)}
                     </strong>{" "}
                     balls)
                   </span>
@@ -1003,11 +1050,19 @@ function InningsLiveConsole({
                     <SelectValue placeholder="Select Bowler" />
                   </SelectTrigger>
                   <SelectContent>
-                    {bowlingPlayers.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
+                    {bowlingPlayers.map((p) => {
+                      const row = bowlRows.find((b) => b.playerId === p.id);
+                      const bCount = row?.balls ?? 0;
+                      const isExhausted = isBowlerQuotaExhausted(p.id);
+                      const maxB = getBowlerMaxBalls(p.id);
+
+                      return (
+                        <SelectItem key={p.id} value={p.id} disabled={isExhausted}>
+                          {p.name} ({ballsToOversText(bCount)} / {ballsToOversText(maxB)} ov)
+                          {isExhausted ? " [LIMIT REACHED]" : ""}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
