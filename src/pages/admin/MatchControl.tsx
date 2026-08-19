@@ -447,7 +447,7 @@ function StartMatchCard({
         <div className="grid gap-4 sm:grid-cols-2 p-4 rounded-xl border bg-muted/20">
           <div className="space-y-1.5">
             <Label className="text-xs font-bold text-foreground">🪙 Toss Won By</Label>
-            <Select value={tossWinner} onValueChange={setTossWinner}>
+            <Select value={tossWinner || undefined} onValueChange={setTossWinner}>
               <SelectTrigger className="h-10 text-xs font-semibold">
                 <SelectValue placeholder="Select team winning toss" />
               </SelectTrigger>
@@ -533,7 +533,7 @@ function StartMatchCard({
                 <Label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
                   <ArrowRightLeft className="h-3 w-3 text-amber-500" /> Reserve Player (1):
                 </Label>
-                <Select value={teamAReserveId} onValueChange={setTeamAReserveId}>
+                <Select value={teamAReserveId || undefined} onValueChange={setTeamAReserveId}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Select Reserve Player" />
                   </SelectTrigger>
@@ -598,7 +598,7 @@ function StartMatchCard({
                 <Label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
                   <ArrowRightLeft className="h-3 w-3 text-amber-500" /> Reserve Player (1):
                 </Label>
-                <Select value={teamBReserveId} onValueChange={setTeamBReserveId}>
+                <Select value={teamBReserveId || undefined} onValueChange={setTeamBReserveId}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Select Reserve Player" />
                   </SelectTrigger>
@@ -1474,7 +1474,7 @@ function InningsLiveConsole({
                     </span>
                   )}
                 </div>
-                <Select value={strikerId} onValueChange={setStrikerId}>
+                <Select value={strikerId || undefined} onValueChange={setStrikerId}>
                   <SelectTrigger className="h-8 text-xs font-semibold">
                     <SelectValue placeholder="Select Striker" />
                   </SelectTrigger>
@@ -1503,7 +1503,7 @@ function InningsLiveConsole({
                     </span>
                   )}
                 </div>
-                <Select value={nonStrikerId} onValueChange={setNonStrikerId}>
+                <Select value={nonStrikerId || undefined} onValueChange={setNonStrikerId}>
                   <SelectTrigger className="h-8 text-xs font-semibold">
                     <SelectValue placeholder="Select Non-Striker" />
                   </SelectTrigger>
@@ -1543,7 +1543,7 @@ function InningsLiveConsole({
                     </Button>
                   </div>
                 </div>
-                <Select value={currentBowlerId} onValueChange={setCurrentBowlerId}>
+                <Select value={currentBowlerId || undefined} onValueChange={setCurrentBowlerId}>
                   <SelectTrigger className="h-8 text-xs font-semibold">
                     <SelectValue placeholder="Select Bowler" />
                   </SelectTrigger>
@@ -2011,7 +2011,7 @@ function InningsLiveConsole({
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Dismissed Batsman</Label>
-              <Select value={outPlayerId} onValueChange={setOutPlayerId}>
+              <Select value={outPlayerId || undefined} onValueChange={setOutPlayerId}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -2050,7 +2050,7 @@ function InningsLiveConsole({
 
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Next Incoming Batsman</Label>
-              <Select value={incomingPlayerId} onValueChange={setIncomingPlayerId}>
+              <Select value={incomingPlayerId || undefined} onValueChange={setIncomingPlayerId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select next batsman" />
                 </SelectTrigger>

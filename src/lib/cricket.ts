@@ -16,8 +16,9 @@ export function oversToBalls(overs: number): number {
 }
 
 /** Format balls as cricket overs text: 52 -> "8.4". */
-export function ballsToOversText(balls: number): string {
-  return `${Math.floor(balls / 6)}.${balls % 6}`;
+export function ballsToOversText(balls?: number | null): string {
+  const b = Math.max(0, Number(balls) || 0);
+  return `${Math.floor(b / 6)}.${b % 6}`;
 }
 
 /** Run rate from runs and balls (runs per 6-ball over). */

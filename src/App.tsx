@@ -1,5 +1,6 @@
 import { Routes, Route, Outlet } from "react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import AuthLayout from "@/components/AuthLayout";
 import { PublicLayout } from "@/components/PublicLayout";
 import Home from "./pages/Home";
@@ -25,7 +26,7 @@ import AdminSettings from "./pages/admin/Settings";
 
 export default function App() {
   return (
-    <>
+    <ErrorBoundary>
       <Routes>
         {/* Public site */}
         <Route element={<PublicLayout />}>
@@ -64,6 +65,6 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />
-    </>
+    </ErrorBoundary>
   );
 }
