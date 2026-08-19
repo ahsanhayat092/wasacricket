@@ -94,20 +94,39 @@ export default function LiveMatch() {
       ? ((current.runs / current.balls) * 6).toFixed(2)
       : "0.00";
 
+  const playerName = (id: string) =>
+    (allPlayers ?? []).find((p) => p.id === id)?.name ?? "Player";
+
   const currentBatsmen =
-    current?.batting.filter((b) => !b.isOut && (b.balls > 0 || b.runs > 0)) ?? [];
+    current?.batting
+      .filter((b) => !b.isOut && (b.balls > 0 || b.runs > 0))
+      .map((b) => ({
+        ...b,
+        playerName: b.playerName && b.playerName !== "Unknown" ? b.playerName : playerName(b.playerId),
+      })) ?? [];
+
   const fallOfWickets =
     current?.batting
       .filter((b) => b.isOut)
-      .map((b) => ({ name: b.playerName ?? "Unknown", runs: b.runs, dismissal: b.dismissal })) ?? [];
+      .map((b) => ({
+        name: b.playerName && b.playerName !== "Unknown" ? b.playerName : playerName(b.playerId),
+        runs: b.runs,
+        dismissal: b.dismissal,
+      })) ?? [];
 
   const teamName = (teamId: string) => teamOf(teamId)?.name ?? "Team";
 
   const inningsView: InningsData[] = innings.map((inn) => ({
     ...inn,
     battingTeamName: `${teamName(inn.battingTeamId)} Innings`,
-    batting: inn.batting.map((b) => ({ ...b, playerName: b.playerName ?? "Unknown" })),
-    bowling: inn.bowling.map((b) => ({ ...b, playerName: b.playerName ?? "Unknown" })),
+    batting: inn.batting.map((b) => ({
+      ...b,
+      playerName: b.playerName && b.playerName !== "Unknown" ? b.playerName : playerName(b.playerId),
+    })),
+    bowling: inn.bowling.map((b) => ({
+      ...b,
+      playerName: b.playerName && b.playerName !== "Unknown" ? b.playerName : playerName(b.playerId),
+    })),
   }));
 
   // Squad filtering for Team A & Team B

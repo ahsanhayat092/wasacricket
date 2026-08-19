@@ -66,6 +66,12 @@ export function ScorecardView({
   const battingSquad = squadPlayers.filter((p) => p.teamId === innings.battingTeamId);
   const didNotBat = battingSquad.filter((p) => !battedPlayerIds.has(p.id));
 
+  const getPlayerDisplayName = (playerId: string, fallback?: string) => {
+    if (fallback && fallback !== "Unknown" && fallback !== "Player") return fallback;
+    const found = squadPlayers.find((p) => p.id === playerId);
+    return found?.name ?? fallback ?? "Player";
+  };
+
   return (
     <Card className="border shadow-sm">
       <CardHeader className="p-4 sm:p-5 border-b bg-muted/20">
@@ -100,7 +106,9 @@ export function ScorecardView({
             <TableBody>
               {innings.batting.map((b) => (
                 <TableRow key={b.playerId} className="hover:bg-muted/30">
-                  <TableCell className="font-semibold text-sm">{b.playerName}</TableCell>
+                  <TableCell className="font-semibold text-sm">
+                    {getPlayerDisplayName(b.playerId, b.playerName)}
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-xs font-mono">
                     {b.isOut ? (b.dismissal ?? "out") : (
                       <span className="text-emerald-500 font-bold">not out</span>
@@ -173,7 +181,9 @@ export function ScorecardView({
               <TableBody>
                 {innings.bowling.map((b) => (
                   <TableRow key={b.playerId} className="hover:bg-muted/30">
-                    <TableCell className="font-semibold text-sm">{b.playerName}</TableCell>
+                    <TableCell className="font-semibold text-sm">
+                      {getPlayerDisplayName(b.playerId, b.playerName)}
+                    </TableCell>
                     <TableCell className="text-right font-mono font-bold">
                       {ballsToOversText(b.balls)}
                     </TableCell>

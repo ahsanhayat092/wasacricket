@@ -407,9 +407,12 @@ export function subscribeToMatch(
     if (!snap.exists()) return;
     const match = { id: snap.id, ...snap.data() } as Match;
 
-    const inningsSnap = await getDocs(
-      query(inningsCol(), where("matchId", "==", matchId)),
-    );
+    const [playersSnap, inningsSnap] = await Promise.all([
+      getDocs(playersCol()),
+      getDocs(query(inningsCol(), where("matchId", "==", matchId))),
+    ]);
+
+    const playersList = playersSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
     const inningsList = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
     const inningsIds = inningsList.map((i) => i.id);
 
@@ -423,12 +426,20 @@ export function subscribeToMatch(
     const battingAll = battingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
     const bowlingAll = bowlingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
 
+    const playerName = (id: string) =>
+      playersList.find((p) => p.id === id)?.name ?? "Player";
+
     callback({
       match,
       innings: inningsList.map((inn) => ({
         ...inn,
-        batting: battingAll.filter((b) => b.inningsId === inn.id),
-        bowling: bowlingAll.filter((b) => b.inningsId === inn.id),
+        batting: battingAll
+          .filter((b) => b.inningsId === inn.id)
+          .sort((a, b) => a.battingOrder - b.battingOrder)
+          .map((b) => ({ ...b, playerName: playerName(b.playerId) })),
+        bowling: bowlingAll
+          .filter((b) => b.inningsId === inn.id)
+          .map((b) => ({ ...b, playerName: playerName(b.playerId) })),
       })),
     });
   });

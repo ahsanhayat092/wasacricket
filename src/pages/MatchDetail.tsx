@@ -46,9 +46,20 @@ export default function MatchDetail() {
   const teamName = (teamId: string) =>
     teamA?.id === teamId ? teamA.name : teamB?.id === teamId ? teamB.name : "Team";
 
+  const playerName = (id: string) =>
+    (players ?? []).find((p) => p.id === id)?.name ?? "Player";
+
   const inningsView: InningsData[] = innings.map((inn) => ({
     ...inn,
     battingTeamName: `${teamName(inn.battingTeamId)} Innings`,
+    batting: inn.batting.map((b) => ({
+      ...b,
+      playerName: (b as { playerName?: string }).playerName || playerName(b.playerId),
+    })),
+    bowling: inn.bowling.map((b) => ({
+      ...b,
+      playerName: (b as { playerName?: string }).playerName || playerName(b.playerId),
+    })),
   }));
 
   // Squad filtering for Team A & Team B
