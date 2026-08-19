@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
-import { getTeams } from "@/lib/queries";
+import { getTeams, getPlayers } from "@/lib/queries";
 import { upsertTeam } from "@/lib/mutations";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,8 +28,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TeamBadge } from "@/components/TeamBadge";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Pencil, Plus } from "lucide-react";
+import { Crown, Pencil, Plus, Users } from "lucide-react";
+import { Link } from "react-router";
 
 type TeamForm = {
   id?: string;
@@ -46,6 +48,11 @@ export default function AdminTeams() {
     queryKey: ["teams"],
     queryFn: getTeams,
   });
+  const { data: players } = useQuery({
+    queryKey: ["players"],
+    queryFn: getPlayers,
+  });
+
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<TeamForm>(emptyForm);
 
@@ -63,7 +70,12 @@ export default function AdminTeams() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Teams</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Teams & Squads</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage participating teams, logos, and assigned captains.
+          </p>
+        </div>
         <Button
           onClick={() => {
             setForm(emptyForm);
@@ -74,53 +86,84 @@ export default function AdminTeams() {
         </Button>
       </div>
 
-      <div className="rounded-lg border">
+      <div className="rounded-lg border shadow-sm overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50">
               <TableHead>Team</TableHead>
               <TableHead>Short</TableHead>
               <TableHead>Group</TableHead>
-              <TableHead className="w-16" />
+              <TableHead>Team Captain</TableHead>
+              <TableHead>Squad Size</TableHead>
+              <TableHead className="w-24 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading &&
               Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={4}>Loading…</TableCell>
+                  <TableCell colSpan={6}>Loading…</TableCell>
                 </TableRow>
               ))}
-            {teams?.map((t) => (
-              <TableRow key={t.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <TeamBadge shortName={t.shortName} logoUrl={t.logoUrl} size="sm" />
-                    <span className="font-medium">{t.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell>{t.shortName}</TableCell>
-                <TableCell>Group {t.groupName}</TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setForm({
-                        id: t.id,
-                        name: t.name,
-                        shortName: t.shortName,
-                        groupName: t.groupName,
-                        logoUrl: t.logoUrl ?? "",
-                      });
-                      setOpen(true);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {teams?.map((t) => {
+              const teamPlayers = (players ?? []).filter((p) => p.teamId === t.id);
+              const captain = teamPlayers.find((p) => p.isCaptain || p.designation === "Captain");
+
+              return (
+                <TableRow key={t.id} className="hover:bg-muted/40">
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <TeamBadge shortName={t.shortName} logoUrl={t.logoUrl} size="sm" />
+                      <span className="font-semibold">{t.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono font-medium">{t.shortName}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">Group {t.groupName}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {captain ? (
+                      <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                        <Crown className="h-3.5 w-3.5" />
+                        {captain.name}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">
+                        Not assigned yet
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      to="/admin/players"
+                      className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      {teamPlayers.length} players
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setForm({
+                          id: t.id,
+                          name: t.name,
+                          shortName: t.shortName,
+                          groupName: t.groupName,
+                          logoUrl: t.logoUrl ?? "",
+                        });
+                        setOpen(true);
+                      }}
+                      className="h-8 w-8"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -136,6 +179,7 @@ export default function AdminTeams() {
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Wolves"
               />
             </div>
             <div className="space-y-2">
@@ -143,6 +187,7 @@ export default function AdminTeams() {
               <Input
                 value={form.shortName}
                 onChange={(e) => setForm({ ...form, shortName: e.target.value })}
+                placeholder="WOL"
               />
             </div>
             <div className="space-y-2">

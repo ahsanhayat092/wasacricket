@@ -29,8 +29,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Crown, Pencil, Plus, Trash2, Shield, User } from "lucide-react";
+import { Crown, Pencil, Plus, Trash2, Shield, User, Star } from "lucide-react";
 import type { Player } from "@/lib/firestore";
 
 type Role = "Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper";
@@ -84,9 +85,32 @@ export default function AdminPlayers() {
         bowlingStyle: args.bowlingStyle || undefined,
       }),
     onSuccess: () => {
-      toast.success("Player saved");
+      toast.success("Player profile saved");
       setOpen(false);
       setForm(emptyForm);
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const setDesignationDirectly = useMutation({
+    mutationFn: (args: { player: Player; designation: Designation }) =>
+      upsertPlayer({
+        id: args.player.id,
+        teamId: args.player.teamId,
+        name: args.player.name,
+        jerseyNumber: args.player.jerseyNumber ?? undefined,
+        role: args.player.role,
+        isCaptain: args.designation === "Captain",
+        isViceCaptain: args.designation === "Vice Captain",
+        designation: args.designation,
+        battingStyle: args.player.battingStyle ?? undefined,
+        bowlingStyle: args.player.bowlingStyle ?? undefined,
+      }),
+    onSuccess: (_, variables) => {
+      toast.success(
+        `${variables.player.name} is now ${variables.designation === "Captain" ? "👑 Captain" : variables.designation === "Vice Captain" ? "🛡️ Vice-Captain" : "Team Member"}`,
+      );
       invalidate();
     },
     onError: (e) => toast.error(e.message),
@@ -117,20 +141,21 @@ export default function AdminPlayers() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div>
-          <h1 className="text-2xl font-bold">Squad Players</h1>
+          <h1 className="text-2xl font-bold">Squad Players & Captains</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage player rosters, assign Captains, Vice-Captains, and team members.
+            Assign Team Captains (C), Vice-Captains (VC), and manage squad rosters.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Select value={filterTeam} onValueChange={setFilterTeam}>
             <SelectTrigger className="w-44">
               <SelectValue placeholder="All teams" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All teams</SelectItem>
+              <SelectItem value="all">🌐 All teams</SelectItem>
               {teams?.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
                   {t.name}
@@ -146,24 +171,25 @@ export default function AdminPlayers() {
               });
               setOpen(true);
             }}
+            className="gap-1.5"
           >
-            <Plus className="h-4 w-4 mr-2" /> Add Player
+            <Plus className="h-4 w-4" /> Add Player
           </Button>
         </div>
       </div>
 
-      <div className="rounded-lg border overflow-x-auto shadow-sm">
+      {/* Players List Table */}
+      <div className="rounded-xl border overflow-x-auto shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Player</TableHead>
-              <TableHead>Designation</TableHead>
+              <TableHead className="w-12 text-center">#</TableHead>
+              <TableHead>Player Name</TableHead>
+              <TableHead>Squad Designation</TableHead>
               <TableHead>Team</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Batting</TableHead>
-              <TableHead>Bowling</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
+              <TableHead>Playing Role</TableHead>
+              <TableHead>Batting / Bowling Style</TableHead>
+              <TableHead className="w-36 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -173,50 +199,65 @@ export default function AdminPlayers() {
 
               return (
                 <TableRow key={p.id} className="hover:bg-muted/40">
-                  <TableCell className="font-mono text-muted-foreground">
+                  <TableCell className="font-mono text-center text-muted-foreground font-bold">
                     {p.jerseyNumber ?? "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">{p.name}</span>
+                      <span className="font-semibold text-sm">{p.name}</span>
                       {isCap && (
-                        <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px] gap-1 px-1.5 py-0">
-                          <Crown className="h-3 w-3" /> (C)
+                        <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px] gap-1 px-1.5 py-0 font-bold">
+                          <Crown className="h-3 w-3" /> Captain (C)
                         </Badge>
                       )}
                       {isVc && (
-                        <Badge className="bg-sky-600 hover:bg-sky-600 text-white text-[10px] gap-1 px-1.5 py-0">
-                          <Shield className="h-3 w-3" /> (VC)
+                        <Badge className="bg-sky-600 hover:bg-sky-600 text-white text-[10px] gap-1 px-1.5 py-0 font-bold">
+                          <Shield className="h-3 w-3" /> Vice-Captain (VC)
                         </Badge>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    {isCap ? (
-                      <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
-                        <Crown className="h-3.5 w-3.5" /> Captain
-                      </span>
-                    ) : isVc ? (
-                      <span className="text-xs font-bold text-sky-500 flex items-center gap-1">
-                        <Shield className="h-3.5 w-3.5" /> Vice-Captain
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <User className="h-3 w-3" /> Team Member
-                      </span>
-                    )}
+                    <Select
+                      value={
+                        isCap
+                          ? "Captain"
+                          : isVc
+                            ? "Vice Captain"
+                            : "Team Member"
+                      }
+                      onValueChange={(v) =>
+                        setDesignationDirectly.mutate({
+                          player: p,
+                          designation: v as Designation,
+                        })
+                      }
+                      disabled={setDesignationDirectly.isPending}
+                    >
+                      <SelectTrigger className="w-36 h-8 text-xs font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Captain">👑 Captain (C)</SelectItem>
+                        <SelectItem value="Vice Captain">🛡️ Vice-Captain</SelectItem>
+                        <SelectItem value="Team Member">👤 Team Member</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
-                  <TableCell className="font-medium">{p.teamName}</TableCell>
+                  <TableCell className="font-medium text-sm">{p.teamName}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-xs">
                       {p.role}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {p.battingStyle ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {p.bowlingStyle ?? "—"}
+                    {p.battingStyle || p.bowlingStyle ? (
+                      <span>
+                        {p.battingStyle || "—"} · {p.bowlingStyle || "—"}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -264,8 +305,8 @@ export default function AdminPlayers() {
             })}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
-                  No players yet. Add squad members to enable scorecard entry.
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                  No players registered yet. Click <strong>"Add Player"</strong> above to build squad rosters.
                 </TableCell>
               </TableRow>
             )}
@@ -277,7 +318,7 @@ export default function AdminPlayers() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{form.id ? "Edit Player Profile" : "Add New Player"}</DialogTitle>
+            <DialogTitle>{form.id ? "Edit Player Profile" : "Add Player to Squad"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -308,6 +349,7 @@ export default function AdminPlayers() {
               />
             </div>
 
+            {/* Squad Designation (Captain / Vice Captain / Member) */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Squad Designation</Label>
@@ -317,7 +359,7 @@ export default function AdminPlayers() {
                     setForm({ ...form, designation: v as Designation })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="font-semibold">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -359,7 +401,7 @@ export default function AdminPlayers() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Batting Style (Optional)</Label>
+                <Label>Batting Style</Label>
                 <Input
                   value={form.battingStyle}
                   onChange={(e) => setForm({ ...form, battingStyle: e.target.value })}
@@ -367,7 +409,7 @@ export default function AdminPlayers() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Bowling Style (Optional)</Label>
+                <Label>Bowling Style</Label>
                 <Input
                   value={form.bowlingStyle}
                   onChange={(e) => setForm({ ...form, bowlingStyle: e.target.value })}
@@ -384,7 +426,7 @@ export default function AdminPlayers() {
               disabled={upsert.isPending || !form.name || !form.teamId}
               onClick={() => upsert.mutate(form)}
             >
-              {form.id ? "Save Changes" : "Add Player"}
+              {form.id ? "Save Player" : "Add Player"}
             </Button>
           </DialogFooter>
         </DialogContent>
