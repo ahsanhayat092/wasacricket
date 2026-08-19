@@ -290,12 +290,12 @@ export default function LiveMatch() {
             </div>
           )}
 
-          {liveInnings.length === 0 ? (
+          {inningsView.length === 0 ? (
             <Card className="p-8 text-center text-muted-foreground text-sm">
               Scorecard is initializing...
             </Card>
           ) : (
-            liveInnings.map((inn) => (
+            inningsView.map((inn) => (
               <ScorecardView key={inn.id} innings={inn} squadPlayers={allPlayers ?? []} />
             ))
           )}
