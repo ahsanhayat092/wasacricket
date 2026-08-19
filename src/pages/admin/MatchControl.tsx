@@ -785,18 +785,17 @@ function InningsLiveConsole({
   const [completedOverNum, setCompletedOverNum] = useState<number>(1);
   const [selectedNextBowlerId, setSelectedNextBowlerId] = useState<string>("");
 
-  // Trigger Next Bowler Selection Dialog on Over Completion
+  // Trigger Next Bowler Selection Dialog on Over Completion or Quota Reached
   const triggerNextBowlerDialog = (newTotalBalls: number, previousBowlerId: string) => {
-    if (newTotalBalls % 6 === 0 && newTotalBalls < maxLegalBallsInnings) {
-      const overNum = Math.floor(newTotalBalls / 6);
-      setCompletedOverNum(overNum);
-      // Auto-find next eligible bowler other than the previous one
-      const nextEligible = bowlingPlayers.find(
-        (p) => p.id !== previousBowlerId && !isBowlerQuotaExhausted(p.id),
-      );
-      setSelectedNextBowlerId(nextEligible?.id ?? "");
-      setNextBowlerModalOpen(true);
-    }
+    if (newTotalBalls >= maxLegalBallsInnings) return; // Innings already finished
+    const overNum = Math.floor(newTotalBalls / 6);
+    setCompletedOverNum(Math.max(1, overNum));
+    // Auto-find next eligible bowler other than the previous one
+    const nextEligible =
+      bowlingPlayers.find((p) => p.id !== previousBowlerId && !isBowlerQuotaExhausted(p.id)) ??
+      bowlingPlayers.find((p) => !isBowlerQuotaExhausted(p.id));
+    setSelectedNextBowlerId(nextEligible?.id ?? "");
+    setNextBowlerModalOpen(true);
   };
 
   const handleConfirmNextBowler = () => {
@@ -805,9 +804,12 @@ function InningsLiveConsole({
       return;
     }
     setCurrentBowlerId(selectedNextBowlerId);
+    setBowlRows((prev) =>
+      prev.map((b) => (b.playerId === selectedNextBowlerId ? { ...b, bowled: true } : b)),
+    );
     setNextBowlerModalOpen(false);
     const bName = bowlingPlayers.find((p) => p.id === selectedNextBowlerId)?.name ?? "Bowler";
-    toast.success(`Over ${completedOverNum + 1} bowler set to ${bName}! All balls will now count towards them.`);
+    toast.success(`Bowler set to ${bName}! Balls will now count towards them.`);
   };
 
   // Calculated Totals
