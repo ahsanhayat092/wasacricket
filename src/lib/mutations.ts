@@ -190,7 +190,7 @@ export async function deletePlayer(playerId: string) {
 export async function createMatch(input: {
   matchNumber: number;
   stage: "LEAGUE" | "FINAL";
-  day: "FRIDAY" | "SATURDAY" | "SUNDAY";
+  day: "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   teamAId?: string | null;
   teamBId?: string | null;
   date?: string | null;
@@ -247,7 +247,7 @@ export async function updateMatchDetails(input: {
   matchId: string;
   matchNumber?: number;
   stage?: "LEAGUE" | "FINAL";
-  day?: "FRIDAY" | "SATURDAY" | "SUNDAY";
+  day?: "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   date?: string;
   time?: string;
   venue?: string;
@@ -296,11 +296,11 @@ export async function autoGenerateSchedule() {
   const groupA = teams.filter((t) => t.groupName === "A");
   const groupB = teams.filter((t) => t.groupName === "B");
 
-  const pairings: { teamAId: string; teamBId: string; day: "FRIDAY" | "SATURDAY" }[] = [];
+  const pairings: { teamAId: string; teamBId: string; day: "WEDNESDAY" | "THURSDAY" }[] = [];
 
   if (groupA.length > 0 && groupB.length > 0) {
     // Cross-group or intra-group fixtures
-    let dayToggle: "FRIDAY" | "SATURDAY" = "FRIDAY";
+    let dayToggle: "WEDNESDAY" | "THURSDAY" = "WEDNESDAY";
     for (let i = 0; i < groupA.length; i++) {
       for (let j = 0; j < groupB.length; j++) {
         pairings.push({
@@ -308,12 +308,12 @@ export async function autoGenerateSchedule() {
           teamBId: groupB[j].id,
           day: dayToggle,
         });
-        dayToggle = dayToggle === "FRIDAY" ? "SATURDAY" : "FRIDAY";
+        dayToggle = dayToggle === "WEDNESDAY" ? "THURSDAY" : "WEDNESDAY";
       }
     }
   } else {
     // Standard all-play-all
-    let dayToggle: "FRIDAY" | "SATURDAY" = "FRIDAY";
+    let dayToggle: "WEDNESDAY" | "THURSDAY" = "WEDNESDAY";
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
         pairings.push({
@@ -321,7 +321,7 @@ export async function autoGenerateSchedule() {
           teamBId: teams[j].id,
           day: dayToggle,
         });
-        dayToggle = dayToggle === "FRIDAY" ? "SATURDAY" : "FRIDAY";
+        dayToggle = dayToggle === "WEDNESDAY" ? "THURSDAY" : "WEDNESDAY";
       }
     }
   }
@@ -334,7 +334,7 @@ export async function autoGenerateSchedule() {
       matchNumber: matchNum++,
       stage: "LEAGUE" as const,
       day: pair.day,
-      date: pair.day === "FRIDAY" ? "26 August" : "27 August",
+      date: pair.day === "WEDNESDAY" ? "26 August" : "27 August",
       time: "9:00 PM",
       venue: "Askari XI, Lahore",
       teamAId: pair.teamAId,

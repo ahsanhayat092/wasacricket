@@ -42,7 +42,7 @@ import type { HydratedMatch, Team } from "@/lib/firestore";
 type MatchForm = {
   matchNumber: number;
   stage: "LEAGUE" | "FINAL";
-  day: "FRIDAY" | "SATURDAY" | "SUNDAY";
+  day: "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   teamAId: string;
   teamBId: string;
   date: string;
@@ -53,7 +53,7 @@ type MatchForm = {
 const defaultForm: MatchForm = {
   matchNumber: 1,
   stage: "LEAGUE",
-  day: "FRIDAY",
+  day: "WEDNESDAY",
   teamAId: "",
   teamBId: "",
   date: "26 August",
@@ -254,8 +254,8 @@ export default function AdminSchedule() {
                 onValueChange={(v) =>
                   setForm({
                     ...form,
-                    day: v as "FRIDAY" | "SATURDAY" | "SUNDAY",
-                    date: v === "FRIDAY" ? "26 August" : "27 August",
+                    day: v as "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY",
+                    date: (v === "WEDNESDAY" || v === "FRIDAY") ? "26 August" : "27 August",
                   })
                 }
               >
@@ -263,9 +263,11 @@ export default function AdminSchedule() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="FRIDAY">Day 1 (26 August)</SelectItem>
-                  <SelectItem value="SATURDAY">Day 2 (27 August)</SelectItem>
-                  <SelectItem value="SUNDAY">Day 3 (Finals)</SelectItem>
+                  <SelectItem value="WEDNESDAY">Day 1 — Wednesday (26 August)</SelectItem>
+                  <SelectItem value="THURSDAY">Day 2 — Thursday (27 August)</SelectItem>
+                  <SelectItem value="FRIDAY">Friday (28 August)</SelectItem>
+                  <SelectItem value="SATURDAY">Saturday (29 August)</SelectItem>
+                  <SelectItem value="SUNDAY">Sunday (Finals)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -372,7 +374,7 @@ function ScheduleRow({
   onSave: (v: {
     matchNumber?: number;
     stage?: "LEAGUE" | "FINAL";
-    day?: "FRIDAY" | "SATURDAY" | "SUNDAY";
+    day?: "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
     date?: string;
     time?: string;
     venue?: string;
@@ -383,7 +385,9 @@ function ScheduleRow({
 }) {
   const [matchNumber, setMatchNumber] = useState<number>(match.matchNumber);
   const [stage, setStage] = useState<"LEAGUE" | "FINAL">(match.stage);
-  const [day, setDay] = useState<"FRIDAY" | "SATURDAY" | "SUNDAY">(match.day);
+  const [day, setDay] = useState<"WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY">(
+    match.day as "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY",
+  );
   const [date, setDate] = useState(match.date ?? "");
   const [time, setTime] = useState(match.time ?? "");
   const [venue, setVenue] = useState(match.venue ?? "");
@@ -393,7 +397,7 @@ function ScheduleRow({
   useEffect(() => {
     setMatchNumber(match.matchNumber);
     setStage(match.stage);
-    setDay(match.day);
+    setDay(match.day as "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY");
     setDate(match.date ?? "");
     setTime(match.time ?? "");
     setVenue(match.venue ?? "");
@@ -420,10 +424,10 @@ function ScheduleRow({
           <Select
             value={day}
             onValueChange={(v) => {
-              const newDay = v as "FRIDAY" | "SATURDAY" | "SUNDAY";
+              const newDay = v as "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
               setDay(newDay);
               if (!date || date === "26 August" || date === "27 August") {
-                setDate(newDay === "FRIDAY" ? "26 August" : "27 August");
+                setDate((newDay === "WEDNESDAY" || newDay === "FRIDAY") ? "26 August" : "27 August");
               }
             }}
           >
@@ -431,6 +435,8 @@ function ScheduleRow({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="WEDNESDAY">Day 1 (Wed 26 Aug)</SelectItem>
+              <SelectItem value="THURSDAY">Day 2 (Thu 27 Aug)</SelectItem>
               <SelectItem value="FRIDAY">Day 1 (26 Aug)</SelectItem>
               <SelectItem value="SATURDAY">Day 2 (27 Aug)</SelectItem>
               <SelectItem value="SUNDAY">Day 3 (Finals)</SelectItem>
