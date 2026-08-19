@@ -148,6 +148,7 @@ export async function getResults(): Promise<HydratedMatch[]> {
 export async function getMatchById(matchId: string): Promise<{
   match: HydratedMatch;
   innings: InningsWithScores[];
+  players: Player[];
   playerOfMatch: Player | null;
 } | null> {
   const snap = await getDoc(matchDoc(matchId));
@@ -194,7 +195,7 @@ export async function getMatchById(matchId: string): Promise<{
     ? (players.find((p) => p.id === match.playerOfMatchId) ?? null)
     : null;
 
-  return { match: hydrated, innings: inningsWithScores, playerOfMatch };
+  return { match: hydrated, innings: inningsWithScores, players, playerOfMatch };
 }
 
 // ---------------------------------------------------------------------------

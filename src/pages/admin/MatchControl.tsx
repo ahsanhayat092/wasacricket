@@ -6,6 +6,7 @@ import {
   completeMatch as fbCompleteMatch,
   reopenMatch as fbReopenMatch,
   saveInnings as fbSaveInnings,
+  updateMatchLineups as fbUpdateMatchLineups,
 } from "@/lib/mutations";
 import { useParams, Link } from "react-router";
 import { useState, useEffect, useMemo } from "react";
@@ -206,67 +207,94 @@ export default function AdminMatchControl() {
         </Card>
       )}
 
-      {/* Live Innings Scoring Workspace */}
-      {(canEnterScores || match.status === "COMPLETED") && (inn1 || canEnterScores) && (
-        <Tabs defaultValue={inn2 ? "2" : "1"} className="w-full">
-          <div className="flex items-center justify-between border-b pb-2">
-            <TabsList className="grid w-72 grid-cols-2">
-              <TabsTrigger value="1" className="text-xs font-bold">
-                1st Innings {inn1 ? `(${inn1.runs}/${inn1.wickets})` : ""}
-              </TabsTrigger>
-              <TabsTrigger value="2" disabled={!inn1 && canEnterScores} className="text-xs font-bold">
-                2nd Innings {inn2 ? `(${inn2.runs}/${inn2.wickets})` : ""}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+      {/* Main Mode Tabs: Live Scoring vs Playing VI Lineup */}
+      <Tabs defaultValue="scoring" className="w-full">
+        <TabsList className="grid w-80 grid-cols-2">
+          <TabsTrigger value="scoring" className="text-xs font-bold gap-1.5">
+            <Zap className="h-4 w-4 text-emerald-500" /> Live Scoring
+          </TabsTrigger>
+          <TabsTrigger value="lineup" className="text-xs font-bold gap-1.5">
+            <Users className="h-4 w-4 text-sky-500" /> Playing VI Lineup (6+1)
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="1" className="mt-4">
-            <InningsLiveConsole
-              key={`i1-${inn1?.id ?? "new"}-${match.status}`}
-              matchId={match.id}
-              inningsNumber={1}
-              workspace={data}
-              readOnly={!canEnterScores}
-              onSaved={() => {
-                refetch();
-                invalidate();
+        {/* Tab 1: Live Scoring */}
+        <TabsContent value="scoring" className="mt-4 space-y-6">
+          {(canEnterScores || match.status === "COMPLETED") && (inn1 || canEnterScores) && (
+            <Tabs defaultValue={inn2 ? "2" : "1"} className="w-full">
+              <div className="flex items-center justify-between border-b pb-2">
+                <TabsList className="grid w-72 grid-cols-2">
+                  <TabsTrigger value="1" className="text-xs font-bold">
+                    1st Innings {inn1 ? `(${inn1.runs}/${inn1.wickets})` : ""}
+                  </TabsTrigger>
+                  <TabsTrigger value="2" disabled={!inn1 && canEnterScores} className="text-xs font-bold">
+                    2nd Innings {inn2 ? `(${inn2.runs}/${inn2.wickets})` : ""}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="1" className="mt-4">
+                <InningsLiveConsole
+                  key={`i1-${inn1?.id ?? "new"}-${match.status}`}
+                  matchId={match.id}
+                  inningsNumber={1}
+                  workspace={data}
+                  readOnly={!canEnterScores}
+                  onSaved={() => {
+                    refetch();
+                    invalidate();
+                  }}
+                />
+              </TabsContent>
+
+              <TabsContent value="2" className="mt-4">
+                {inn1 ? (
+                  <InningsLiveConsole
+                    key={`i2-${inn2?.id ?? "new"}-${match.status}`}
+                    matchId={match.id}
+                    inningsNumber={2}
+                    workspace={data}
+                    readOnly={!canEnterScores}
+                    onSaved={() => {
+                      refetch();
+                      invalidate();
+                    }}
+                  />
+                ) : (
+                  <p className="text-muted-foreground text-sm py-8 text-center">
+                    Please complete and save the 1st Innings first.
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {/* Complete Match & Declare Winner */}
+          {canEnterScores && inn1 && (
+            <CompleteMatchCard
+              players={players}
+              pending={completeMatch.isPending}
+              onComplete={(playerOfMatchId) => {
+                if (confirm("Declare match complete? The winner and points table will be finalized."))
+                  completeMatch.mutate({ playerOfMatchId });
               }}
             />
-          </TabsContent>
+          )}
+        </TabsContent>
 
-          <TabsContent value="2" className="mt-4">
-            {inn1 ? (
-              <InningsLiveConsole
-                key={`i2-${inn2?.id ?? "new"}-${match.status}`}
-                matchId={match.id}
-                inningsNumber={2}
-                workspace={data}
-                readOnly={!canEnterScores}
-                onSaved={() => {
-                  refetch();
-                  invalidate();
-                }}
-              />
-            ) : (
-              <p className="text-muted-foreground text-sm py-8 text-center">
-                Please complete and save the 1st Innings first.
-              </p>
-            )}
-          </TabsContent>
-        </Tabs>
-      )}
-
-      {/* Complete Match & Declare Winner */}
-      {canEnterScores && inn1 && (
-        <CompleteMatchCard
-          players={players}
-          pending={completeMatch.isPending}
-          onComplete={(playerOfMatchId) => {
-            if (confirm("Declare match complete? The winner and points table will be finalized."))
-              completeMatch.mutate({ playerOfMatchId });
-          }}
-        />
-      )}
+        {/* Tab 2: Playing VI Lineup Manager (6 Starters + 1 Reserve) */}
+        <TabsContent value="lineup" className="mt-4">
+          <PlayingVIEditor
+            match={match}
+            teams={teams}
+            players={players}
+            onSaved={() => {
+              refetch();
+              invalidate();
+            }}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -1529,5 +1557,265 @@ function CompleteMatchCard({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Playing VI Editor (6 Starters + 1 Reserve)
+// ---------------------------------------------------------------------------
+
+function PlayingVIEditor({
+  match,
+  teams,
+  players,
+  onSaved,
+}: {
+  match: Match;
+  teams: Team[];
+  players: Player[];
+  onSaved: () => void;
+}) {
+  const teamA = teams.find((t) => t.id === match.teamAId);
+  const teamB = teams.find((t) => t.id === match.teamBId);
+
+  const teamAPlayers = players.filter((p) => p.teamId === match.teamAId);
+  const teamBPlayers = players.filter((p) => p.teamId === match.teamBId);
+
+  // Lineup state for Team A
+  const [teamAPlayingVI, setTeamAPlayingVI] = useState<string[]>(() => {
+    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) return match.teamAPlayingVI;
+    return teamAPlayers.slice(0, 6).map((p) => p.id);
+  });
+  const [teamAReserveId, setTeamAReserveId] = useState<string>(() => {
+    if (match.teamAReserveId) return match.teamAReserveId;
+    return teamAPlayers[6]?.id ?? "";
+  });
+
+  // Lineup state for Team B
+  const [teamBPlayingVI, setTeamBPlayingVI] = useState<string[]>(() => {
+    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) return match.teamBPlayingVI;
+    return teamBPlayers.slice(0, 6).map((p) => p.id);
+  });
+  const [teamBReserveId, setTeamBReserveId] = useState<string>(() => {
+    if (match.teamBReserveId) return match.teamBReserveId;
+    return teamBPlayers[6]?.id ?? "";
+  });
+
+  const saveLineup = useMutation({
+    mutationFn: () =>
+      fbUpdateMatchLineups({
+        matchId: match.id,
+        teamAPlayingVI,
+        teamAReserveId: teamAReserveId || null,
+        teamBPlayingVI,
+        teamBReserveId: teamBReserveId || null,
+      }),
+    onSuccess: () => {
+      toast.success("Match Playing VI & Reserve Lineups saved!");
+      onSaved();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const togglePlayerA = (id: string) => {
+    if (teamAPlayingVI.includes(id)) {
+      setTeamAPlayingVI(teamAPlayingVI.filter((p) => p !== id));
+    } else {
+      if (teamAPlayingVI.length >= 6) {
+        toast.error("Playing squad is limited to 6 starting players (Indoor format).");
+        return;
+      }
+      setTeamAPlayingVI([...teamAPlayingVI, id]);
+      if (teamAReserveId === id) setTeamAReserveId("");
+    }
+  };
+
+  const togglePlayerB = (id: string) => {
+    if (teamBPlayingVI.includes(id)) {
+      setTeamBPlayingVI(teamBPlayingVI.filter((p) => p !== id));
+    } else {
+      if (teamBPlayingVI.length >= 6) {
+        toast.error("Playing squad is limited to 6 starting players (Indoor format).");
+        return;
+      }
+      setTeamBPlayingVI([...teamBPlayingVI, id]);
+      if (teamBReserveId === id) setTeamBReserveId("");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border bg-muted/20">
+        <div>
+          <h3 className="text-base font-bold flex items-center gap-2">
+            <Users className="h-5 w-5 text-emerald-500" /> 6-a-side Match Lineups (6 Playing + 1 Reserve)
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Select the 6 active on-field players and 1 reserve/bench player for each team.
+          </p>
+        </div>
+        <Button
+          onClick={() => saveLineup.mutate()}
+          disabled={saveLineup.isPending}
+          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2"
+        >
+          Save & Publish Lineups
+        </Button>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Team A Lineup Selector */}
+        <Card className="border shadow-sm">
+          <CardHeader className="p-4 pb-3 border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TeamBadge shortName={teamA?.shortName ?? "TBD"} logoUrl={teamA?.logoUrl} size="sm" />
+                <CardTitle className="text-sm font-bold">{teamA?.name ?? "Team A"}</CardTitle>
+              </div>
+              <Badge
+                variant={teamAPlayingVI.length === 6 ? "default" : "outline"}
+                className={teamAPlayingVI.length === 6 ? "bg-emerald-600 text-white" : "border-amber-500 text-amber-500"}
+              >
+                {teamAPlayingVI.length}/6 Selected
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Select 6 Starting Players:
+              </span>
+              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                {teamAPlayers.map((p) => {
+                  const isSelected = teamAPlayingVI.includes(p.id);
+                  const isReserve = teamAReserveId === p.id;
+
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => togglePlayerA(p.id)}
+                      className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-foreground font-semibold"
+                          : "hover:bg-muted/40 border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Checkbox checked={isSelected} />
+                        <span>{p.name}</span>
+                        {(p.isCaptain || p.designation === "Captain") && (
+                          <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
+                        )}
+                        {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                          <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">(VC)</Badge>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="text-[10px]">{p.role}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Team A Reserve Selector */}
+            <div className="pt-3 border-t space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Select 1 Reserve Player:
+              </Label>
+              <Select value={teamAReserveId} onValueChange={setTeamAReserveId}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select 1 Reserve Player" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamAPlayers
+                    .filter((p) => !teamAPlayingVI.includes(p.id))
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} ({p.role})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Team B Lineup Selector */}
+        <Card className="border shadow-sm">
+          <CardHeader className="p-4 pb-3 border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TeamBadge shortName={teamB?.shortName ?? "TBD"} logoUrl={teamB?.logoUrl} size="sm" />
+                <CardTitle className="text-sm font-bold">{teamB?.name ?? "Team B"}</CardTitle>
+              </div>
+              <Badge
+                variant={teamBPlayingVI.length === 6 ? "default" : "outline"}
+                className={teamBPlayingVI.length === 6 ? "bg-emerald-600 text-white" : "border-amber-500 text-amber-500"}
+              >
+                {teamBPlayingVI.length}/6 Selected
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Select 6 Starting Players:
+              </span>
+              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                {teamBPlayers.map((p) => {
+                  const isSelected = teamBPlayingVI.includes(p.id);
+                  const isReserve = teamBReserveId === p.id;
+
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => togglePlayerB(p.id)}
+                      className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-foreground font-semibold"
+                          : "hover:bg-muted/40 border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Checkbox checked={isSelected} />
+                        <span>{p.name}</span>
+                        {(p.isCaptain || p.designation === "Captain") && (
+                          <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
+                        )}
+                        {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                          <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">(VC)</Badge>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="text-[10px]">{p.role}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Team B Reserve Selector */}
+            <div className="pt-3 border-t space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Select 1 Reserve Player:
+              </Label>
+              <Select value={teamBReserveId} onValueChange={setTeamBReserveId}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select 1 Reserve Player" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamBPlayers
+                    .filter((p) => !teamBPlayingVI.includes(p.id))
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} ({p.role})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }

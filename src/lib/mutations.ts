@@ -630,6 +630,26 @@ export async function setMatchStatus(input: {
 }
 
 // ---------------------------------------------------------------------------
+// Match Lineups (Playing VI + 1 Reserve)
+// ---------------------------------------------------------------------------
+
+export async function updateMatchLineups(input: {
+  matchId: string;
+  teamAPlayingVI?: string[];
+  teamAReserveId?: string | null;
+  teamBPlayingVI?: string[];
+  teamBReserveId?: string | null;
+}) {
+  await updateDoc(matchDoc(input.matchId), {
+    ...(input.teamAPlayingVI !== undefined ? { teamAPlayingVI: input.teamAPlayingVI } : {}),
+    ...(input.teamAReserveId !== undefined ? { teamAReserveId: input.teamAReserveId } : {}),
+    ...(input.teamBPlayingVI !== undefined ? { teamBPlayingVI: input.teamBPlayingVI } : {}),
+    ...(input.teamBReserveId !== undefined ? { teamBReserveId: input.teamBReserveId } : {}),
+    updatedAt: now(),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Admin tiebreak
 // ---------------------------------------------------------------------------
 

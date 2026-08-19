@@ -74,12 +74,17 @@ export type Match = {
   date?: string | null;
   time?: string | null;
   venue?: string | null;
+  oversPerSide?: number | null;
   status: MatchStatus;
   tossWinnerId?: string | null;
   tossDecision?: "BAT" | "BOWL" | null;
   winningTeamId?: string | null;
   resultText?: string | null;
   playerOfMatchId?: string | null;
+  teamAPlayingVI?: string[];
+  teamAReserveId?: string | null;
+  teamBPlayingVI?: string[];
+  teamBReserveId?: string | null;
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
