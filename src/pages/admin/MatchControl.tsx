@@ -249,7 +249,7 @@ export default function AdminMatchControl() {
 
             <TabsContent value="1" className="mt-4">
               <InningsLiveConsole
-                key={`i1-${inn1?.id ?? "new"}-${match.status}`}
+                key={`innings-${match.id}-1`}
                 matchId={match.id}
                 inningsNumber={1}
                 workspace={data}
@@ -263,7 +263,7 @@ export default function AdminMatchControl() {
 
             <TabsContent value="2" className="mt-4">
               <InningsLiveConsole
-                key={`i2-${inn2?.id ?? "new"}-${match.status}`}
+                key={`innings-${match.id}-2`}
                 matchId={match.id}
                 inningsNumber={2}
                 workspace={data}
@@ -976,11 +976,8 @@ function InningsLiveConsole({
     }
 
     if (isBowlerQuotaExhausted(currentBowlerId)) {
-      toast.error(
-        isFinal
-          ? "Bowler quota reached (Max 1 over for this bowler, or 2 overs already taken)."
-          : "Bowler quota reached! In League matches, bowlers are strictly limited to 1 over max.",
-      );
+      toast.info("Over completed! Please select the bowler for the next over.");
+      triggerNextBowlerDialog(totalLegalBalls, currentBowlerId);
       return;
     }
 
@@ -1051,6 +1048,12 @@ function InningsLiveConsole({
   const recordExtra = (type: "WIDE" | "NO_BALL" | "BYE" | "LEG_BYE", extraRuns = 1) => {
     if (!currentBowlerId) {
       toast.error("Please select the Current Bowler.");
+      return;
+    }
+
+    if (isBowlerQuotaExhausted(currentBowlerId)) {
+      toast.info("Over completed! Please select the bowler for the next over.");
+      triggerNextBowlerDialog(totalLegalBalls, currentBowlerId);
       return;
     }
 
@@ -1370,12 +1373,22 @@ function InningsLiveConsole({
                   <Label className="text-xs font-bold text-sky-500 flex items-center gap-1">
                     🎯 Current Bowler
                   </Label>
-                  {currentBowler && (
-                    <span className="text-xs font-mono font-bold text-sky-500">
-                      {ballsToOversText(currentBowler.balls)} ov · {currentBowler.runs}r ·{" "}
-                      {currentBowler.wickets}w
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {currentBowler && (
+                      <span className="text-xs font-mono font-bold text-sky-500">
+                        {ballsToOversText(currentBowler.balls)} ov · {currentBowler.runs}r ·{" "}
+                        {currentBowler.wickets}w
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => triggerNextBowlerDialog(totalLegalBalls, currentBowlerId)}
+                      className="h-6 text-[10px] px-1.5 text-sky-500 hover:text-sky-400 font-bold border border-sky-500/30"
+                    >
+                      🔄 Change
+                    </Button>
+                  </div>
                 </div>
                 <Select value={currentBowlerId} onValueChange={setCurrentBowlerId}>
                   <SelectTrigger className="h-8 text-xs font-semibold">
