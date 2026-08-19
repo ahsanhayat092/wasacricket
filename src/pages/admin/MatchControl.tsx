@@ -730,6 +730,20 @@ function InningsLiveConsole({
 
   const [closed, setClosed] = useState(existing?.completed ?? false);
 
+  // Active batsmen & bowler state
+  const [strikerId, setStrikerId] = useState<string>(() => {
+    const notOut = batRows.filter((b) => b.batted && !b.isOut);
+    return notOut[0]?.playerId ?? battingPlayers[0]?.id ?? "";
+  });
+  const [nonStrikerId, setNonStrikerId] = useState<string>(() => {
+    const notOut = batRows.filter((b) => b.batted && !b.isOut);
+    return notOut[1]?.playerId ?? battingPlayers[1]?.id ?? "";
+  });
+  const [currentBowlerId, setCurrentBowlerId] = useState<string>(() => {
+    const activeBowlers = bowlRows.filter((b) => b.bowled);
+    return activeBowlers[activeBowlers.length - 1]?.playerId ?? bowlingPlayers[0]?.id ?? "";
+  });
+
   // Auto-select initial batsmen and bowler if not yet selected
   useEffect(() => {
     if (!strikerId && battingPlayers.length > 0) {
