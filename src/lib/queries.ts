@@ -348,51 +348,44 @@ function getTournamentSummarySync(schedule: HydratedMatch[]) {
 // ---------------------------------------------------------------------------
 
 export async function getMatchWorkspace(matchId: string) {
-  const snap = await getDoc(matchDoc(matchId));
-  if (!snap.exists()) return null;
-  const match = { id: snap.id, ...snap.data() } as Match;
+  try {
+    const snap = await getDoc(matchDoc(matchId));
+    if (!snap.exists()) return null;
+    const match = { id: snap.id, ...snap.data() } as Match;
 
-  const teamIds = [match.teamAId, match.teamBId].filter(
-    (x): x is string => !!x,
-  );
+    const [teams, players, inningsSnap] = await Promise.all([
+      getTeams(),
+      getPlayers(),
+      getDocs(query(inningsCol(), where("matchId", "==", matchId))),
+    ]);
 
-  const [allPlayers, inningsSnap] = await Promise.all([
-    teamIds.length
-      ? getDocs(query(playersCol(), where("teamId", "in", teamIds)))
-      : Promise.resolve({ docs: [] }),
-    getDocs(query(inningsCol(), where("matchId", "==", matchId))),
-  ]);
+    const inningsList = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+    const inningsIds = inningsList.map((i) => i.id);
 
-  const teams: Team[] = [];
-  for (const id of teamIds) {
-    const t = await getTeamById(id);
-    if (t) teams.push(t);
+    const [battingSnap, bowlingSnap] = inningsIds.length
+      ? await Promise.all([
+          getDocs(query(battingScoresCol(), where("inningsId", "in", inningsIds))),
+          getDocs(query(bowlingScoresCol(), where("inningsId", "in", inningsIds))),
+        ])
+      : [{ docs: [] }, { docs: [] }];
+
+    const battingAll = battingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
+    const bowlingAll = bowlingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
+
+    return {
+      match,
+      teams,
+      players,
+      innings: inningsList.map((inn) => ({
+        ...inn,
+        batting: battingAll.filter((b) => b.inningsId === inn.id),
+        bowling: bowlingAll.filter((b) => b.inningsId === inn.id),
+      })),
+    };
+  } catch (err) {
+    console.error("Error loading match workspace:", err);
+    return null;
   }
-
-  const players = allPlayers.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
-  const inningsList = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
-  const inningsIds = inningsList.map((i) => i.id);
-
-  const [battingSnap, bowlingSnap] = inningsIds.length
-    ? await Promise.all([
-        getDocs(query(battingScoresCol(), where("inningsId", "in", inningsIds))),
-        getDocs(query(bowlingScoresCol(), where("inningsId", "in", inningsIds))),
-      ])
-    : [{ docs: [] }, { docs: [] }];
-
-  const battingAll = battingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
-  const bowlingAll = bowlingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
-
-  return {
-    match,
-    teams,
-    players,
-    innings: inningsList.map((inn) => ({
-      ...inn,
-      batting: battingAll.filter((b) => b.inningsId === inn.id),
-      bowling: bowlingAll.filter((b) => b.inningsId === inn.id),
-    })),
-  };
 }
 
 // ---------------------------------------------------------------------------

@@ -114,7 +114,7 @@ export default function AdminMatchControl() {
     onError: (e) => toast.error(e.message),
   });
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <div className="p-6 space-y-4 max-w-7xl mx-auto">
         <Skeleton className="h-28 w-full rounded-2xl" />
@@ -123,9 +123,23 @@ export default function AdminMatchControl() {
     );
   }
 
-  const { match, teams, players, innings } = data;
-  const teamA = teams.find((t) => t.id === match.teamAId);
-  const teamB = teams.find((t) => t.id === match.teamBId);
+  if (!data) {
+    return (
+      <div className="p-8 text-center max-w-md mx-auto space-y-4">
+        <div className="p-6 rounded-2xl border bg-card shadow-sm space-y-3">
+          <p className="text-lg font-bold text-destructive">Match Not Found</p>
+          <p className="text-xs text-muted-foreground">The fixture with ID "{id}" could not be loaded or was deleted.</p>
+          <Link to="/admin/matches">
+            <Button size="sm" className="mt-2">Back to Matches</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { match, teams = [], players = [], innings = [] } = data;
+  const teamA = teams.find((t) => t.id === match.teamAId) ?? null;
+  const teamB = teams.find((t) => t.id === match.teamBId) ?? null;
   const inn1 = innings.find((i) => i.inningsNumber === 1);
   const inn2 = innings.find((i) => i.inningsNumber === 2);
   const canEnterScores = match.status === "LIVE";
