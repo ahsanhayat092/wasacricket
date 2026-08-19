@@ -517,6 +517,36 @@ function InningsLiveConsole({
   const [outPlayerId, setOutPlayerId] = useState<string>("");
   const [incomingPlayerId, setIncomingPlayerId] = useState<string>("");
 
+  // End of Over - Next Bowler Selection Modal State
+  const [nextBowlerModalOpen, setNextBowlerModalOpen] = useState(false);
+  const [completedOverNum, setCompletedOverNum] = useState<number>(1);
+  const [selectedNextBowlerId, setSelectedNextBowlerId] = useState<string>("");
+
+  // Trigger Next Bowler Selection Dialog on Over Completion
+  const triggerNextBowlerDialog = (newTotalBalls: number, previousBowlerId: string) => {
+    if (newTotalBalls % 6 === 0 && newTotalBalls < maxLegalBallsInnings) {
+      const overNum = Math.floor(newTotalBalls / 6);
+      setCompletedOverNum(overNum);
+      // Auto-find next eligible bowler other than the previous one
+      const nextEligible = bowlingPlayers.find(
+        (p) => p.id !== previousBowlerId && !isBowlerQuotaExhausted(p.id),
+      );
+      setSelectedNextBowlerId(nextEligible?.id ?? "");
+      setNextBowlerModalOpen(true);
+    }
+  };
+
+  const handleConfirmNextBowler = () => {
+    if (!selectedNextBowlerId) {
+      toast.error("Please select the next bowler.");
+      return;
+    }
+    setCurrentBowlerId(selectedNextBowlerId);
+    setNextBowlerModalOpen(false);
+    const bName = bowlingPlayers.find((p) => p.id === selectedNextBowlerId)?.name ?? "Bowler";
+    toast.success(`Over ${completedOverNum + 1} bowler set to ${bName}! All balls will now count towards them.`);
+  };
+
   // Calculated Totals
   const totalBatterRuns = useMemo(
     () => batRows.filter((b) => b.batted).reduce((s, b) => s + b.runs, 0),
@@ -723,9 +753,8 @@ function InningsLiveConsole({
     });
 
     // Check if legal ball count ends the over (multiple of 6)
-    const bowlerObj = newBowl.find((b) => b.playerId === currentBowlerId);
-    const bowlerBalls = bowlerObj?.balls ?? 0;
-    const isOverEnd = bowlerBalls % 6 === 0;
+    const newTotalBalls = totalLegalBalls + 1;
+    const isOverEnd = newTotalBalls % 6 === 0;
 
     // Change strike on odd runs (1, 3)
     let nextStriker = strikerId;
@@ -740,9 +769,6 @@ function InningsLiveConsole({
       const temp = nextStriker;
       nextStriker = nextNonStriker;
       nextNonStriker = temp;
-      toast.info(
-        `Over completed (${Math.floor(bowlerBalls / 6)} ov). Select the next bowler for Over ${Math.floor((totalLegalBalls + 1) / 6) + 1}.`,
-      );
     }
 
     setStrikerId(nextStriker);
@@ -752,6 +778,10 @@ function InningsLiveConsole({
     setRecentBalls((prev) => [...prev.slice(-11), runsScored === 0 ? "•" : runsScored.toString()]);
 
     triggerSave(newBat, newBowl, extras);
+
+    if (isOverEnd) {
+      triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+    }
   };
 
   // Record Extras (Wide, No Ball, Bye, Leg Bye)
@@ -766,6 +796,8 @@ function InningsLiveConsole({
     const newExtras = { ...extras };
     let newBowl = [...bowlRows];
     let newBat = [...batRows];
+    let isOverEnd = false;
+    let newTotalBalls = totalLegalBalls;
 
     if (type === "WIDE") {
       newExtras.wides += extraRuns;
@@ -784,6 +816,8 @@ function InningsLiveConsole({
       );
       setRecentBalls((prev) => [...prev.slice(-11), extraRuns > 1 ? `${extraRuns}Nb` : "Nb"]);
     } else if (type === "BYE") {
+      newTotalBalls = totalLegalBalls + 1;
+      isOverEnd = newTotalBalls % 6 === 0;
       newExtras.byes += extraRuns;
       newBowl = newBowl.map((b) =>
         b.playerId === currentBowlerId ? { ...b, bowled: true, balls: b.balls + 1 } : b,
@@ -793,6 +827,8 @@ function InningsLiveConsole({
       );
       setRecentBalls((prev) => [...prev.slice(-11), `${extraRuns}B`]);
     } else if (type === "LEG_BYE") {
+      newTotalBalls = totalLegalBalls + 1;
+      isOverEnd = newTotalBalls % 6 === 0;
       newExtras.legByes += extraRuns;
       newBowl = newBowl.map((b) =>
         b.playerId === currentBowlerId ? { ...b, bowled: true, balls: b.balls + 1 } : b,
@@ -803,11 +839,21 @@ function InningsLiveConsole({
       setRecentBalls((prev) => [...prev.slice(-11), `${extraRuns}Lb`]);
     }
 
+    if (isOverEnd) {
+      const temp = strikerId;
+      setStrikerId(nonStrikerId);
+      setNonStrikerId(temp);
+    }
+
     setExtras(newExtras);
     setBowlRows(newBowl);
     setBatRows(newBat);
 
     triggerSave(newBat, newBowl, newExtras);
+
+    if (isOverEnd) {
+      triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+    }
   };
 
   // Open Wicket Popup
@@ -848,13 +894,27 @@ function InningsLiveConsole({
       return b;
     });
 
+    const newTotalBalls = totalLegalBalls + 1;
+    const isOverEnd = newTotalBalls % 6 === 0;
+
     // Replace out batsman with incoming batsman
+    let nextStriker = strikerId;
+    let nextNonStriker = nonStrikerId;
+
     if (outPlayerId === strikerId) {
-      setStrikerId(incomingPlayerId);
+      nextStriker = incomingPlayerId;
     } else {
-      setNonStrikerId(incomingPlayerId);
+      nextNonStriker = incomingPlayerId;
     }
 
+    if (isOverEnd) {
+      const temp = nextStriker;
+      nextStriker = nextNonStriker;
+      nextNonStriker = temp;
+    }
+
+    setStrikerId(nextStriker);
+    setNonStrikerId(nextNonStriker);
     setBatRows(newBat);
     setBowlRows(newBowl);
     setRecentBalls((prev) => [...prev.slice(-11), "W"]);
@@ -862,6 +922,10 @@ function InningsLiveConsole({
 
     triggerSave(newBat, newBowl, extras);
     toast.success(`Wicket recorded (${dismissalType})!`);
+
+    if (isOverEnd) {
+      triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+    }
   };
 
   return (
@@ -1559,6 +1623,74 @@ function InningsLiveConsole({
               onClick={confirmWicket}
             >
               Confirm Wicket
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* End of Over - Select Next Bowler Dialog */}
+      <Dialog open={nextBowlerModalOpen} onOpenChange={setNextBowlerModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-500 flex items-center gap-2 text-base font-bold">
+              <Zap className="h-5 w-5" /> End of Over {completedOverNum} Completed!
+            </DialogTitle>
+            <CardDescription className="text-xs">
+              Score: <strong>{totalRuns}/{totalWickets}</strong> ({completedOverNum}.0 ov). Strike rotated to <strong>{batRows.find(b => b.playerId === strikerId)?.name}</strong>.
+            </CardDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-sky-500">
+                Next Over: Over {completedOverNum + 1}
+              </span>
+              <p className="text-xs text-foreground font-semibold">
+                Please select the bowler to deliver Over {completedOverNum + 1}:
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-muted-foreground">Select Next Bowler</Label>
+              <Select value={selectedNextBowlerId} onValueChange={setSelectedNextBowlerId}>
+                <SelectTrigger className="h-10 text-xs font-semibold">
+                  <SelectValue placeholder="Select next bowler" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bowlingPlayers.map((p) => {
+                    const row = bowlRows.find((b) => b.playerId === p.id);
+                    const bCount = row?.balls ?? 0;
+                    const isExhausted = isBowlerQuotaExhausted(p.id);
+                    const maxB = getBowlerMaxBalls(p.id);
+                    const isPrevious = p.id === currentBowlerId;
+
+                    return (
+                      <SelectItem
+                        key={p.id}
+                        value={p.id}
+                        disabled={isExhausted || isPrevious}
+                      >
+                        {p.name} ({ballsToOversText(bCount)} / {ballsToOversText(maxB)} ov)
+                        {isPrevious ? " [Just Bowled]" : isExhausted ? " [Quota Completed]" : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-lg bg-muted/40 p-2.5 text-xs text-muted-foreground">
+              💡 <em>Once confirmed, all upcoming deliveries will automatically be added to this bowler's figures.</em>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5"
+              onClick={handleConfirmNextBowler}
+              disabled={!selectedNextBowlerId}
+            >
+              <CheckCircle2 className="h-4 w-4" /> Confirm Bowler for Over {completedOverNum + 1}
             </Button>
           </DialogFooter>
         </DialogContent>
