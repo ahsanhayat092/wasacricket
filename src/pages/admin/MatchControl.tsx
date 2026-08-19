@@ -1558,95 +1558,101 @@ function InningsLiveConsole({
                 <TableHead className="w-20 text-right">Balls</TableHead>
                 <TableHead className="w-16 text-right">4s</TableHead>
                 <TableHead className="w-16 text-right">6s</TableHead>
+                <TableHead className="w-20 text-right font-bold text-emerald-500">SR</TableHead>
                 <TableHead className="w-20 text-center">Out?</TableHead>
                 <TableHead>Dismissal Info</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {batRows.map((r, i) => (
-                <TableRow key={r.playerId} className="hover:bg-muted/30">
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={r.batted}
-                      onCheckedChange={(v) => {
-                        const updated = [...batRows];
-                        updated[i].batted = !!v;
-                        setBatRows(updated);
-                      }}
-                      disabled={readOnly}
-                    />
-                  </TableCell>
-                  <TableCell className="font-semibold text-sm">
-                    {r.name}
-                    {r.playerId === strikerId && (
-                      <Badge className="ml-2 bg-amber-600 text-white text-[9px] py-0 px-1">
-                        Striker *
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      value={r.runs}
-                      disabled={readOnly || !r.batted}
-                      onChange={(e) => {
-                        const updated = [...batRows];
-                        updated[i].runs = Number(e.target.value) || 0;
-                        setBatRows(updated);
-                      }}
-                      className="w-16 h-8 text-right font-mono font-bold ml-auto"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      value={r.balls}
-                      disabled={readOnly || !r.batted}
-                      onChange={(e) => {
-                        const updated = [...batRows];
-                        updated[i].balls = Number(e.target.value) || 0;
-                        setBatRows(updated);
-                      }}
-                      className="w-16 h-8 text-right font-mono ml-auto"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      value={r.fours}
-                      disabled={readOnly || !r.batted}
-                      onChange={(e) => {
-                        const updated = [...batRows];
-                        updated[i].fours = Number(e.target.value) || 0;
-                        setBatRows(updated);
-                      }}
-                      className="w-14 h-8 text-right font-mono ml-auto"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      value={r.sixes}
-                      disabled={readOnly || !r.batted}
-                      onChange={(e) => {
-                        const updated = [...batRows];
-                        updated[i].sixes = Number(e.target.value) || 0;
-                        setBatRows(updated);
-                      }}
-                      className="w-14 h-8 text-right font-mono ml-auto"
-                    />
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={r.isOut}
-                      onCheckedChange={(v) => {
-                        const updated = [...batRows];
-                        updated[i].isOut = !!v;
-                        setBatRows(updated);
-                      }}
-                      disabled={readOnly || !r.batted}
-                    />
-                  </TableCell>
+              {batRows.map((r, i) => {
+                const strikeRate = r.batted && r.balls > 0 ? ((r.runs / r.balls) * 100).toFixed(1) : "0.0";
+                return (
+                  <TableRow key={r.playerId} className="hover:bg-muted/30">
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={r.batted}
+                        onCheckedChange={(v) => {
+                          const updated = [...batRows];
+                          updated[i].batted = !!v;
+                          setBatRows(updated);
+                        }}
+                        disabled={readOnly}
+                      />
+                    </TableCell>
+                    <TableCell className="font-semibold text-sm">
+                      {r.name}
+                      {r.playerId === strikerId && (
+                        <Badge className="ml-2 bg-amber-600 text-white text-[9px] py-0 px-1">
+                          Striker *
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={r.runs}
+                        disabled={readOnly || !r.batted}
+                        onChange={(e) => {
+                          const updated = [...batRows];
+                          updated[i].runs = Number(e.target.value) || 0;
+                          setBatRows(updated);
+                        }}
+                        className="w-16 h-8 text-right font-mono font-bold ml-auto"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={r.balls}
+                        disabled={readOnly || !r.batted}
+                        onChange={(e) => {
+                          const updated = [...batRows];
+                          updated[i].balls = Number(e.target.value) || 0;
+                          setBatRows(updated);
+                        }}
+                        className="w-16 h-8 text-right font-mono ml-auto"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={r.fours}
+                        disabled={readOnly || !r.batted}
+                        onChange={(e) => {
+                          const updated = [...batRows];
+                          updated[i].fours = Number(e.target.value) || 0;
+                          setBatRows(updated);
+                        }}
+                        className="w-14 h-8 text-right font-mono ml-auto"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={r.sixes}
+                        disabled={readOnly || !r.batted}
+                        onChange={(e) => {
+                          const updated = [...batRows];
+                          updated[i].sixes = Number(e.target.value) || 0;
+                          setBatRows(updated);
+                        }}
+                        className="w-14 h-8 text-right font-mono ml-auto"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold text-foreground">
+                      {strikeRate}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={r.isOut}
+                        onCheckedChange={(v) => {
+                          const updated = [...batRows];
+                          updated[i].isOut = !!v;
+                          setBatRows(updated);
+                        }}
+                        disabled={readOnly || !r.batted}
+                      />
+                    </TableCell>
                   <TableCell>
                     <Input
                       value={r.dismissal}
@@ -1661,7 +1667,8 @@ function InningsLiveConsole({
                     />
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+            })}
             </TableBody>
           </Table>
         </div>
@@ -1738,84 +1745,91 @@ function InningsLiveConsole({
                 <TableHead className="w-20 text-right">Maidens</TableHead>
                 <TableHead className="w-20 text-right">Runs</TableHead>
                 <TableHead className="w-20 text-right">Wickets</TableHead>
+                <TableHead className="w-20 text-right font-bold text-sky-500">Econ</TableHead>
                 <TableHead className="w-20 text-right">Wides</TableHead>
                 <TableHead className="w-20 text-right">No Balls</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bowlRows.map((r, i) => (
-                <TableRow key={r.playerId} className="hover:bg-muted/30">
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={r.bowled}
-                      onCheckedChange={(v) => {
-                        const updated = [...bowlRows];
-                        updated[i].bowled = !!v;
-                        setBowlRows(updated);
-                      }}
-                      disabled={readOnly}
-                    />
-                  </TableCell>
-                  <TableCell className="font-semibold text-sm">
-                    {r.name}
-                    {r.playerId === currentBowlerId && (
-                      <Badge className="ml-2 bg-sky-600 text-white text-[9px] py-0 px-1">
-                        Bowler 🎯
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="font-mono font-bold text-sm">
-                      {ballsToOversText(r.balls)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      value={r.maidens}
-                      disabled={readOnly || !r.bowled}
-                      onChange={(e) => {
-                        const updated = [...bowlRows];
-                        updated[i].maidens = Number(e.target.value) || 0;
-                        setBowlRows(updated);
-                      }}
-                      className="w-16 h-8 text-right font-mono ml-auto"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      value={r.runs}
-                      disabled={readOnly || !r.bowled}
-                      onChange={(e) => {
-                        const updated = [...bowlRows];
-                        updated[i].runs = Number(e.target.value) || 0;
-                        setBowlRows(updated);
-                      }}
-                      className="w-16 h-8 text-right font-mono font-bold ml-auto"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      value={r.wickets}
-                      disabled={readOnly || !r.bowled}
-                      onChange={(e) => {
-                        const updated = [...bowlRows];
-                        updated[i].wickets = Number(e.target.value) || 0;
-                        setBowlRows(updated);
-                      }}
-                      className="w-16 h-8 text-right font-mono font-bold text-sky-500 ml-auto"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                    {r.wides}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                    {r.noBalls}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {bowlRows.map((r, i) => {
+                const economy = r.bowled && r.balls > 0 ? ((r.runs / r.balls) * 6).toFixed(2) : "0.00";
+                return (
+                  <TableRow key={r.playerId} className="hover:bg-muted/30">
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={r.bowled}
+                        onCheckedChange={(v) => {
+                          const updated = [...bowlRows];
+                          updated[i].bowled = !!v;
+                          setBowlRows(updated);
+                        }}
+                        disabled={readOnly}
+                      />
+                    </TableCell>
+                    <TableCell className="font-semibold text-sm">
+                      {r.name}
+                      {r.playerId === currentBowlerId && (
+                        <Badge className="ml-2 bg-sky-600 text-white text-[9px] py-0 px-1">
+                          Bowler 🎯
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="font-mono font-bold text-sm">
+                        {ballsToOversText(r.balls)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={r.maidens}
+                        disabled={readOnly || !r.bowled}
+                        onChange={(e) => {
+                          const updated = [...bowlRows];
+                          updated[i].maidens = Number(e.target.value) || 0;
+                          setBowlRows(updated);
+                        }}
+                        className="w-16 h-8 text-right font-mono ml-auto"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={r.runs}
+                        disabled={readOnly || !r.bowled}
+                        onChange={(e) => {
+                          const updated = [...bowlRows];
+                          updated[i].runs = Number(e.target.value) || 0;
+                          setBowlRows(updated);
+                        }}
+                        className="w-16 h-8 text-right font-mono font-bold ml-auto"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={r.wickets}
+                        disabled={readOnly || !r.bowled}
+                        onChange={(e) => {
+                          const updated = [...bowlRows];
+                          updated[i].wickets = Number(e.target.value) || 0;
+                          setBowlRows(updated);
+                        }}
+                        className="w-16 h-8 text-right font-mono font-bold text-sky-500 ml-auto"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold text-foreground">
+                      {economy}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                      {r.wides}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                      {r.noBalls}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
