@@ -1590,11 +1590,12 @@ function InningsLiveConsole({
                     <TableCell className="text-right">
                       <Input
                         type="number"
+                        min="0"
                         value={r.runs}
                         disabled={readOnly || !r.batted}
                         onChange={(e) => {
                           const updated = [...batRows];
-                          updated[i].runs = Number(e.target.value) || 0;
+                          updated[i].runs = Math.max(0, Number(e.target.value) || 0);
                           setBatRows(updated);
                         }}
                         className="w-16 h-8 text-right font-mono font-bold ml-auto"
@@ -1603,11 +1604,12 @@ function InningsLiveConsole({
                     <TableCell className="text-right">
                       <Input
                         type="number"
+                        min="0"
                         value={r.balls}
                         disabled={readOnly || !r.batted}
                         onChange={(e) => {
                           const updated = [...batRows];
-                          updated[i].balls = Number(e.target.value) || 0;
+                          updated[i].balls = Math.max(0, Number(e.target.value) || 0);
                           setBatRows(updated);
                         }}
                         className="w-16 h-8 text-right font-mono ml-auto"
@@ -1616,11 +1618,12 @@ function InningsLiveConsole({
                     <TableCell className="text-right">
                       <Input
                         type="number"
+                        min="0"
                         value={r.fours}
                         disabled={readOnly || !r.batted}
                         onChange={(e) => {
                           const updated = [...batRows];
-                          updated[i].fours = Number(e.target.value) || 0;
+                          updated[i].fours = Math.max(0, Number(e.target.value) || 0);
                           setBatRows(updated);
                         }}
                         className="w-14 h-8 text-right font-mono ml-auto"
@@ -1629,11 +1632,12 @@ function InningsLiveConsole({
                     <TableCell className="text-right">
                       <Input
                         type="number"
+                        min="0"
                         value={r.sixes}
                         disabled={readOnly || !r.batted}
                         onChange={(e) => {
                           const updated = [...batRows];
-                          updated[i].sixes = Number(e.target.value) || 0;
+                          updated[i].sixes = Math.max(0, Number(e.target.value) || 0);
                           setBatRows(updated);
                         }}
                         className="w-14 h-8 text-right font-mono ml-auto"
@@ -1683,9 +1687,10 @@ function InningsLiveConsole({
               <Label className="text-[11px]">Wides</Label>
               <Input
                 type="number"
+                min="0"
                 value={extras.wides}
                 disabled={readOnly}
-                onChange={(e) => setExtras({ ...extras, wides: Number(e.target.value) || 0 })}
+                onChange={(e) => setExtras({ ...extras, wides: Math.max(0, Number(e.target.value) || 0) })}
                 className="h-8 text-xs font-mono mt-1"
               />
             </div>
@@ -1693,9 +1698,10 @@ function InningsLiveConsole({
               <Label className="text-[11px]">No Balls</Label>
               <Input
                 type="number"
+                min="0"
                 value={extras.noBalls}
                 disabled={readOnly}
-                onChange={(e) => setExtras({ ...extras, noBalls: Number(e.target.value) || 0 })}
+                onChange={(e) => setExtras({ ...extras, noBalls: Math.max(0, Number(e.target.value) || 0) })}
                 className="h-8 text-xs font-mono mt-1"
               />
             </div>
@@ -1703,9 +1709,10 @@ function InningsLiveConsole({
               <Label className="text-[11px]">Byes</Label>
               <Input
                 type="number"
+                min="0"
                 value={extras.byes}
                 disabled={readOnly}
-                onChange={(e) => setExtras({ ...extras, byes: Number(e.target.value) || 0 })}
+                onChange={(e) => setExtras({ ...extras, byes: Math.max(0, Number(e.target.value) || 0) })}
                 className="h-8 text-xs font-mono mt-1"
               />
             </div>
@@ -1713,9 +1720,10 @@ function InningsLiveConsole({
               <Label className="text-[11px]">Leg Byes</Label>
               <Input
                 type="number"
+                min="0"
                 value={extras.legByes}
                 disabled={readOnly}
-                onChange={(e) => setExtras({ ...extras, legByes: Number(e.target.value) || 0 })}
+                onChange={(e) => setExtras({ ...extras, legByes: Math.max(0, Number(e.target.value) || 0) })}
                 className="h-8 text-xs font-mono mt-1"
               />
             </div>
@@ -1723,10 +1731,11 @@ function InningsLiveConsole({
               <Label className="text-[11px]">Penalty Runs</Label>
               <Input
                 type="number"
+                min="0"
                 value={extras.penaltyRuns}
                 disabled={readOnly}
                 onChange={(e) =>
-                  setExtras({ ...extras, penaltyRuns: Number(e.target.value) || 0 })
+                  setExtras({ ...extras, penaltyRuns: Math.max(0, Number(e.target.value) || 0) })
                 }
                 className="h-8 text-xs font-mono mt-1"
               />
@@ -1782,11 +1791,12 @@ function InningsLiveConsole({
                     <TableCell className="text-right">
                       <Input
                         type="number"
+                        min="0"
                         value={r.maidens}
                         disabled={readOnly || !r.bowled}
                         onChange={(e) => {
                           const updated = [...bowlRows];
-                          updated[i].maidens = Number(e.target.value) || 0;
+                          updated[i].maidens = Math.max(0, Number(e.target.value) || 0);
                           setBowlRows(updated);
                         }}
                         className="w-16 h-8 text-right font-mono ml-auto"
@@ -1795,11 +1805,12 @@ function InningsLiveConsole({
                     <TableCell className="text-right">
                       <Input
                         type="number"
+                        min="0"
                         value={r.runs}
                         disabled={readOnly || !r.bowled}
                         onChange={(e) => {
                           const updated = [...bowlRows];
-                          updated[i].runs = Number(e.target.value) || 0;
+                          updated[i].runs = Math.max(0, Number(e.target.value) || 0);
                           setBowlRows(updated);
                         }}
                         className="w-16 h-8 text-right font-mono font-bold ml-auto"
@@ -1808,11 +1819,12 @@ function InningsLiveConsole({
                     <TableCell className="text-right">
                       <Input
                         type="number"
+                        min="0"
                         value={r.wickets}
                         disabled={readOnly || !r.bowled}
                         onChange={(e) => {
                           const updated = [...bowlRows];
-                          updated[i].wickets = Number(e.target.value) || 0;
+                          updated[i].wickets = Math.max(0, Number(e.target.value) || 0);
                           setBowlRows(updated);
                         }}
                         className="w-16 h-8 text-right font-mono font-bold text-sky-500 ml-auto"
