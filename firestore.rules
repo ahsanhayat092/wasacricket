@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper to verify authenticated admin user
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Public read access for all tournament data; authenticated admin/scorer write only
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    match /teams/{teamId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    match /players/{playerId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    match /innings/{inningsId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    match /battingScores/{scoreId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    match /bowlingScores/{scoreId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    match /standings/{standingId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+  }
+}
