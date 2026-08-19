@@ -66,27 +66,27 @@ export default function MatchDetail() {
   const teamAPlayers = (players ?? []).filter((p) => p.teamId === match.teamAId);
   const teamBPlayers = (players ?? []).filter((p) => p.teamId === match.teamBId);
 
-  // Playing VI lineup (6 playing + 1 reserve)
+  // Playing VI lineup (6 playing + 1 reserve) — ONLY when match has confirmed lineup
   const getLineup = (
     teamSquad: Player[],
     playingVIIds?: string[],
     reserveId?: string | null,
   ) => {
-    let playingList: Player[] = [];
-    let reservePlayer: Player | null = null;
-
-    if (playingVIIds && playingVIIds.length > 0) {
-      playingList = playingVIIds
+    const hasConfirmed = Array.isArray(playingVIIds) && playingVIIds.length > 0;
+    if (hasConfirmed) {
+      const playingList = playingVIIds
         .map((pid) => teamSquad.find((p) => p.id === pid))
         .filter((p): p is Player => p !== undefined);
-      reservePlayer = reserveId ? teamSquad.find((p) => p.id === reserveId) ?? null : null;
-    } else {
-      // Default: top 6 players as Playing VI, 7th as Reserve
-      playingList = teamSquad.slice(0, 6);
-      reservePlayer = teamSquad[6] ?? null;
+      const reservePlayer = reserveId ? teamSquad.find((p) => p.id === reserveId) ?? null : null;
+      return { hasConfirmed: true, playingList, reservePlayer, fullSquad: teamSquad };
     }
 
-    return { playingList, reservePlayer };
+    return {
+      hasConfirmed: false,
+      playingList: [],
+      reservePlayer: null,
+      fullSquad: teamSquad,
+    };
   };
 
   const lineupA = getLineup(teamAPlayers, match.teamAPlayingVI, match.teamAReserveId);
@@ -228,7 +228,8 @@ export default function MatchDetail() {
             <Trophy className="h-4 w-4 text-amber-500" /> Scorecard
           </TabsTrigger>
           <TabsTrigger value="lineup" className="text-xs sm:text-sm font-bold gap-1.5">
-            <Users className="h-4 w-4 text-emerald-500" /> Playing VI
+            <Users className="h-4 w-4 text-emerald-500" />
+            {lineupA.hasConfirmed || lineupB.hasConfirmed ? "Playing VI" : "Squads"}
           </TabsTrigger>
           <TabsTrigger value="info" className="text-xs sm:text-sm font-bold gap-1.5">
             <MapPin className="h-4 w-4 text-sky-500" /> Match Info
@@ -252,10 +253,10 @@ export default function MatchDetail() {
           )}
         </TabsContent>
 
-        {/* Tab 2: Playing VI (6 Starting + 1 Reserve) */}
+        {/* Tab 2: Team Squads (Pre-match) OR Match Playing VI (Post-toss/Live) */}
         <TabsContent value="lineup" className="mt-4 space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Team A Lineup */}
+            {/* Team A */}
             <Card className="border shadow-sm">
               <CardHeader className="p-4 pb-3 border-b bg-muted/20">
                 <div className="flex items-center justify-between">
@@ -266,78 +267,116 @@ export default function MatchDetail() {
                       size="sm"
                     />
                     <CardTitle className="text-sm font-bold">
-                      {teamA?.name ?? "Team A"} Lineup
+                      {teamA?.name ?? "Team A"} {lineupA.hasConfirmed ? "Lineup" : "Squad"}
                     </CardTitle>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-bold">
-                    6 Playing + 1 Reserve
+                    {lineupA.hasConfirmed ? "6 Playing + 1 Reserve" : `${lineupA.fullSquad.length} Squad Players`}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5 text-emerald-500" /> Starting Playing VI (6)
-                  </span>
-                  {lineupA.playingList.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-2">Squad not finalized.</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {lineupA.playingList.map((p, idx) => (
-                        <div
-                          key={p.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
-                        >
+                {lineupA.hasConfirmed ? (
+                  <>
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5 text-emerald-500" /> Starting Playing VI (6)
+                      </span>
+                      <div className="space-y-1.5">
+                        {lineupA.playingList.map((p, idx) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-muted-foreground w-4 text-center">
+                                {idx + 1}
+                              </span>
+                              <span className="font-semibold">{p.name}</span>
+                              {(p.isCaptain || p.designation === "Captain") && (
+                                <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
+                                  (C)
+                                </Badge>
+                              )}
+                              {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                                <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
+                                  (VC)
+                                </Badge>
+                              )}
+                            </div>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {p.role}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {lineupA.reservePlayer && (
+                      <div className="pt-2 border-t space-y-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Match Reserve Player (1)
+                        </span>
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-muted-foreground w-4 text-center">
-                              {idx + 1}
-                            </span>
-                            <span className="font-semibold">{p.name}</span>
-                            {(p.isCaptain || p.designation === "Captain") && (
-                              <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
-                                (C)
-                              </Badge>
-                            )}
-                            {(p.isViceCaptain || p.designation === "Vice Captain") && (
-                              <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
-                                (VC)
-                              </Badge>
-                            )}
+                            <span className="font-semibold">{lineupA.reservePlayer.name}</span>
+                            <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
+                              Reserve
+                            </Badge>
                           </div>
                           <Badge variant="secondary" className="text-[10px]">
-                            {p.role}
+                            {lineupA.reservePlayer.role}
                           </Badge>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Team A Reserve */}
-                <div className="pt-2 border-t space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Reserve Player (1)
-                  </span>
-                  {lineupA.reservePlayer ? (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{lineupA.reservePlayer.name}</span>
-                        <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
-                          Reserve
-                        </Badge>
                       </div>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {lineupA.reservePlayer.role}
-                      </Badge>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground italic">No reserve assigned.</p>
-                  )}
-                </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5 text-sky-500" /> Full Team Squad ({lineupA.fullSquad.length})
+                    </span>
+                    {lineupA.fullSquad.length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-2 italic">Squad not announced yet.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {lineupA.fullSquad.map((p, idx) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-muted-foreground w-4 text-center">
+                                {idx + 1}
+                              </span>
+                              <span className="font-semibold">{p.name}</span>
+                              {(p.isCaptain || p.designation === "Captain") && (
+                                <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
+                                  (C)
+                                </Badge>
+                              )}
+                              {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                                <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
+                                  (VC)
+                                </Badge>
+                              )}
+                            </div>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {p.role}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground pt-1 italic">
+                      * Starting Playing VI (6) and Reserve (1) are decided at match toss.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Team B Lineup */}
+            {/* Team B */}
             <Card className="border shadow-sm">
               <CardHeader className="p-4 pb-3 border-b bg-muted/20">
                 <div className="flex items-center justify-between">
@@ -348,74 +387,112 @@ export default function MatchDetail() {
                       size="sm"
                     />
                     <CardTitle className="text-sm font-bold">
-                      {teamB?.name ?? "Team B"} Lineup
+                      {teamB?.name ?? "Team B"} {lineupB.hasConfirmed ? "Lineup" : "Squad"}
                     </CardTitle>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-bold">
-                    6 Playing + 1 Reserve
+                    {lineupB.hasConfirmed ? "6 Playing + 1 Reserve" : `${lineupB.fullSquad.length} Squad Players`}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5 text-emerald-500" /> Starting Playing VI (6)
-                  </span>
-                  {lineupB.playingList.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-2">Squad not finalized.</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {lineupB.playingList.map((p, idx) => (
-                        <div
-                          key={p.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
-                        >
+                {lineupB.hasConfirmed ? (
+                  <>
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5 text-emerald-500" /> Starting Playing VI (6)
+                      </span>
+                      <div className="space-y-1.5">
+                        {lineupB.playingList.map((p, idx) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-muted-foreground w-4 text-center">
+                                {idx + 1}
+                              </span>
+                              <span className="font-semibold">{p.name}</span>
+                              {(p.isCaptain || p.designation === "Captain") && (
+                                <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
+                                  (C)
+                                </Badge>
+                              )}
+                              {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                                <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
+                                  (VC)
+                                </Badge>
+                              )}
+                            </div>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {p.role}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {lineupB.reservePlayer && (
+                      <div className="pt-2 border-t space-y-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Match Reserve Player (1)
+                        </span>
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-muted-foreground w-4 text-center">
-                              {idx + 1}
-                            </span>
-                            <span className="font-semibold">{p.name}</span>
-                            {(p.isCaptain || p.designation === "Captain") && (
-                              <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
-                                (C)
-                              </Badge>
-                            )}
-                            {(p.isViceCaptain || p.designation === "Vice Captain") && (
-                              <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
-                                (VC)
-                              </Badge>
-                            )}
+                            <span className="font-semibold">{lineupB.reservePlayer.name}</span>
+                            <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
+                              Reserve
+                            </Badge>
                           </div>
                           <Badge variant="secondary" className="text-[10px]">
-                            {p.role}
+                            {lineupB.reservePlayer.role}
                           </Badge>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Team B Reserve */}
-                <div className="pt-2 border-t space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Reserve Player (1)
-                  </span>
-                  {lineupB.reservePlayer ? (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{lineupB.reservePlayer.name}</span>
-                        <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
-                          Reserve
-                        </Badge>
                       </div>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {lineupB.reservePlayer.role}
-                      </Badge>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground italic">No reserve assigned.</p>
-                  )}
-                </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5 text-sky-500" /> Full Team Squad ({lineupB.fullSquad.length})
+                    </span>
+                    {lineupB.fullSquad.length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-2 italic">Squad not announced yet.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {lineupB.fullSquad.map((p, idx) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-muted-foreground w-4 text-center">
+                                {idx + 1}
+                              </span>
+                              <span className="font-semibold">{p.name}</span>
+                              {(p.isCaptain || p.designation === "Captain") && (
+                                <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
+                                  (C)
+                                </Badge>
+                              )}
+                              {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                                <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
+                                  (VC)
+                                </Badge>
+                              )}
+                            </div>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {p.role}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground pt-1 italic">
+                      * Starting Playing VI (6) and Reserve (1) are decided at match toss.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
