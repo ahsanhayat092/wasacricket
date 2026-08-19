@@ -193,12 +193,12 @@ export default function AdminMatchControl() {
       {/* Start Match / Conduct Toss (if UPCOMING) */}
       {match.status === "UPCOMING" && teamA && teamB && (
         <StartMatchCard
+          match={match}
           teamA={teamA}
           teamB={teamB}
+          players={players}
           pending={startMatch.isPending}
-          onStart={(tossWinnerId, tossDecision) =>
-            startMatch.mutate({ tossWinnerId, tossDecision })
-          }
+          onStart={(args) => startMatch.mutate(args)}
         />
       )}
 
@@ -293,70 +293,305 @@ export default function AdminMatchControl() {
 }
 
 // ---------------------------------------------------------------------------
-// Start Match / Toss Card
+// Start Match / Toss & Playing VI Card
 // ---------------------------------------------------------------------------
 
 function StartMatchCard({
+  match,
   teamA,
   teamB,
+  players,
   pending,
   onStart,
 }: {
+  match: Match;
   teamA: Team;
   teamB: Team;
+  players: Player[];
   pending: boolean;
-  onStart: (tossWinnerId: string, decision: "BAT" | "BOWL") => void;
+  onStart: (args: {
+    tossWinnerId: string;
+    tossDecision: "BAT" | "BOWL";
+    teamAPlayingVI: string[];
+    teamAReserveId: string | null;
+    teamBPlayingVI: string[];
+    teamBReserveId: string | null;
+  }) => void;
 }) {
   const [tossWinner, setTossWinner] = useState<string>("");
   const [decision, setDecision] = useState<"BAT" | "BOWL">("BAT");
 
+  const teamAPlayers = players.filter((p) => p.teamId === teamA.id);
+  const teamBPlayers = players.filter((p) => p.teamId === teamB.id);
+
+  // Lineup state for Team A
+  const [teamAPlayingVI, setTeamAPlayingVI] = useState<string[]>(() => {
+    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) return match.teamAPlayingVI;
+    return teamAPlayers.slice(0, 6).map((p) => p.id);
+  });
+  const [teamAReserveId, setTeamAReserveId] = useState<string>(() => {
+    if (match.teamAReserveId) return match.teamAReserveId;
+    return teamAPlayers[6]?.id ?? "";
+  });
+
+  // Lineup state for Team B
+  const [teamBPlayingVI, setTeamBPlayingVI] = useState<string[]>(() => {
+    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) return match.teamBPlayingVI;
+    return teamBPlayers.slice(0, 6).map((p) => p.id);
+  });
+  const [teamBReserveId, setTeamBReserveId] = useState<string>(() => {
+    if (match.teamBReserveId) return match.teamBReserveId;
+    return teamBPlayers[6]?.id ?? "";
+  });
+
+  const togglePlayerA = (id: string) => {
+    if (teamAPlayingVI.includes(id)) {
+      setTeamAPlayingVI(teamAPlayingVI.filter((p) => p !== id));
+    } else {
+      if (teamAPlayingVI.length >= 6) {
+        toast.error("Playing squad is limited to 6 starting players (Indoor format).");
+        return;
+      }
+      setTeamAPlayingVI([...teamAPlayingVI, id]);
+      if (teamAReserveId === id) setTeamAReserveId("");
+    }
+  };
+
+  const togglePlayerB = (id: string) => {
+    if (teamBPlayingVI.includes(id)) {
+      setTeamBPlayingVI(teamBPlayingVI.filter((p) => p !== id));
+    } else {
+      if (teamBPlayingVI.length >= 6) {
+        toast.error("Playing squad is limited to 6 starting players (Indoor format).");
+        return;
+      }
+      setTeamBPlayingVI([...teamBPlayingVI, id]);
+      if (teamBReserveId === id) setTeamBReserveId("");
+    }
+  };
+
+  const handleStartSubmit = () => {
+    if (!tossWinner) {
+      toast.error("Please select which team won the toss.");
+      return;
+    }
+    if (teamAPlayingVI.length !== 6 && teamAPlayers.length >= 6) {
+      toast.error(`Please select exactly 6 players for ${teamA.name} Playing VI.`);
+      return;
+    }
+    if (teamBPlayingVI.length !== 6 && teamBPlayers.length >= 6) {
+      toast.error(`Please select exactly 6 players for ${teamB.name} Playing VI.`);
+      return;
+    }
+
+    onStart({
+      tossWinnerId: tossWinner,
+      tossDecision: decision,
+      teamAPlayingVI,
+      teamAReserveId: teamAReserveId || null,
+      teamBPlayingVI,
+      teamBReserveId: teamBReserveId || null,
+    });
+  };
+
   return (
-    <Card className="border-emerald-500/30 bg-card">
-      <CardHeader>
-        <CardTitle className="text-lg font-bold flex items-center gap-2">
-          <Zap className="h-5 w-5 text-emerald-500" /> Conduct Toss & Start Live Match
-        </CardTitle>
-        <CardDescription className="text-xs">
-          Select which team won the toss and their election to begin live ball-by-ball scoring.
+    <Card className="border-emerald-500/40 bg-card shadow-lg">
+      <CardHeader className="p-4 sm:p-5 border-b bg-emerald-500/5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base sm:text-lg font-black flex items-center gap-2 text-emerald-500">
+            <Zap className="h-5 w-5" /> 1. Conduct Toss & Set Match Playing VI (6+1)
+          </CardTitle>
+          <Badge variant="outline" className="text-xs border-emerald-500/30 text-emerald-500 font-bold">
+            Match Setup
+          </Badge>
+        </div>
+        <CardDescription className="text-xs mt-1">
+          Record the toss result and confirm the starting Playing VI (6 starters + 1 reserve) for both teams to go LIVE.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap items-end gap-4">
-        <div className="space-y-2 min-w-[200px]">
-          <Label className="text-xs font-semibold">Toss Won By</Label>
-          <Select value={tossWinner} onValueChange={setTossWinner}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select team" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={teamA.id}>
-                {teamA.name} ({teamA.shortName})
-              </SelectItem>
-              <SelectItem value={teamB.id}>
-                {teamB.name} ({teamB.shortName})
-              </SelectItem>
-            </SelectContent>
-          </Select>
+
+      <CardContent className="p-4 sm:p-6 space-y-6">
+        {/* Section 1: Toss Results */}
+        <div className="grid gap-4 sm:grid-cols-2 p-4 rounded-xl border bg-muted/20">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-foreground">🪙 Toss Won By</Label>
+            <Select value={tossWinner} onValueChange={setTossWinner}>
+              <SelectTrigger className="h-10 text-xs font-semibold">
+                <SelectValue placeholder="Select team winning toss" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={teamA.id}>
+                  {teamA.name} ({teamA.shortName})
+                </SelectItem>
+                <SelectItem value={teamB.id}>
+                  {teamB.name} ({teamB.shortName})
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-foreground">🎯 Toss Decision</Label>
+            <Select value={decision} onValueChange={(v) => setDecision(v as "BAT" | "BOWL")}>
+              <SelectTrigger className="h-10 text-xs font-semibold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="BAT">🏏 Elected to Bat First</SelectItem>
+                <SelectItem value="BOWL">🎯 Elected to Bowl First</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="space-y-2 min-w-[160px]">
-          <Label className="text-xs font-semibold">Elected To</Label>
-          <Select value={decision} onValueChange={(v) => setDecision(v as "BAT" | "BOWL")}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="BAT">🏏 Bat First</SelectItem>
-              <SelectItem value="BOWL">🎯 Bowl First</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Section 2: Playing VI Lineup Selection */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Users className="h-4 w-4 text-emerald-500" /> Confirm 6 Playing + 1 Reserve for Each Team
+            </span>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Team A Lineup */}
+            <div className="p-4 rounded-xl border bg-muted/10 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b">
+                <div className="flex items-center gap-2">
+                  <TeamBadge shortName={teamA.shortName} logoUrl={teamA.logoUrl} size="sm" />
+                  <span className="font-bold text-xs sm:text-sm">{teamA.name}</span>
+                </div>
+                <Badge
+                  variant={teamAPlayingVI.length === 6 ? "default" : "outline"}
+                  className={teamAPlayingVI.length === 6 ? "bg-emerald-600 text-white text-[10px]" : "border-amber-500 text-amber-500 text-[10px]"}
+                >
+                  {teamAPlayingVI.length}/6 Starters
+                </Badge>
+              </div>
+
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                {teamAPlayers.map((p) => {
+                  const isSelected = teamAPlayingVI.includes(p.id);
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => togglePlayerA(p.id)}
+                      className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-emerald-500/15 border-emerald-500/50 font-semibold"
+                          : "hover:bg-muted/40 border-border opacity-70"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={isSelected} />
+                        <span>{p.name}</span>
+                        {(p.isCaptain || p.designation === "Captain") && (
+                          <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
+                        )}
+                        {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                          <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">(VC)</Badge>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="text-[9px]">{p.role}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 border-t space-y-1">
+                <Label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
+                  <ArrowRightLeft className="h-3 w-3 text-amber-500" /> Reserve Player (1):
+                </Label>
+                <Select value={teamAReserveId} onValueChange={setTeamAReserveId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select Reserve Player" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamAPlayers
+                      .filter((p) => !teamAPlayingVI.includes(p.id))
+                      .map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.role})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Team B Lineup */}
+            <div className="p-4 rounded-xl border bg-muted/10 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b">
+                <div className="flex items-center gap-2">
+                  <TeamBadge shortName={teamB.shortName} logoUrl={teamB.logoUrl} size="sm" />
+                  <span className="font-bold text-xs sm:text-sm">{teamB.name}</span>
+                </div>
+                <Badge
+                  variant={teamBPlayingVI.length === 6 ? "default" : "outline"}
+                  className={teamBPlayingVI.length === 6 ? "bg-emerald-600 text-white text-[10px]" : "border-amber-500 text-amber-500 text-[10px]"}
+                >
+                  {teamBPlayingVI.length}/6 Starters
+                </Badge>
+              </div>
+
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                {teamBPlayers.map((p) => {
+                  const isSelected = teamBPlayingVI.includes(p.id);
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => togglePlayerB(p.id)}
+                      className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-emerald-500/15 border-emerald-500/50 font-semibold"
+                          : "hover:bg-muted/40 border-border opacity-70"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={isSelected} />
+                        <span>{p.name}</span>
+                        {(p.isCaptain || p.designation === "Captain") && (
+                          <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
+                        )}
+                        {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                          <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">(VC)</Badge>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="text-[9px]">{p.role}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 border-t space-y-1">
+                <Label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
+                  <ArrowRightLeft className="h-3 w-3 text-amber-500" /> Reserve Player (1):
+                </Label>
+                <Select value={teamBReserveId} onValueChange={setTeamBReserveId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select Reserve Player" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamBPlayers
+                      .filter((p) => !teamBPlayingVI.includes(p.id))
+                      .map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.role})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* Start Match Button */}
         <Button
           disabled={pending || !tossWinner}
-          onClick={() => onStart(tossWinner, decision)}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2"
+          onClick={handleStartSubmit}
+          className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm sm:text-base gap-2 shadow-md"
         >
-          <Zap className="h-4 w-4" /> Start Live Scoring
+          <Zap className="h-5 w-5 animate-pulse" /> Confirm Toss & Start Live Match
         </Button>
       </CardContent>
     </Card>

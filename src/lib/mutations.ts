@@ -387,10 +387,14 @@ export async function startMatch(input: {
   matchId: string;
   tossWinnerId: string;
   tossDecision: "BAT" | "BOWL";
+  teamAPlayingVI?: string[];
+  teamAReserveId?: string | null;
+  teamBPlayingVI?: string[];
+  teamBReserveId?: string | null;
 }) {
   const snap = await getDoc(matchDoc(input.matchId));
   if (!snap.exists()) throw new Error("Match not found");
-  const match = { id: snap.id, ...snap.data() } as Match;
+  const match = snap.data() as Match;
 
   if (!match.teamAId || !match.teamBId) {
     throw new Error("Both teams must be set before starting the match.");
@@ -412,6 +416,10 @@ export async function startMatch(input: {
     status: "LIVE",
     tossWinnerId: input.tossWinnerId,
     tossDecision: input.tossDecision,
+    ...(input.teamAPlayingVI !== undefined ? { teamAPlayingVI: input.teamAPlayingVI } : {}),
+    ...(input.teamAReserveId !== undefined ? { teamAReserveId: input.teamAReserveId } : {}),
+    ...(input.teamBPlayingVI !== undefined ? { teamBPlayingVI: input.teamBPlayingVI } : {}),
+    ...(input.teamBReserveId !== undefined ? { teamBReserveId: input.teamBReserveId } : {}),
     updatedAt: now(),
   });
 
