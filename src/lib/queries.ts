@@ -107,7 +107,7 @@ export async function getPlayersByTeam(teamId: string): Promise<Player[]> {
 // Matches
 // ---------------------------------------------------------------------------
 
-async function hydrateMatch(m: Match, teams: Team[]): Promise<HydratedMatch> {
+function hydrateMatch(m: Match, teams: Team[], innings: Innings[] = []): HydratedMatch {
   const find = (id: string | null | undefined) =>
     teams.find((t) => t.id === id) ?? null;
   return {
@@ -116,19 +116,22 @@ async function hydrateMatch(m: Match, teams: Team[]): Promise<HydratedMatch> {
     teamB: find(m.teamBId),
     tossWinner: find(m.tossWinnerId),
     winningTeam: find(m.winningTeamId),
+    innings: innings.filter((i) => i.matchId === m.id).sort((a, b) => a.inningsNumber - b.inningsNumber),
   };
 }
 
 export async function getSchedule(): Promise<HydratedMatch[]> {
   try {
-    const [matchSnap, teams] = await Promise.all([
+    const [matchSnap, teams, inningsSnap] = await Promise.all([
       getDocs(query(matchesCol(), where("tournamentId", "==", TOURNAMENT_ID))),
       getTeams(),
+      getDocs(inningsCol()),
     ]);
+    const allInnings = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
     const matches = matchSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Match)
       .sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0));
-    return Promise.all(matches.map((m) => hydrateMatch(m, teams)));
+    return matches.map((m) => hydrateMatch(m, teams, allInnings));
   } catch (err) {
     console.error("Error loading schedule:", err);
     return [];

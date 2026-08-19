@@ -165,6 +165,7 @@ export type HydratedMatch = Match & {
   teamB: Team | null;
   tossWinner: Team | null;
   winningTeam: Team | null;
+  innings?: Innings[];
 };
 
 export type InningsWithScores = Innings & {
