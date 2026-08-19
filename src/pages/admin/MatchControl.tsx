@@ -143,6 +143,16 @@ export default function AdminMatchControl() {
   const inn1 = innings.find((i) => i.inningsNumber === 1);
   const inn2 = innings.find((i) => i.inningsNumber === 2);
   const canEnterScores = match.status === "LIVE";
+  const [activeInningsTab, setActiveInningsTab] = useState<string>(() =>
+    inn2 ? "2" : (inn1?.completed ? "2" : "1"),
+  );
+
+  // Sync tab if inn2 appears
+  useEffect(() => {
+    if (inn2 && activeInningsTab === "1" && inn1?.completed) {
+      setActiveInningsTab("2");
+    }
+  }, [inn2, inn1?.completed]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
@@ -235,14 +245,14 @@ export default function AdminMatchControl() {
 
         {/* Tab 1: Live Scoring */}
         <TabsContent value="scoring" className="mt-4 space-y-6">
-          <Tabs defaultValue={inn2 ? "2" : "1"} className="w-full">
+          <Tabs value={activeInningsTab} onValueChange={setActiveInningsTab} className="w-full">
             <div className="flex items-center justify-between border-b pb-2">
-              <TabsList className="grid w-72 grid-cols-2">
+              <TabsList className="grid w-80 grid-cols-2">
                 <TabsTrigger value="1" className="text-xs font-bold">
                   1st Innings {inn1 ? `(${inn1.runs}/${inn1.wickets})` : ""}
                 </TabsTrigger>
                 <TabsTrigger value="2" className="text-xs font-bold">
-                  2nd Innings {inn2 ? `(${inn2.runs}/${inn2.wickets})` : ""}
+                  2nd Innings {inn2 ? `(${inn2.runs}/${inn2.wickets})` : inn1?.completed ? `(Target: ${inn1.runs + 1})` : ""}
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -255,6 +265,11 @@ export default function AdminMatchControl() {
                 workspace={data}
                 readOnly={false}
                 onSaved={() => {
+                  refetch();
+                  invalidate();
+                }}
+                onInningsCompleted={() => {
+                  setActiveInningsTab("2");
                   refetch();
                   invalidate();
                 }}
@@ -271,6 +286,9 @@ export default function AdminMatchControl() {
                 onSaved={() => {
                   refetch();
                   invalidate();
+                }}
+                onAutoFinalizeMatch={() => {
+                  completeMatch.mutate({});
                 }}
               />
             </TabsContent>
@@ -646,12 +664,16 @@ function InningsLiveConsole({
   workspace,
   readOnly,
   onSaved,
+  onInningsCompleted,
+  onAutoFinalizeMatch,
 }: {
   matchId: string;
   inningsNumber: 1 | 2;
   workspace: WorkspaceData;
   readOnly: boolean;
   onSaved: () => void;
+  onInningsCompleted?: () => void;
+  onAutoFinalizeMatch?: () => void;
 }) {
   const { innings, players, teams, match } = workspace;
   const existing = innings.find((i) => i.inningsNumber === inningsNumber);
@@ -785,6 +807,13 @@ function InningsLiveConsole({
   const [completedOverNum, setCompletedOverNum] = useState<number>(1);
   const [selectedNextBowlerId, setSelectedNextBowlerId] = useState<string>("");
 
+  const isFinal = match.stage === "FINAL";
+  const maxMatchOvers = isFinal ? 5 : (match.oversPerSide ?? 4);
+  const maxLegalBallsInnings = maxMatchOvers * 6;
+  const maxWickets = 5; // 6 players per team: 5 dismissals = ALL OUT
+
+  const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
+
   // Trigger Next Bowler Selection Dialog on Over Completion or Quota Reached
   const triggerNextBowlerDialog = (newTotalBalls: number, previousBowlerId: string) => {
     if (newTotalBalls >= maxLegalBallsInnings) return; // Innings already finished
@@ -837,9 +866,6 @@ function InningsLiveConsole({
   const save = useMutation({
     mutationFn: (args: Parameters<typeof fbSaveInnings>[0]) => fbSaveInnings(args),
     onSuccess: (r) => {
-      toast.success(
-        `Scoreboard updated: ${r.runs}/${r.wickets} (${ballsToOversText(r.balls)} ov)`,
-      );
       onSaved();
     },
     onError: (e) => toast.error(e.message),
@@ -891,10 +917,6 @@ function InningsLiveConsole({
     });
   };
 
-  const isFinal = match.stage === "FINAL";
-  const maxMatchOvers = isFinal ? 5 : (match.oversPerSide ?? 4);
-  const maxLegalBallsInnings = maxMatchOvers * 6;
-
   // Check how many bowlers have bowled 2 overs (in Final)
   const bowlersWith2Overs = bowlRows.filter((b) => b.balls >= 12);
   const alreadyHas2OverBowler = bowlersWith2Overs.length >= 1;
@@ -918,6 +940,61 @@ function InningsLiveConsole({
     const currentBalls = bowler?.balls ?? 0;
     const maxBalls = getBowlerMaxBalls(playerId);
     return currentBalls >= maxBalls;
+  };
+
+  // Check if Innings or Match has ended
+  const checkInningsAndMatchCompletion = (
+    newBat: BatRow[],
+    newBowl: BowlRow[],
+    newExtras: typeof extras,
+    newBalls: number,
+  ): boolean => {
+    const newBatterRuns = newBat.filter((b) => b.batted).reduce((s, b) => s + b.runs, 0);
+    const newExtrasTotal =
+      newExtras.wides + newExtras.noBalls + newExtras.byes + newExtras.legByes + newExtras.penaltyRuns;
+    const newTotalRuns = newBatterRuns + newExtrasTotal;
+    const newTotalWickets = newBat.filter((b) => b.batted && b.isOut).length;
+
+    const isAllOut = newTotalWickets >= maxWickets;
+    const isOversDone = newBalls >= maxLegalBallsInnings;
+
+    if (inningsNumber === 1) {
+      if (isOversDone || isAllOut) {
+        setClosed(true);
+        triggerSave(newBat, newBowl, newExtras, true);
+        const reason = isAllOut ? "All Out (5 wickets fallen)" : `${maxMatchOvers} Overs Completed`;
+        toast.success(
+          `🏁 1st Innings Complete (${reason})! Target for 2nd Innings is ${newTotalRuns + 1} runs.`,
+          { duration: 6000 },
+        );
+        setTimeout(() => {
+          onInningsCompleted?.();
+        }, 800);
+        return true;
+      }
+    } else if (inningsNumber === 2 && target !== null) {
+      const targetReached = newTotalRuns >= target;
+      if (targetReached || isOversDone || isAllOut) {
+        setClosed(true);
+        triggerSave(newBat, newBowl, newExtras, true);
+        setTimeout(() => {
+          onAutoFinalizeMatch?.();
+        }, 800);
+        if (targetReached) {
+          toast.success(
+            `🏆 Target Reached! ${battingTeam?.name ?? "Chasing Team"} won the match!`,
+            { duration: 8000 },
+          );
+        } else {
+          toast.success(
+            `🏁 2nd Innings Ended! Match scorecards completed.`,
+            { duration: 8000 },
+          );
+        }
+        return true;
+      }
+    }
+    return false;
   };
 
   // Push snapshot to history stack for UNDO
@@ -965,15 +1042,23 @@ function InningsLiveConsole({
 
   // Record Runs from Bat (0, 1, 2, 3, 4, 6)
   const recordBall = (runsScored: number) => {
+    if (closed) {
+      toast.info("Innings is completed. Please switch to the next innings or finalize match.");
+      return;
+    }
+
     if (!strikerId || !currentBowlerId) {
       toast.error("Please select both Striker and Bowler first.");
       return;
     }
 
     if (totalLegalBalls >= maxLegalBallsInnings) {
-      toast.error(
-        `Innings limit reached (${maxMatchOvers} overs). Please complete the innings.`,
-      );
+      toast.error(`Innings limit reached (${maxMatchOvers} overs).`);
+      return;
+    }
+
+    if (totalWickets >= maxWickets) {
+      toast.error(`Team is All Out (${maxWickets} wickets).`);
       return;
     }
 
@@ -1039,17 +1124,34 @@ function InningsLiveConsole({
     setBowlRows(newBowl);
     setRecentBalls((prev) => [...prev.slice(-11), runsScored === 0 ? "•" : runsScored.toString()]);
 
-    triggerSave(newBat, newBowl, extras);
-
-    if (isOverEnd) {
-      triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+    const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, extras, newTotalBalls);
+    if (!isFinished) {
+      triggerSave(newBat, newBowl, extras);
+      if (isOverEnd) {
+        triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+      }
     }
   };
 
   // Record Extras (Wide, No Ball, Bye, Leg Bye)
   const recordExtra = (type: "WIDE" | "NO_BALL" | "BYE" | "LEG_BYE", extraRuns = 1) => {
+    if (closed) {
+      toast.info("Innings is completed.");
+      return;
+    }
+
     if (!currentBowlerId) {
       toast.error("Please select the Current Bowler.");
+      return;
+    }
+
+    if (totalLegalBalls >= maxLegalBallsInnings && (type === "BYE" || type === "LEG_BYE")) {
+      toast.error(`Innings limit reached (${maxMatchOvers} overs).`);
+      return;
+    }
+
+    if (totalWickets >= maxWickets) {
+      toast.error(`Team is All Out (${maxWickets} wickets).`);
       return;
     }
 
@@ -1117,17 +1219,27 @@ function InningsLiveConsole({
     setBowlRows(newBowl);
     setBatRows(newBat);
 
-    triggerSave(newBat, newBowl, newExtras);
-
-    if (isOverEnd) {
-      triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+    const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, newTotalBalls);
+    if (!isFinished) {
+      triggerSave(newBat, newBowl, newExtras);
+      if (isOverEnd) {
+        triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+      }
     }
   };
 
   // Open Wicket Popup
   const promptWicket = () => {
+    if (closed) {
+      toast.info("Innings is completed.");
+      return;
+    }
+    if (totalWickets >= maxWickets) {
+      toast.error(`Team is already All Out (${maxWickets} wickets).`);
+      return;
+    }
     setOutPlayerId(strikerId);
-    const unbatted = batRows.filter((b) => !b.batted);
+    const unbatted = batRows.filter((b) => !b.batted && !b.isOut);
     setIncomingPlayerId(unbatted[0]?.playerId ?? "");
     setWicketModalOpen(true);
   };
@@ -1188,11 +1300,13 @@ function InningsLiveConsole({
     setRecentBalls((prev) => [...prev.slice(-11), "W"]);
     setWicketModalOpen(false);
 
-    triggerSave(newBat, newBowl, extras);
-    toast.success(`Wicket recorded (${dismissalType})!`);
-
-    if (isOverEnd) {
-      triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+    const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, extras, newTotalBalls);
+    if (!isFinished) {
+      triggerSave(newBat, newBowl, extras);
+      toast.success(`Wicket recorded (${dismissalType})!`);
+      if (isOverEnd) {
+        triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+      }
     }
   };
 
@@ -1278,6 +1392,43 @@ function InningsLiveConsole({
       </Card>
 
       {/* Warning if squad players are missing */}
+      {/* 1st Innings Finished Banner -> Switch to 2nd Innings */}
+      {inningsNumber === 1 && closed && (
+        <Card className="border-emerald-500 bg-emerald-500/10 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h4 className="font-bold text-sm text-emerald-400">🏁 1st Innings Finished!</h4>
+            <p className="text-xs text-muted-foreground">
+              {battingTeam?.name} scored <strong>{totalRuns}/{totalWickets}</strong>. Target for {bowlingTeam?.name} is <strong>{totalRuns + 1} runs</strong>.
+            </p>
+          </div>
+          <Button
+            onClick={() => onInningsCompleted?.()}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 text-xs"
+          >
+            🏏 Start 2nd Innings (Target: {totalRuns + 1}) <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Card>
+      )}
+
+      {/* 2nd Innings Target & Chase Banner */}
+      {inningsNumber === 2 && target !== null && (
+        <Card className="border-sky-500/40 bg-sky-500/10 p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-sky-600 text-white font-bold">🎯 TARGET: {target}</Badge>
+            <span className="font-medium text-foreground">
+              {totalRuns >= target ? (
+                <strong className="text-emerald-400">Target reached! Match won!</strong>
+              ) : (
+                <>Need <strong className="text-sky-400 font-bold">{Math.max(0, target - totalRuns)}</strong> runs from <strong className="font-bold">{Math.max(0, maxLegalBallsInnings - totalLegalBalls)}</strong> balls</>
+              )}
+            </span>
+          </div>
+          <span className="font-mono text-muted-foreground">
+            RRR: {Math.max(0, maxLegalBallsInnings - totalLegalBalls) > 0 ? (((Math.max(0, target - totalRuns)) / Math.max(1, maxLegalBallsInnings - totalLegalBalls)) * 6).toFixed(2) : "0.00"}
+          </span>
+        </Card>
+      )}
+
       {(battingPlayers.length === 0 || bowlingPlayers.length === 0) && (
         <Card className="border-amber-500/40 bg-amber-500/10 p-4">
           <p className="text-xs font-bold text-amber-500 flex items-center gap-2">
