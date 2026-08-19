@@ -288,7 +288,7 @@ export default function AdminMatchControl() {
 
             <TabsContent value="1" className="mt-4">
               <InningsLiveConsole
-                key={`innings-${match.id}-1`}
+                key={`innings-${match.id}-1-${inn1?.id ?? "fresh"}-${inn1?.runs ?? 0}`}
                 matchId={match.id}
                 inningsNumber={1}
                 workspace={data}
@@ -307,7 +307,7 @@ export default function AdminMatchControl() {
 
             <TabsContent value="2" className="mt-4">
               <InningsLiveConsole
-                key={`innings-${match.id}-2`}
+                key={`innings-${match.id}-2-${inn2?.id ?? "fresh"}-${inn1?.runs ?? 0}`}
                 matchId={match.id}
                 inningsNumber={2}
                 workspace={data}
@@ -326,6 +326,8 @@ export default function AdminMatchControl() {
           {/* Complete Match & Declare Winner */}
           {(inn1 || inn2) && (
             <CompleteMatchCard
+              match={match}
+              teams={teams}
               players={players}
               pending={completeMatch.isPending}
               onComplete={(playerOfMatchId) => {
@@ -2398,15 +2400,31 @@ function InningsLiveConsole({
 // ---------------------------------------------------------------------------
 
 function CompleteMatchCard({
+  match,
+  teams,
   players,
   pending,
   onComplete,
 }: {
+  match: Match;
+  teams: Team[];
   players: Player[];
   pending: boolean;
   onComplete: (playerOfMatchId?: string) => void;
 }) {
   const [pom, setPom] = useState<string>("");
+
+  // Only players from the two competing teams in this match
+  const matchPlayers = useMemo(
+    () =>
+      players.filter(
+        (p) => p.teamId === match.teamAId || p.teamId === match.teamBId,
+      ),
+    [players, match.teamAId, match.teamBId],
+  );
+
+  const teamNameOf = (teamId?: string | null) =>
+    teams.find((t) => t.id === teamId)?.shortName ?? "Team";
 
   return (
     <Card className="border-emerald-500/40 bg-emerald-500/5">
@@ -2419,16 +2437,16 @@ function CompleteMatchCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap items-end gap-4">
-        <div className="space-y-1.5 min-w-[240px]">
+        <div className="space-y-1.5 min-w-[280px]">
           <Label className="text-xs font-semibold">Player of the Match (Optional)</Label>
-          <Select value={pom} onValueChange={setPom}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select player" />
+          <Select value={pom || undefined} onValueChange={setPom}>
+            <SelectTrigger className="h-10 text-xs">
+              <SelectValue placeholder="Select player from playing teams" />
             </SelectTrigger>
             <SelectContent>
-              {players.map((p) => (
+              {matchPlayers.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.name}
+                  {p.name} ({teamNameOf(p.teamId)})
                 </SelectItem>
               ))}
             </SelectContent>

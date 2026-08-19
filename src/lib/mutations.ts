@@ -618,38 +618,42 @@ export async function resetMatch(matchId: string) {
   if (!snap.exists()) throw new Error("Match not found");
   const match = { id: snap.id, ...snap.data() } as Match;
 
-  // 1. Fetch all innings for this match
-  const inningsSnap = await getDocs(
-    query(inningsCol(), where("matchId", "==", matchId)),
-  );
-  const inningsIds = inningsSnap.docs.map((d) => d.id);
+  // 1. Fetch all innings for this match (robust query + in-memory fallback)
+  const [inningsSnap, allInningsSnap] = await Promise.all([
+    getDocs(query(inningsCol(), where("matchId", "==", matchId))),
+    getDocs(inningsCol()),
+  ]);
+
+  const targetInningsDocs = [
+    ...inningsSnap.docs,
+    ...allInningsSnap.docs.filter((d) => d.data().matchId === matchId),
+  ];
+  // Deduplicate by doc ID
+  const uniqueInningsMap = new Map<string, typeof targetInningsDocs[0]>();
+  for (const d of targetInningsDocs) {
+    uniqueInningsMap.set(d.id, d);
+  }
+  const inningsIds = Array.from(uniqueInningsMap.keys());
 
   // 2. Fetch batting and bowling score records
-  const [battingSnaps, bowlingSnaps] = await Promise.all([
-    Promise.all(
-      inningsIds.map((id) =>
-        getDocs(query(battingScoresCol(), where("inningsId", "==", id))),
-      ),
-    ),
-    Promise.all(
-      inningsIds.map((id) =>
-        getDocs(query(bowlingScoresCol(), where("inningsId", "==", id))),
-      ),
-    ),
+  const [allBatSnap, allBowlSnap] = await Promise.all([
+    getDocs(battingScoresCol()),
+    getDocs(bowlingScoresCol()),
   ]);
+
+  const matchBatDocs = allBatSnap.docs.filter((d) =>
+    inningsIds.includes(d.data().inningsId),
+  );
+  const matchBowlDocs = allBowlSnap.docs.filter((d) =>
+    inningsIds.includes(d.data().inningsId),
+  );
 
   // 3. Batch delete all scorecards and innings docs
   const batch = writeBatch(db);
 
-  for (const s of battingSnaps) {
-    s.docs.forEach((d) => batch.delete(d.ref));
-  }
-  for (const s of bowlingSnaps) {
-    s.docs.forEach((d) => batch.delete(d.ref));
-  }
-  for (const d of inningsSnap.docs) {
-    batch.delete(d.ref);
-  }
+  matchBatDocs.forEach((d) => batch.delete(d.ref));
+  matchBowlDocs.forEach((d) => batch.delete(d.ref));
+  uniqueInningsMap.forEach((d) => batch.delete(d.ref));
 
   // 4. Reset match document back to clean UPCOMING state
   batch.update(matchDoc(matchId), {

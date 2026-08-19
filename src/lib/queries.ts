@@ -382,7 +382,9 @@ export async function getMatchWorkspace(matchId: string) {
       getDocs(query(inningsCol(), where("matchId", "==", matchId))),
     ]);
 
-    const inningsList = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+    const inningsList = inningsSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as Innings)
+      .sort((a, b) => a.inningsNumber - b.inningsNumber);
     const inningsIds = inningsList.map((i) => i.id);
 
     const [battingSnap, bowlingSnap] = inningsIds.length
@@ -399,11 +401,28 @@ export async function getMatchWorkspace(matchId: string) {
       match,
       teams,
       players,
-      innings: inningsList.map((inn) => ({
-        ...inn,
-        batting: battingAll.filter((b) => b.inningsId === inn.id),
-        bowling: bowlingAll.filter((b) => b.inningsId === inn.id),
-      })),
+      innings: inningsList.map((inn) => {
+        const batting = battingAll.filter((b) => b.inningsId === inn.id);
+        const bowling = bowlingAll.filter((b) => b.inningsId === inn.id);
+        const batRuns = batting.reduce((s, b) => s + (Number(b.runs) || 0), 0);
+        const extras =
+          (Number(inn.wides) || 0) +
+          (Number(inn.noBalls) || 0) +
+          (Number(inn.byes) || 0) +
+          (Number(inn.legByes) || 0) +
+          (Number(inn.penaltyRuns) || 0);
+        const runs = batting.length > 0 || extras > 0 ? batRuns + extras : (Number(inn.runs) || 0);
+        const wickets = batting.filter((b) => b.isOut).length;
+        const balls = bowling.reduce((s, b) => s + (Number(b.balls) || 0), 0);
+        return {
+          ...inn,
+          runs,
+          wickets,
+          balls,
+          batting,
+          bowling,
+        };
+      }),
     };
   } catch (err) {
     console.error("Error loading match workspace:", err);
