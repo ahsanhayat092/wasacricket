@@ -4,7 +4,7 @@ import { TeamBadge } from "@/components/TeamBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Users } from "lucide-react";
+import { Users, ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
 export default function Teams() {
@@ -12,18 +12,18 @@ export default function Teams() {
     queryKey: ["teams"],
     queryFn: getTeams,
   });
-  const { data: players } = useQuery({
+  const { data: players, isLoading: loadingPlayers } = useQuery({
     queryKey: ["players"],
     queryFn: getPlayers,
   });
 
-  if (loadingTeams || !teams) {
+  if (loadingTeams || loadingPlayers || !teams) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
         <Skeleton className="h-10 w-48 mb-6" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
+            <Skeleton key={i} className="h-72 rounded-xl" />
           ))}
         </div>
       </div>
@@ -37,7 +37,7 @@ export default function Teams() {
           Tournament Teams & Squads
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Explore all 6 WASA Premier League teams, assigned groups, captains, and squad rosters.
+          Explore all 6 WASA Premier League teams and their full 7-member squads.
         </p>
       </div>
 
@@ -52,52 +52,93 @@ export default function Teams() {
             </h2>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {teams
               .filter((t) => t.groupName === group)
               .map((t) => {
                 const teamPlayers = (players ?? []).filter((p) => p.teamId === t.id);
-                const captain = teamPlayers.find(
-                  (p) => p.isCaptain || p.designation === "Captain",
-                );
 
                 return (
-                  <Link key={t.id} to={`/teams/${t.id}`} className="group">
-                    <Card className="h-full hover:shadow-md hover:border-primary/50 transition-all">
-                      <CardContent className="p-5 flex flex-col justify-between h-full gap-4">
-                        <div className="flex items-center gap-4">
-                          <TeamBadge shortName={t.shortName} logoUrl={t.logoUrl} size="lg" />
-                          <div className="min-w-0 flex-1">
-                            <p className="font-extrabold text-lg truncate group-hover:text-primary transition-colors">
+                  <Card key={t.id} className="h-full flex flex-col justify-between border shadow-sm hover:shadow-md hover:border-primary/50 transition-all overflow-hidden bg-card">
+                    <div>
+                      {/* Card Header */}
+                      <div className="p-4 sm:p-5 border-b bg-muted/20 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <TeamBadge shortName={t.shortName} logoUrl={t.logoUrl} size="md" />
+                          <div className="min-w-0">
+                            <h3 className="font-extrabold text-base truncate">
                               {t.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground font-mono font-medium">
+                            </h3>
+                            <p className="text-[11px] text-muted-foreground font-mono">
                               Code: {t.shortName}
                             </p>
                           </div>
                         </div>
+                        <Badge variant="secondary" className="text-[10px] font-bold shrink-0">
+                          {teamPlayers.length} Members
+                        </Badge>
+                      </div>
 
-                        <div className="border-t pt-3 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-1.5 truncate">
-                            {captain ? (
-                              <span className="font-semibold text-amber-500 flex items-center gap-1 truncate">
-                                <Crown className="h-3.5 w-3.5 shrink-0" />
-                                <span className="truncate">C: {captain.name}</span>
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground italic">
-                                Captain TBA
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-muted-foreground flex items-center gap-1 shrink-0 font-medium">
-                            <Users className="h-3 w-3" />
-                            {teamPlayers.length} players
-                          </span>
+                      {/* Complete Squad List */}
+                      <CardContent className="p-4 space-y-2">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 pb-1">
+                          <Users className="h-3.5 w-3.5 text-emerald-500" /> Complete 7-Member Squad
                         </div>
+
+                        {teamPlayers.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic py-3">
+                            Squad not announced yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {teamPlayers.map((p, idx) => {
+                              const isCap = p.isCaptain || p.designation === "Captain";
+                              const isVc = p.isViceCaptain || p.designation === "Vice Captain";
+
+                              return (
+                                <div
+                                  key={p.id}
+                                  className="flex items-center justify-between p-1.5 sm:p-2 rounded-lg bg-muted/30 border border-border/50 text-xs"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="font-mono text-muted-foreground w-3.5 text-center text-[11px]">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="font-semibold truncate text-foreground">
+                                      {p.name}
+                                    </span>
+                                    {isCap && (
+                                      <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold shrink-0">
+                                        (C)
+                                      </Badge>
+                                    )}
+                                    {isVc && (
+                                      <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold shrink-0">
+                                        (VC)
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <Badge variant="outline" className="text-[9px] shrink-0 font-medium ml-1">
+                                    {p.role}
+                                  </Badge>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </CardContent>
-                    </Card>
-                  </Link>
+                    </div>
+
+                    {/* Card Footer Link */}
+                    <div className="p-3 bg-muted/10 border-t">
+                      <Link
+                        to={`/teams/${t.id}`}
+                        className="flex items-center justify-center gap-1.5 text-xs font-bold text-primary hover:underline py-1"
+                      >
+                        View Full Team Profile & Stats <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </Card>
                 );
               })}
           </div>
