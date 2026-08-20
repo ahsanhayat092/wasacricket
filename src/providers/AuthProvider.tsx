@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const isAdmin = role === "admin";
-        const isScorer = role === "scorer" || isAdmin; // Admins have scorer privileges too
+        const isScorer = role === "scorer" || isAdmin;
 
         setState({
           firebaseUser: user,
@@ -87,12 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       } catch (err) {
         console.error("Error resolving user role:", err);
-        // Fallback in case of network or permissions issue during first setup
+        // Strictly deny admin/scorer privileges on error — unassigned users default to public view
         setState({
           firebaseUser: user,
-          role: "admin",
-          isAdmin: true,
-          isScorer: true,
+          role: null,
+          isAdmin: false,
+          isScorer: false,
           isLoading: false,
         });
       }

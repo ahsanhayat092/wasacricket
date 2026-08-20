@@ -2,9 +2,10 @@ import { Link, NavLink, Outlet } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getTournament } from "@/lib/queries";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Moon, Sun, Menu, Trophy, Shield } from "lucide-react";
+import { Moon, Sun, Menu, Trophy, Shield, KeyRound, LogIn } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const NAV = [
 
 export function PublicLayout() {
   const { theme, toggle } = useTheme();
+  const { user, isAdmin, isScorer } = useAuth();
   const { data: tournament } = useQuery({
     queryKey: ["tournament"],
     queryFn: getTournament,
@@ -62,15 +64,33 @@ export function PublicLayout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <Link to="/admin">
-              <Button variant="ghost" size="sm" className="gap-1.5 font-medium">
-                <Shield className="h-4 w-4 text-emerald-500" />
-                <span className="hidden sm:inline">Admin</span>
-              </Button>
-            </Link>
+            {isAdmin ? (
+              <Link to="/admin">
+                <Button variant="outline" size="sm" className="gap-1.5 font-semibold border-emerald-500/40 text-emerald-500">
+                  <Shield className="h-4 w-4" />
+                  <span className="hidden sm:inline">Admin Portal</span>
+                </Button>
+              </Link>
+            ) : isScorer ? (
+              <Link to="/admin/matches">
+                <Button variant="outline" size="sm" className="gap-1.5 font-semibold border-amber-500/40 text-amber-500">
+                  <KeyRound className="h-4 w-4" />
+                  <span className="hidden sm:inline">Scorer Console</span>
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/login">
+                <Button variant="ghost" size="sm" className="gap-1.5 font-medium text-xs">
+                  <LogIn className="h-4 w-4 text-muted-foreground" />
+                  <span className="hidden sm:inline">Sign In</span>
+                </Button>
+              </Link>
+            )}
+
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
               {theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
             </Button>
+
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden" aria-label="Menu">
@@ -90,9 +110,21 @@ export function PublicLayout() {
                       {n.label}
                     </NavLink>
                   ))}
-                  <NavLink to="/admin" onClick={() => setOpen(false)} className={navLinkCls}>
-                    Admin
-                  </NavLink>
+                  {isAdmin && (
+                    <NavLink to="/admin" onClick={() => setOpen(false)} className={navLinkCls}>
+                      Admin Portal
+                    </NavLink>
+                  )}
+                  {isScorer && !isAdmin && (
+                    <NavLink to="/admin/matches" onClick={() => setOpen(false)} className={navLinkCls}>
+                      Scorer Console
+                    </NavLink>
+                  )}
+                  {!user && (
+                    <NavLink to="/login" onClick={() => setOpen(false)} className={navLinkCls}>
+                      Sign In
+                    </NavLink>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>

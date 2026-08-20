@@ -21,7 +21,7 @@ const googleProvider = new GoogleAuthProvider();
 
 export default function Login() {
   const navigate = useNavigate();
-  const { firebaseUser, isLoading } = useFirebaseAuth();
+  const { firebaseUser, role, isAdmin, isScorer, isLoading } = useFirebaseAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,16 +32,21 @@ export default function Login() {
 
   useEffect(() => {
     if (!isLoading && firebaseUser) {
-      navigate("/admin");
+      if (isAdmin) {
+        navigate("/admin", { replace: true });
+      } else if (isScorer) {
+        navigate("/admin/matches", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     }
-  }, [firebaseUser, isLoading, navigate]);
+  }, [firebaseUser, isLoading, isAdmin, isScorer, navigate]);
 
   // Google Sign In
   async function handleGoogleSignIn() {
     try {
       setSubmitting(true);
       await signInWithPopup(auth, googleProvider);
-      navigate("/admin");
     } catch (err: unknown) {
       console.error("Google sign-in error:", err);
       const message = err instanceof Error ? err.message : "Failed to sign in with Google";
@@ -63,7 +68,6 @@ export default function Login() {
       setSubmitting(true);
       await signInWithEmailAndPassword(auth, email.trim(), password);
       toast.success("Signed in successfully");
-      navigate("/admin");
     } catch (err: unknown) {
       console.error("Sign-in error:", err);
       const code = (err as { code?: string })?.code;
@@ -100,8 +104,7 @@ export default function Login() {
     try {
       setSubmitting(true);
       await createUserWithEmailAndPassword(auth, email.trim(), password);
-      toast.success("Account created successfully");
-      navigate("/admin");
+      toast.success("Account created successfully. Welcome to WASA Cricket!");
     } catch (err: unknown) {
       console.error("Sign-up error:", err);
       const code = (err as { code?: string })?.code;
