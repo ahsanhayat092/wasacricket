@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getTeams, getPlayers } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -101,9 +102,10 @@ export default function Teams() {
                                   className="flex items-center justify-between p-1.5 sm:p-2 rounded-lg bg-muted/30 border border-border/50 text-xs"
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
-                                    <span className="font-mono text-muted-foreground w-3.5 text-center text-[11px]">
+                                    <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">
                                       {idx + 1}
                                     </span>
+                                    <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
                                     <span className="font-semibold truncate text-foreground">
                                       {p.name}
                                     </span>

@@ -7,6 +7,7 @@ import { TeamBadge } from "@/components/TeamBadge";
 import { ScorecardView, type InningsData } from "@/components/ScorecardView";
 import { RecentBalls } from "@/components/RecentBalls";
 import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -238,7 +239,7 @@ export default function LiveMatch() {
 
           {/* Grand Match Result Banner for Completed Matches */}
           {match.resultText && (
-            <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-2 border-emerald-500/40 text-center shadow-lg shadow-emerald-950/30 space-y-2">
+            <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-2 border-emerald-500/40 text-center shadow-lg shadow-emerald-950/30 space-y-3">
               <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs tracking-wider uppercase">
                 <Trophy className="h-3.5 w-3.5" /> Official Match Result
               </div>
@@ -246,10 +247,24 @@ export default function LiveMatch() {
                 {match.resultText}
               </h3>
               {playerOfMatch && (
-                <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-center gap-2">
-                  <Badge className="bg-amber-500 text-slate-950 font-extrabold gap-1.5 py-1 px-3 shadow-sm">
-                    <Award className="h-3.5 w-3.5" /> Player of the Match: {playerOfMatch.name}
-                  </Badge>
+                <div className="pt-3 border-t border-emerald-500/20 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <PlayerAvatar
+                    name={playerOfMatch.name}
+                    photoUrl={playerOfMatch.photoUrl}
+                    size="lg"
+                    className="ring-2 ring-amber-400 shadow-md"
+                  />
+                  <div className="text-center sm:text-left">
+                    <Badge className="bg-amber-500 text-slate-950 font-black gap-1.5 py-1 px-3 shadow-sm text-xs">
+                      <Award className="h-3.5 w-3.5" /> Player of the Match
+                    </Badge>
+                    <p className="text-base sm:text-lg font-black text-foreground mt-0.5">
+                      {playerOfMatch.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {playerOfMatch.role}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -380,7 +395,8 @@ export default function LiveMatch() {
                           className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-muted-foreground w-4 text-center">{idx + 1}</span>
+                            <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">{idx + 1}</span>
+                            <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
                             <span className="font-semibold">{p.name}</span>
                             {(p.isCaptain || p.designation === "Captain") && (
                               <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
@@ -400,7 +416,13 @@ export default function LiveMatch() {
                           <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Match Reserve Player (1)
                         </span>
                         <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
-                          <span className="font-semibold">{lineupA.reservePlayer.name}</span>
+                          <div className="flex items-center gap-2">
+                            <PlayerAvatar name={lineupA.reservePlayer.name} photoUrl={lineupA.reservePlayer.photoUrl} size="xs" />
+                            <span className="font-semibold">{lineupA.reservePlayer.name}</span>
+                            <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
+                              Reserve
+                            </Badge>
+                          </div>
                           <Badge variant="secondary" className="text-[10px]">{lineupA.reservePlayer.role}</Badge>
                         </div>
                       </div>
@@ -417,7 +439,8 @@ export default function LiveMatch() {
                         className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-muted-foreground w-4 text-center">{idx + 1}</span>
+                          <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">{idx + 1}</span>
+                          <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
                           <span className="font-semibold">{p.name}</span>
                           {(p.isCaptain || p.designation === "Captain") && (
                             <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
@@ -463,7 +486,8 @@ export default function LiveMatch() {
                           className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-muted-foreground w-4 text-center">{idx + 1}</span>
+                            <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">{idx + 1}</span>
+                            <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
                             <span className="font-semibold">{p.name}</span>
                             {(p.isCaptain || p.designation === "Captain") && (
                               <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
@@ -483,7 +507,13 @@ export default function LiveMatch() {
                           <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Match Reserve Player (1)
                         </span>
                         <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
-                          <span className="font-semibold">{lineupB.reservePlayer.name}</span>
+                          <div className="flex items-center gap-2">
+                            <PlayerAvatar name={lineupB.reservePlayer.name} photoUrl={lineupB.reservePlayer.photoUrl} size="xs" />
+                            <span className="font-semibold">{lineupB.reservePlayer.name}</span>
+                            <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
+                              Reserve
+                            </Badge>
+                          </div>
                           <Badge variant="secondary" className="text-[10px]">{lineupB.reservePlayer.role}</Badge>
                         </div>
                       </div>
@@ -500,7 +530,8 @@ export default function LiveMatch() {
                         className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-muted-foreground w-4 text-center">{idx + 1}</span>
+                          <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">{idx + 1}</span>
+                          <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
                           <span className="font-semibold">{p.name}</span>
                           {(p.isCaptain || p.designation === "Captain") && (
                             <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>

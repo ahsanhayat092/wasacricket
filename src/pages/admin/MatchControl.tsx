@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { TeamBadge } from "@/components/TeamBadge";
 import { RecentBalls } from "@/components/RecentBalls";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { statusBadgeClass, oversToBalls, ballsToOversText, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
 import {
@@ -2647,18 +2648,28 @@ function CompleteMatchCard({
       <CardContent className="flex flex-wrap items-end gap-4">
         <div className="space-y-1.5 min-w-[280px]">
           <Label className="text-xs font-semibold">Player of the Match (Optional)</Label>
-          <Select value={pom || undefined} onValueChange={setPom}>
-            <SelectTrigger className="h-10 text-xs">
-              <SelectValue placeholder="Select player from playing teams" />
-            </SelectTrigger>
-            <SelectContent>
-              {matchPlayers.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name} ({teamNameOf(p.teamId)})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            {pom && (
+              <PlayerAvatar
+                name={matchPlayers.find((p) => p.id === pom)?.name ?? "Player"}
+                photoUrl={matchPlayers.find((p) => p.id === pom)?.photoUrl}
+                size="sm"
+                className="ring-1 ring-amber-400"
+              />
+            )}
+            <Select value={pom || undefined} onValueChange={setPom}>
+              <SelectTrigger className="h-10 text-xs flex-1">
+                <SelectValue placeholder="Select player from playing teams" />
+              </SelectTrigger>
+              <SelectContent>
+                {matchPlayers.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} ({teamNameOf(p.teamId)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <Button
           className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2"

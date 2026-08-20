@@ -3,6 +3,7 @@ import { getOverview } from "@/lib/queries";
 import { MatchCard } from "@/components/MatchCard";
 import { StandingsTable } from "@/components/StandingsTable";
 import { TeamBadge } from "@/components/TeamBadge";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -154,6 +155,12 @@ export default function Home() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center gap-4">
+                  <PlayerAvatar
+                    name={topBatsman.name}
+                    photoUrl={topBatsman.photoUrl}
+                    size="md"
+                    className="ring-2 ring-amber-400/50 shadow-sm"
+                  />
                   <div>
                     <p className="text-lg font-bold">{topBatsman.name}</p>
                     <p className="text-sm text-muted-foreground">{topBatsman.teamName}</p>
@@ -175,6 +182,12 @@ export default function Home() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center gap-4">
+                  <PlayerAvatar
+                    name={topBowler.name}
+                    photoUrl={topBowler.photoUrl}
+                    size="md"
+                    className="ring-2 ring-sky-400/50 shadow-sm"
+                  />
                   <div>
                     <p className="text-lg font-bold">{topBowler.name}</p>
                     <p className="text-sm text-muted-foreground">{topBowler.teamName}</p>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getTeamDetail } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { MatchCard, type HydratedMatch } from "@/components/MatchCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +27,9 @@ export default function TeamDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8 space-y-4">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-64 w-full" />
+      <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
       </div>
     );
   }
@@ -37,61 +38,56 @@ export default function TeamDetail() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 space-y-8">
-      {/* Header */}
-      <Card>
-        <CardContent className="p-6 flex flex-wrap items-center gap-5">
-          <TeamBadge shortName={team.shortName} logoUrl={team.logoUrl} size="xl" />
-          <div>
-            <h1 className="text-2xl font-bold">{team.name}</h1>
-            <div className="flex gap-2 mt-2">
+      {/* Team header */}
+      <Card className="overflow-hidden">
+        <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-6">
+          <TeamBadge shortName={team.shortName} logoUrl={team.logoUrl} size="lg" />
+          <div className="text-center sm:text-left space-y-1">
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <h1 className="text-2xl sm:text-3xl font-extrabold">{team.name}</h1>
               <Badge variant="outline">Group {team.groupName}</Badge>
-              {standing?.qualified && (
-                <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
-                  QUALIFIED FOR FINAL
-                </Badge>
-              )}
             </div>
+            <p className="text-sm text-muted-foreground">
+              Official Tournament Squad · WASA Premier League
+            </p>
           </div>
+
           {standing && (
-            <div className="ml-auto grid grid-cols-4 gap-6 text-center">
+            <div className="sm:ml-auto grid grid-cols-4 gap-3 text-center border-t sm:border-t-0 sm:border-l pt-4 sm:pt-0 sm:pl-6">
               <div>
-                <p className="text-2xl font-extrabold">{standing.position}</p>
-                <p className="text-xs text-muted-foreground">Rank</p>
+                <span className="text-xs text-muted-foreground">P</span>
+                <p className="text-lg font-bold">{standing.played}</p>
               </div>
               <div>
-                <p className="text-2xl font-extrabold">{standing.points}</p>
-                <p className="text-xs text-muted-foreground">Points</p>
+                <span className="text-xs text-muted-foreground">W</span>
+                <p className="text-lg font-bold text-emerald-500">{standing.won}</p>
               </div>
               <div>
-                <p className="text-2xl font-extrabold">
-                  {standing.won}/{standing.played}
-                </p>
-                <p className="text-xs text-muted-foreground">Won/Played</p>
+                <span className="text-xs text-muted-foreground">Pts</span>
+                <p className="text-lg font-black text-primary">{standing.points}</p>
               </div>
               <div>
-                <p className="text-2xl font-extrabold">{fmtNrr(standing.nrr)}</p>
-                <p className="text-xs text-muted-foreground">NRR</p>
+                <span className="text-xs text-muted-foreground">NRR</span>
+                <p className="text-sm font-mono font-bold mt-0.5">{fmtNrr(standing.nrr)}</p>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Squad */}
+      {/* Squad roster */}
       <Card>
         <CardHeader>
-          <CardTitle>Squad ({players.length})</CardTitle>
+          <CardTitle className="text-lg">Squad Roster ({players.length} Players)</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="p-0">
           {players.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Squad not announced yet.
-            </p>
+            <p className="p-6 text-sm text-muted-foreground">No players assigned to this team.</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#</TableHead>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Player</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Batting</TableHead>
@@ -109,18 +105,21 @@ export default function TeamDetail() {
                         {p.jerseyNumber ?? "—"}
                       </TableCell>
                       <TableCell className="font-semibold">
-                        <div className="flex items-center gap-2">
-                          <span>{p.name}</span>
-                          {isCap && (
-                            <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px] py-0 px-1.5 font-bold">
-                              (C) Captain
-                            </Badge>
-                          )}
-                          {isVc && (
-                            <Badge className="bg-sky-600 hover:bg-sky-600 text-white text-[10px] py-0 px-1.5 font-bold">
-                              (VC)
-                            </Badge>
-                          )}
+                        <div className="flex items-center gap-2.5">
+                          <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="sm" />
+                          <div className="flex items-center gap-1.5">
+                            <span>{p.name}</span>
+                            {isCap && (
+                              <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px] py-0 px-1.5 font-bold">
+                                (C) Captain
+                              </Badge>
+                            )}
+                            {isVc && (
+                              <Badge className="bg-sky-600 hover:bg-sky-600 text-white text-[10px] py-0 px-1.5 font-bold">
+                                (VC)
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

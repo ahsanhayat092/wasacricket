@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Crown, Pencil, Plus, Trash2, Shield, User, Star } from "lucide-react";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import type { Player } from "@/lib/firestore";
 
 type Role = "Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper";
@@ -46,6 +47,7 @@ type PlayerForm = {
   designation: Designation;
   battingStyle: string;
   bowlingStyle: string;
+  photoUrl: string;
 };
 
 const emptyForm: PlayerForm = {
@@ -56,6 +58,7 @@ const emptyForm: PlayerForm = {
   designation: "Team Member",
   battingStyle: "",
   bowlingStyle: "",
+  photoUrl: "",
 };
 
 export default function AdminPlayers() {
@@ -83,6 +86,7 @@ export default function AdminPlayers() {
         designation: args.designation,
         battingStyle: args.battingStyle || undefined,
         bowlingStyle: args.bowlingStyle || undefined,
+        photoUrl: args.photoUrl.trim() || undefined,
       }),
     onSuccess: () => {
       toast.success("Player profile saved");
@@ -203,18 +207,23 @@ export default function AdminPlayers() {
                     {p.jerseyNumber ?? "—"}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{p.name}</span>
-                      {isCap && (
-                        <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px] gap-1 px-1.5 py-0 font-bold">
-                          <Crown className="h-3 w-3" /> Captain (C)
-                        </Badge>
-                      )}
-                      {isVc && (
-                        <Badge className="bg-sky-600 hover:bg-sky-600 text-white text-[10px] gap-1 px-1.5 py-0 font-bold">
-                          <Shield className="h-3 w-3" /> Vice-Captain (VC)
-                        </Badge>
-                      )}
+                    <div className="flex items-center gap-2.5">
+                      <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="sm" />
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-sm">{p.name}</span>
+                          {isCap && (
+                            <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px] gap-1 px-1.5 py-0 font-bold">
+                              <Crown className="h-3 w-3" /> Captain (C)
+                            </Badge>
+                          )}
+                          {isVc && (
+                            <Badge className="bg-sky-600 hover:bg-sky-600 text-white text-[10px] gap-1 px-1.5 py-0 font-bold">
+                              <Shield className="h-3 w-3" /> Vice-Captain (VC)
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -281,6 +290,7 @@ export default function AdminPlayers() {
                             designation: des,
                             battingStyle: p.battingStyle ?? "",
                             bowlingStyle: p.bowlingStyle ?? "",
+                            photoUrl: p.photoUrl ?? "",
                           });
                           setOpen(true);
                         }}
@@ -305,8 +315,8 @@ export default function AdminPlayers() {
             })}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                  No players registered yet. Click <strong>"Add Player"</strong> above to build squad rosters.
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  No players found. Add players to teams.
                 </TableCell>
               </TableRow>
             )}
@@ -316,15 +326,15 @@ export default function AdminPlayers() {
 
       {/* Add / Edit Player Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{form.id ? "Edit Player Profile" : "Add Player to Squad"}</DialogTitle>
+            <DialogTitle>{form.id ? "Edit Player Profile" : "Add Player to Team"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Team</Label>
               <Select
-                value={form.teamId ?? ""}
+                value={form.teamId ?? undefined}
                 onValueChange={(v) => setForm({ ...form, teamId: v })}
               >
                 <SelectTrigger>
@@ -333,7 +343,7 @@ export default function AdminPlayers() {
                 <SelectContent>
                   {teams?.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.name} ({t.shortName})
+                      {t.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -347,6 +357,24 @@ export default function AdminPlayers() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. Babar Azam"
               />
+            </div>
+
+            {/* Player Photo URL & Live Preview */}
+            <div className="space-y-2">
+              <Label>Player Photo URL (Optional)</Label>
+              <div className="flex items-center gap-3">
+                <PlayerAvatar name={form.name || "Player"} photoUrl={form.photoUrl} size="lg" />
+                <div className="flex-1 space-y-1">
+                  <Input
+                    value={form.photoUrl}
+                    onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
+                    placeholder="https://example.com/photos/babar.jpg"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Provide an image URL (PNG, JPG, WebP) for profile pictures.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Squad Designation (Captain / Vice Captain / Member) */}

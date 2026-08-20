@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TeamBadge } from "@/components/TeamBadge";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { ballsToOversText } from "@/lib/cricket";
 import { Trophy, Zap, Target, Award, Flame, Shield, Users } from "lucide-react";
 
@@ -165,8 +166,18 @@ export default function Statistics() {
           <CardContent>
             {bestBatsman ? (
               <div>
-                <p className="text-lg font-bold truncate">{bestBatsman.name}</p>
-                <p className="text-xs text-muted-foreground">{bestBatsman.teamName}</p>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <PlayerAvatar
+                    name={bestBatsman.name}
+                    photoUrl={bestBatsman.photoUrl}
+                    size="sm"
+                    className="ring-1 ring-amber-400/50"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-base font-bold truncate">{bestBatsman.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{bestBatsman.teamName}</p>
+                  </div>
+                </div>
                 <div className="mt-3 flex items-baseline justify-between border-t border-amber-500/20 pt-2">
                   <span className="text-2xl font-black text-amber-500 font-mono">
                     {bestBatsman.runs} <span className="text-xs font-normal text-muted-foreground">runs</span>
@@ -193,8 +204,18 @@ export default function Statistics() {
           <CardContent>
             {bestBowler ? (
               <div>
-                <p className="text-lg font-bold truncate">{bestBowler.name}</p>
-                <p className="text-xs text-muted-foreground">{bestBowler.teamName}</p>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <PlayerAvatar
+                    name={bestBowler.name}
+                    photoUrl={bestBowler.photoUrl}
+                    size="sm"
+                    className="ring-1 ring-sky-400/50"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-base font-bold truncate">{bestBowler.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{bestBowler.teamName}</p>
+                  </div>
+                </div>
                 <div className="mt-3 flex items-baseline justify-between border-t border-sky-500/20 pt-2">
                   <span className="text-2xl font-black text-sky-500 font-mono">
                     {bestBowler.wickets} <span className="text-xs font-normal text-muted-foreground">wkts</span>
@@ -220,8 +241,18 @@ export default function Statistics() {
           <CardContent>
             {mostBoundaries ? (
               <div>
-                <p className="text-lg font-bold truncate">{mostBoundaries.name}</p>
-                <p className="text-xs text-muted-foreground">{mostBoundaries.teamName}</p>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <PlayerAvatar
+                    name={mostBoundaries.name}
+                    photoUrl={mostBoundaries.photoUrl}
+                    size="sm"
+                    className="ring-1 ring-emerald-400/50"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-base font-bold truncate">{mostBoundaries.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{mostBoundaries.teamName}</p>
+                  </div>
+                </div>
                 <div className="mt-3 flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
                   <span className="text-2xl font-black text-emerald-500 font-mono">
                     {mostBoundaries.fours + mostBoundaries.sixes}
@@ -247,8 +278,18 @@ export default function Statistics() {
           <CardContent>
             {bestEconomy ? (
               <div>
-                <p className="text-lg font-bold truncate">{bestEconomy.name}</p>
-                <p className="text-xs text-muted-foreground">{bestEconomy.teamName}</p>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <PlayerAvatar
+                    name={bestEconomy.name}
+                    photoUrl={bestEconomy.photoUrl}
+                    size="sm"
+                    className="ring-1 ring-indigo-400/50"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-base font-bold truncate">{bestEconomy.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{bestEconomy.teamName}</p>
+                  </div>
+                </div>
                 <div className="mt-3 flex items-baseline justify-between border-t border-indigo-500/20 pt-2">
                   <span className="text-2xl font-black text-indigo-400 font-mono">
                     {bestEconomy.economy.toFixed(2)}
@@ -259,7 +300,7 @@ export default function Statistics() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground py-4">No bowling data.</p>
+              <p className="text-xs text-muted-foreground py-4">No economy data.</p>
             )}
           </CardContent>
         </Card>
@@ -401,7 +442,10 @@ export default function Statistics() {
                           )}
                         </TableCell>
                         <TableCell className="font-semibold">
-                          {p.name}
+                          <div className="flex items-center gap-2">
+                            <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
+                            <span>{p.name}</span>
+                          </div>
                         </TableCell>
                         {selectedTeamId === "all" && (
                           <TableCell className="text-muted-foreground text-sm">
@@ -471,7 +515,10 @@ export default function Statistics() {
                           )}
                         </TableCell>
                         <TableCell className="font-semibold">
-                          {p.name}
+                          <div className="flex items-center gap-2">
+                            <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
+                            <span>{p.name}</span>
+                          </div>
                         </TableCell>
                         {selectedTeamId === "all" && (
                           <TableCell className="text-muted-foreground text-sm">

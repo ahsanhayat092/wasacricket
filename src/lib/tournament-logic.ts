@@ -480,6 +480,7 @@ export async function getTournamentBattingStats(schedule: HydratedMatch[]) {
 
   type Stat = {
     playerId: string; name: string; teamName: string; teamId: string;
+    photoUrl?: string | null;
     inningsCount: number; runs: number; balls: number; fours: number;
     sixes: number; outs: number; highest: number;
   };
@@ -491,6 +492,7 @@ export async function getTournamentBattingStats(schedule: HydratedMatch[]) {
     const team = allTeams.find((t) => t.id === p.teamId);
     const cur = map.get(s.playerId) ?? {
       playerId: s.playerId, name: p.name,
+      photoUrl: p.photoUrl ?? null,
       teamName: team?.name ?? "", teamId: p.teamId,
       inningsCount: 0, runs: 0, balls: 0, fours: 0, sixes: 0, outs: 0, highest: 0,
     };
@@ -537,6 +539,7 @@ export async function getTournamentBowlingStats(schedule: HydratedMatch[]) {
 
   type Stat = {
     playerId: string; name: string; teamName: string; teamId: string;
+    photoUrl?: string | null;
     inningsCount: number; balls: number; maidens: number; runs: number;
     wickets: number; bestWickets: number; bestRuns: number;
   };
@@ -548,6 +551,7 @@ export async function getTournamentBowlingStats(schedule: HydratedMatch[]) {
     const team = allTeams.find((t) => t.id === p.teamId);
     const cur = map.get(s.playerId) ?? {
       playerId: s.playerId, name: p.name,
+      photoUrl: p.photoUrl ?? null,
       teamName: team?.name ?? "", teamId: p.teamId,
       inningsCount: 0, balls: 0, maidens: 0, runs: 0,
       wickets: 0, bestWickets: 0, bestRuns: 0,
