@@ -1,6 +1,7 @@
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normalizeImageUrl } from "@/lib/image-utils";
 
 interface PlayerAvatarProps {
   name: string;
@@ -27,9 +28,11 @@ export function PlayerAvatar({ name, photoUrl, size = "md", className }: PlayerA
     .join("")
     .toUpperCase();
 
+  const directImageUrl = normalizeImageUrl(photoUrl);
+
   return (
     <Avatar className={cn(sizeClasses[size], "border border-border/50 shrink-0 font-bold", className)}>
-      {photoUrl && <AvatarImage src={photoUrl} alt={name} className="object-cover" />}
+      {directImageUrl && <AvatarImage src={directImageUrl} alt={name} className="object-cover" />}
       <AvatarFallback className="bg-primary/10 text-primary font-bold">
         {initials || <User className="h-4 w-4" />}
       </AvatarFallback>

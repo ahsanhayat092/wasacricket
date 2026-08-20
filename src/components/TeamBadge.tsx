@@ -1,5 +1,6 @@
 import { teamColor } from "@/lib/cricket";
 import { cn } from "@/lib/utils";
+import { normalizeImageUrl } from "@/lib/image-utils";
 
 export function TeamBadge({
   shortName,
@@ -20,10 +21,13 @@ export function TeamBadge({
         : size === "xl"
           ? "h-20 w-20 text-xl"
           : "h-10 w-10 text-xs";
-  if (logoUrl) {
+
+  const directLogoUrl = normalizeImageUrl(logoUrl);
+
+  if (directLogoUrl) {
     return (
       <img
-        src={logoUrl}
+        src={directLogoUrl}
         alt={shortName ?? "team"}
         className={cn("rounded-full object-cover border", sizeCls, className)}
       />

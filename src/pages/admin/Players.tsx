@@ -33,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Crown, Pencil, Plus, Trash2, Shield, User, Star } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { normalizeImageUrl } from "@/lib/image-utils";
 import type { Player } from "@/lib/firestore";
 
 type Role = "Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper";
@@ -86,7 +87,7 @@ export default function AdminPlayers() {
         designation: args.designation,
         battingStyle: args.battingStyle || undefined,
         bowlingStyle: args.bowlingStyle || undefined,
-        photoUrl: args.photoUrl.trim() || undefined,
+        photoUrl: normalizeImageUrl(args.photoUrl) ?? undefined,
       }),
     onSuccess: () => {
       toast.success("Player profile saved");
@@ -368,10 +369,10 @@ export default function AdminPlayers() {
                   <Input
                     value={form.photoUrl}
                     onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
-                    placeholder="https://example.com/photos/babar.jpg"
+                    placeholder="https://drive.google.com/file/d/.../view or direct image URL"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Provide an image URL (PNG, JPG, WebP) for profile pictures.
+                    Supports Google Drive share links, Dropbox, or web image URLs. (Ensure Google Drive file access is set to <em>"Anyone with the link can view"</em>).
                   </p>
                 </div>
               </div>
