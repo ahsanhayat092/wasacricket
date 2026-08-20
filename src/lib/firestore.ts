@@ -85,6 +85,11 @@ export type Match = {
   teamAReserveId?: string | null;
   teamBPlayingVI?: string[];
   teamBReserveId?: string | null;
+  recentEvent?: {
+    type: "FOUR" | "SIX" | "WICKET";
+    text?: string;
+    timestamp: number;
+  } | null;
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -106,6 +111,7 @@ export type Innings = {
   penaltyRuns: number;
   allOut: boolean;
   completed: boolean;
+  recentBalls?: string[];
   createdAt: string;
   updatedAt: string;
 };

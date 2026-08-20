@@ -42,6 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TeamBadge } from "@/components/TeamBadge";
+import { RecentBalls } from "@/components/RecentBalls";
 import { statusBadgeClass, oversToBalls, ballsToOversText, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
 import {
@@ -813,8 +814,8 @@ function InningsLiveConsole({
     }
   }, [battingPlayers, bowlingPlayers, batRows, bowlRows, strikerId, nonStrikerId, currentBowlerId]);
 
-  // Recent Balls Feed (History for this session)
-  const [recentBalls, setRecentBalls] = useState<string[]>([]);
+  // Recent Balls Feed (History for this session & stored in Firestore)
+  const [recentBalls, setRecentBalls] = useState<string[]>(() => existing?.recentBalls ?? []);
   const [historyStack, setHistoryStack] = useState<
     {
       batRows: BatRow[];
@@ -900,7 +901,7 @@ function InningsLiveConsole({
   // Save Mutation
   const save = useMutation({
     mutationFn: (args: Parameters<typeof fbSaveInnings>[0]) => fbSaveInnings(args),
-    onSuccess: (r) => {
+    onSuccess: () => {
       onSaved();
     },
     onError: (e) => toast.error(e.message),
@@ -912,6 +913,8 @@ function InningsLiveConsole({
     newBowl: BowlRow[],
     newExtras: typeof extras,
     isCompleted = closed,
+    customRecentBalls?: string[],
+    recentEvent?: { type: "FOUR" | "SIX" | "WICKET"; text?: string; timestamp: number } | null,
   ) => {
     const battingPayload = newBat
       .filter((r) => r.batted)
@@ -949,6 +952,8 @@ function InningsLiveConsole({
       batting: battingPayload,
       bowling: bowlingPayload,
       completed: isCompleted,
+      recentBalls: customRecentBalls ?? recentBalls,
+      recentEvent,
     });
   };
 
@@ -1164,11 +1169,31 @@ function InningsLiveConsole({
     setNonStrikerId(nextNonStriker);
     setBatRows(newBat);
     setBowlRows(newBowl);
-    setRecentBalls((prev) => [...prev.slice(-11), runsScored === 0 ? "•" : runsScored.toString()]);
+
+    const ballStr = runsScored === 0 ? "0" : runsScored.toString();
+    const newRecentBalls = [...recentBalls, ballStr];
+    setRecentBalls(newRecentBalls);
+
+    // Event notification for public viewers
+    let celebrationEvent: { type: "FOUR" | "SIX" | "WICKET"; text?: string; timestamp: number } | null = null;
+    const strikerPlayer = battingPlayers.find((p) => p.id === strikerId);
+    if (runsScored === 4) {
+      celebrationEvent = {
+        type: "FOUR",
+        text: `${strikerPlayer?.name ?? "Striker"} smashes a gorgeous boundary FOUR! 🏏`,
+        timestamp: Date.now(),
+      };
+    } else if (runsScored === 6) {
+      celebrationEvent = {
+        type: "SIX",
+        text: `${strikerPlayer?.name ?? "Striker"} launches a colossal MAXIMUM SIX! 🚀`,
+        timestamp: Date.now(),
+      };
+    }
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, extras, newTotalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, extras);
+      triggerSave(newBat, newBowl, extras, false, newRecentBalls, celebrationEvent);
       if (isOverEnd) {
         triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
       }
@@ -1210,6 +1235,7 @@ function InningsLiveConsole({
     let newBat = [...batRows];
     let isOverEnd = false;
     let newTotalBalls = totalLegalBalls;
+    let extraBallTag = "Wd";
 
     if (type === "WIDE") {
       newExtras.wides += extraRuns;
@@ -1218,7 +1244,7 @@ function InningsLiveConsole({
           ? { ...b, bowled: true, runs: b.runs + extraRuns, wides: b.wides + extraRuns }
           : b,
       );
-      setRecentBalls((prev) => [...prev.slice(-11), extraRuns > 1 ? `${extraRuns}Wd` : "Wd"]);
+      extraBallTag = extraRuns > 1 ? `${extraRuns}Wd` : "Wd";
     } else if (type === "NO_BALL") {
       newExtras.noBalls += extraRuns;
       newBowl = newBowl.map((b) =>
@@ -1226,7 +1252,7 @@ function InningsLiveConsole({
           ? { ...b, bowled: true, runs: b.runs + extraRuns, noBalls: b.noBalls + 1 }
           : b,
       );
-      setRecentBalls((prev) => [...prev.slice(-11), extraRuns > 1 ? `${extraRuns}Nb` : "Nb"]);
+      extraBallTag = extraRuns > 1 ? `${extraRuns}Nb` : "Nb";
     } else if (type === "BYE") {
       newTotalBalls = totalLegalBalls + 1;
       isOverEnd = newTotalBalls % 6 === 0;
@@ -1237,7 +1263,7 @@ function InningsLiveConsole({
       newBat = newBat.map((b) =>
         b.playerId === strikerId ? { ...b, batted: true, balls: b.balls + 1 } : b,
       );
-      setRecentBalls((prev) => [...prev.slice(-11), `${extraRuns}B`]);
+      extraBallTag = `${extraRuns}B`;
     } else if (type === "LEG_BYE") {
       newTotalBalls = totalLegalBalls + 1;
       isOverEnd = newTotalBalls % 6 === 0;
@@ -1248,7 +1274,7 @@ function InningsLiveConsole({
       newBat = newBat.map((b) =>
         b.playerId === strikerId ? { ...b, batted: true, balls: b.balls + 1 } : b,
       );
-      setRecentBalls((prev) => [...prev.slice(-11), `${extraRuns}Lb`]);
+      extraBallTag = `${extraRuns}Lb`;
     }
 
     if (isOverEnd) {
@@ -1257,13 +1283,16 @@ function InningsLiveConsole({
       setNonStrikerId(temp);
     }
 
+    const newRecentBalls = [...recentBalls, extraBallTag];
+    setRecentBalls(newRecentBalls);
+
     setExtras(newExtras);
     setBowlRows(newBowl);
     setBatRows(newBat);
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, newTotalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, newExtras);
+      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls);
       if (isOverEnd) {
         triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
       }
@@ -1338,7 +1367,24 @@ function InningsLiveConsole({
 
     // Recent ball display tag
     const tag = batsmanRuns > 0 ? `Nb+${batsmanRuns}` : "Nb";
-    setRecentBalls((prev) => [...prev.slice(-11), tag]);
+    const newRecentBalls = [...recentBalls, tag];
+    setRecentBalls(newRecentBalls);
+
+    // Event notification for public viewers
+    let celebrationEvent: { type: "FOUR" | "SIX" | "WICKET"; text?: string; timestamp: number } | null = null;
+    if (batsmanRuns === 4) {
+      celebrationEvent = {
+        type: "FOUR",
+        text: `NO BALL & BOUNDARY FOUR! 🏏`,
+        timestamp: Date.now(),
+      };
+    } else if (batsmanRuns === 6) {
+      celebrationEvent = {
+        type: "SIX",
+        text: `NO BALL & MAXIMUM SIX! 🚀`,
+        timestamp: Date.now(),
+      };
+    }
 
     setExtras(newExtras);
     setBowlRows(newBowl);
@@ -1347,7 +1393,7 @@ function InningsLiveConsole({
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, totalLegalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, newExtras);
+      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls, celebrationEvent);
     }
   };
 
@@ -1420,12 +1466,21 @@ function InningsLiveConsole({
     setNonStrikerId(nextNonStriker);
     setBatRows(newBat);
     setBowlRows(newBowl);
-    setRecentBalls((prev) => [...prev.slice(-11), "W"]);
+
+    const newRecentBalls = [...recentBalls, "W"];
+    setRecentBalls(newRecentBalls);
     setWicketModalOpen(false);
+
+    const outPlayer = battingPlayers.find((p) => p.id === outPlayerId);
+    const celebrationEvent = {
+      type: "WICKET" as const,
+      text: `WICKET! ${outPlayer?.name ?? "Batsman"} is OUT (${dismissalType})! 🔴`,
+      timestamp: Date.now(),
+    };
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, extras, newTotalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, extras);
+      triggerSave(newBat, newBowl, extras, false, newRecentBalls, celebrationEvent);
       toast.success(`Wicket recorded (${dismissalType})!`);
       if (isOverEnd) {
         triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
@@ -1478,37 +1533,12 @@ function InningsLiveConsole({
               </div>
             </div>
 
-            {/* Over Wheel / Recent Balls Badges */}
-            <div className="flex flex-col items-end gap-1.5">
+            {/* Over Wheel / Recent Deliveries with Over Separator */}
+            <div className="flex flex-col items-start sm:items-end gap-1.5 w-full sm:w-auto">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                 Recent Deliveries
               </span>
-              <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                {recentBalls.length === 0 ? (
-                  <span className="text-xs text-muted-foreground italic">
-                    Ready for first delivery…
-                  </span>
-                ) : (
-                  recentBalls.map((b, i) => (
-                    <span
-                      key={i}
-                      className={`inline-flex items-center justify-center h-7 min-w-7 px-1.5 rounded-lg font-mono font-bold text-xs shadow-sm ${
-                        b === "4"
-                          ? "bg-amber-500 text-slate-950"
-                          : b === "6"
-                            ? "bg-emerald-500 text-slate-950 font-black"
-                            : b === "W"
-                              ? "bg-red-600 text-white font-black animate-pulse"
-                              : b.includes("Wd") || b.includes("Nb")
-                                ? "bg-indigo-600 text-white"
-                                : "bg-muted text-foreground"
-                      }`}
-                    >
-                      {b}
-                    </span>
-                  ))
-                )}
-              </div>
+              <RecentBalls balls={recentBalls} />
             </div>
           </div>
         </CardContent>

@@ -3,6 +3,8 @@ import { getMatchById } from "@/lib/queries";
 import { useParams, Link } from "react-router";
 import { TeamBadge } from "@/components/TeamBadge";
 import { ScorecardView, type InningsData } from "@/components/ScorecardView";
+import { RecentBalls } from "@/components/RecentBalls";
+import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,19 +97,22 @@ export default function MatchDetail() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
       {/* Match Header Hero Card */}
-      <Card className="border shadow-md overflow-hidden bg-card">
+      {/* Live Event Celebratory Overlay */}
+      <EventAnimationOverlay event={match.recentEvent} />
+
+      {/* Hero Match Card */}
+      <Card className="border shadow-lg bg-card overflow-hidden">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} ·{" "}
-              {formatMatchDay(match.day, match.date)} · WASA Premier League
-            </span>
             <Badge
               variant="outline"
               className={statusBadgeClass(match.status as MatchStatus)}
             >
               {match.status.replace("_", " ")}
             </Badge>
+            <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} · {formatMatchDay(match.day, match.date)}
+            </span>
           </div>
 
           <div className="flex items-center justify-between gap-4 py-2">
@@ -174,6 +179,21 @@ export default function MatchDetail() {
               <p className="text-base sm:text-lg font-black text-emerald-500">
                 {match.resultText}
               </p>
+            </div>
+          )}
+
+          {/* Recent Deliveries with Over-by-Over Separation */}
+          {currentInnings?.recentBalls && currentInnings.recentBalls.length > 0 && (
+            <div className="mt-4 pt-4 border-t space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" /> Recent Deliveries (Over by Over)
+                </span>
+                <span className="text-[10px] text-muted-foreground font-semibold">
+                  Innings {currentInnings.inningsNumber}
+                </span>
+              </div>
+              <RecentBalls balls={currentInnings.recentBalls} />
             </div>
           )}
 

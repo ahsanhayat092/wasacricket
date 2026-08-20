@@ -5,6 +5,8 @@ import { getTournament, getPlayers } from "@/lib/queries";
 import { subscribeToMatch } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
 import { ScorecardView, type InningsData } from "@/components/ScorecardView";
+import { RecentBalls } from "@/components/RecentBalls";
+import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -161,6 +163,9 @@ export default function LiveMatch() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
+      {/* Live Event Celebratory Overlay (4s, 6s, Wickets) */}
+      <EventAnimationOverlay event={match.recentEvent} />
+
       {/* Live Match Hero Card */}
       <Card className="border shadow-lg bg-card">
         <CardContent className="p-6">
@@ -230,6 +235,19 @@ export default function LiveMatch() {
               </span>
             )}
           </div>
+
+          {/* Recent Deliveries with Over-by-Over Separation */}
+          {current?.recentBalls && current.recentBalls.length > 0 && (
+            <div className="mt-4 pt-4 border-t space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" /> Recent Deliveries (Over by Over)
+                </span>
+                <span className="text-[10px] text-muted-foreground">Live Delivery Feed</span>
+              </div>
+              <RecentBalls balls={current.recentBalls} />
+            </div>
+          )}
         </CardContent>
       </Card>
 

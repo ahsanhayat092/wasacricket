@@ -467,6 +467,12 @@ export async function saveInnings(input: {
     noBalls: number;
   }[];
   completed: boolean;
+  recentBalls?: string[];
+  recentEvent?: {
+    type: "FOUR" | "SIX" | "WICKET";
+    text?: string;
+    timestamp: number;
+  } | null;
 }) {
   const matchSnap = await getDoc(matchDoc(input.matchId));
   if (!matchSnap.exists()) throw new Error("Match not found");
@@ -501,12 +507,13 @@ export async function saveInnings(input: {
       runs: 0, wickets: 0, balls: 0,
       wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0,
       allOut: false, completed: false,
+      recentBalls: input.recentBalls ?? [],
       createdAt: now(), updatedAt: now(),
     });
-    inn = { id: ref.id, matchId: input.matchId, inningsNumber: input.inningsNumber, battingTeamId, bowlingTeamId, runs: 0, wickets: 0, balls: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0, allOut: false, completed: false, createdAt: now(), updatedAt: now() };
+    inn = { id: ref.id, matchId: input.matchId, inningsNumber: input.inningsNumber, battingTeamId, bowlingTeamId, runs: 0, wickets: 0, balls: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0, allOut: false, completed: false, recentBalls: input.recentBalls ?? [], createdAt: now(), updatedAt: now() };
   }
 
-  // Update innings extras + completed flag
+  // Update innings extras + completed flag + recent deliveries
   await updateDoc(inningsDoc(inn.id), {
     wides: input.wides,
     noBalls: input.noBalls,
@@ -514,8 +521,16 @@ export async function saveInnings(input: {
     legByes: input.legByes,
     penaltyRuns: input.penaltyRuns,
     completed: input.completed,
+    recentBalls: input.recentBalls ?? inn.recentBalls ?? [],
     updatedAt: now(),
   });
+
+  if (input.recentEvent !== undefined) {
+    await updateDoc(matchDoc(input.matchId), {
+      recentEvent: input.recentEvent,
+      updatedAt: now(),
+    });
+  }
 
   // Replace scorecard entries (idempotent)
   const [existingBat, existingBowl] = await Promise.all([
