@@ -3,7 +3,7 @@ import { Zap, Award, Flame, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface EventData {
-  type: "FOUR" | "SIX" | "WICKET";
+  type: "FOUR" | "SIX" | "WICKET" | "MAIDEN";
   text?: string;
   timestamp: number;
 }
@@ -157,6 +157,41 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
 
               <p className="text-sm font-semibold text-purple-200/90 pt-1">
                 {text || "Clean strike sailing high into the stands for a huge maximum!"}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* MAIDEN OVER ANIMATION */}
+        {type === "MAIDEN" && (
+          <div className="relative overflow-hidden rounded-3xl border-2 border-cyan-500/80 bg-gradient-to-b from-cyan-950/95 via-zinc-950/95 to-black/95 p-6 sm:p-8 text-center shadow-2xl shadow-cyan-900/60 ring-4 ring-cyan-500/30 animate-pulse">
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-cyan-600/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
+            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-sky-600/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
+
+            <button
+              type="button"
+              onClick={handleClose}
+              className="absolute top-3 right-3 text-cyan-300 hover:text-white p-1.5 rounded-full hover:bg-cyan-500/20 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="space-y-3">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-cyan-600/20 border-2 border-cyan-400 shadow-xl shadow-cyan-500/40 animate-bounce">
+                <span className="text-3xl font-black text-cyan-300">0</span>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-black tracking-widest uppercase text-cyan-400">
+                  ICE COLD BOWLING • 0 RUNS CONCEDED
+                </p>
+                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white uppercase drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]">
+                  MAIDEN OVER! 🎯
+                </h2>
+              </div>
+
+              <p className="text-sm font-semibold text-cyan-200/90 pt-1">
+                {text || "Sensational defense! A complete 0-run maiden over delivered under pressure!"}
               </p>
             </div>
           </div>

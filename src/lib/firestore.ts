@@ -86,7 +86,7 @@ export type Match = {
   teamBPlayingVI?: string[];
   teamBReserveId?: string | null;
   recentEvent?: {
-    type: "FOUR" | "SIX" | "WICKET";
+    type: "FOUR" | "SIX" | "WICKET" | "MAIDEN";
     text?: string;
     timestamp: number;
   } | null;

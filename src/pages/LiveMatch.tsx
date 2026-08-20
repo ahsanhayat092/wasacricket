@@ -161,6 +161,10 @@ export default function LiveMatch() {
   const lineupA = getLineup(teamAPlayers, match.teamAPlayingVI, match.teamAReserveId);
   const lineupB = getLineup(teamBPlayers, match.teamBPlayingVI, match.teamBReserveId);
 
+  const playerOfMatch = match.playerOfMatchId
+    ? players.find((p) => p.id === match.playerOfMatchId)
+    : null;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
       {/* Live Event Celebratory Overlay (4s, 6s, Wickets) */}
@@ -170,10 +174,17 @@ export default function LiveMatch() {
       <Card className="border shadow-lg bg-card">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <Badge variant="destructive" className="animate-pulse flex items-center gap-1.5 font-bold">
-              <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-              LIVE MATCH
-            </Badge>
+            {match.status === "COMPLETED" ? (
+              <Badge className="bg-emerald-600 text-white font-bold flex items-center gap-1.5">
+                <Trophy className="h-3.5 w-3.5" />
+                MATCH COMPLETED
+              </Badge>
+            ) : (
+              <Badge variant="destructive" className="animate-pulse flex items-center gap-1.5 font-bold">
+                <span className="h-2 w-2 rounded-full bg-white animate-ping" />
+                LIVE MATCH
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
               {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} · {formatMatchDay(match.day, match.date)}
             </span>
@@ -225,16 +236,37 @@ export default function LiveMatch() {
             </div>
           </div>
 
-          {/* Rates banner */}
-          <div className="mt-4 pt-4 border-t flex flex-wrap items-center justify-between text-xs sm:text-sm font-mono text-muted-foreground gap-2">
-            <span>CRR: <strong className="text-foreground">{crr}</strong></span>
-            {rrr && <span>RRR: <strong className="text-foreground">{rrr}</strong></span>}
-            {runsNeeded !== null && ballsRemaining !== null && (
-              <span className="text-primary font-bold">
-                Need {runsNeeded} runs from {ballsRemaining} balls
-              </span>
-            )}
-          </div>
+          {/* Grand Match Result Banner for Completed Matches */}
+          {match.resultText && (
+            <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-2 border-emerald-500/40 text-center shadow-lg shadow-emerald-950/30 space-y-2">
+              <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs tracking-wider uppercase">
+                <Trophy className="h-3.5 w-3.5" /> Official Match Result
+              </div>
+              <h3 className="text-lg sm:text-2xl font-black text-emerald-400 uppercase tracking-tight">
+                {match.resultText}
+              </h3>
+              {playerOfMatch && (
+                <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-center gap-2">
+                  <Badge className="bg-amber-500 text-slate-950 font-extrabold gap-1.5 py-1 px-3 shadow-sm">
+                    <Award className="h-3.5 w-3.5" /> Player of the Match: {playerOfMatch.name}
+                  </Badge>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Rates banner (if live) */}
+          {match.status === "LIVE" && (
+            <div className="mt-4 pt-4 border-t flex flex-wrap items-center justify-between text-xs sm:text-sm font-mono text-muted-foreground gap-2">
+              <span>CRR: <strong className="text-foreground">{crr}</strong></span>
+              {rrr && <span>RRR: <strong className="text-foreground">{rrr}</strong></span>}
+              {runsNeeded !== null && ballsRemaining !== null && (
+                <span className="text-primary font-bold">
+                  Need {runsNeeded} runs from {ballsRemaining} balls
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Recent Deliveries with Over-by-Over Separation */}
           {current?.recentBalls && current.recentBalls.length > 0 && (

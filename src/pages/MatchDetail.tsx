@@ -173,12 +173,22 @@ export default function MatchDetail() {
             </div>
           </div>
 
-          {/* Result Text */}
+          {/* Grand Match Result Banner for Completed Matches */}
           {match.resultText && (
-            <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-              <p className="text-base sm:text-lg font-black text-emerald-500">
+            <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-2 border-emerald-500/40 text-center shadow-lg shadow-emerald-950/30 space-y-2">
+              <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs tracking-wider uppercase">
+                <Trophy className="h-3.5 w-3.5" /> Official Match Result
+              </div>
+              <h3 className="text-lg sm:text-2xl font-black text-emerald-400 uppercase tracking-tight">
                 {match.resultText}
-              </p>
+              </h3>
+              {playerOfMatch && (
+                <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-center gap-2">
+                  <Badge className="bg-amber-500 text-slate-950 font-extrabold gap-1.5 py-1 px-3 shadow-sm">
+                    <Award className="h-3.5 w-3.5" /> Player of the Match: {playerOfMatch.name}
+                  </Badge>
+                </div>
+              )}
             </div>
           )}
 

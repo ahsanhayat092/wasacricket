@@ -83,8 +83,15 @@ export default function AdminMatches() {
                     {m.status.replace("_", " ")}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground max-w-56 truncate">
-                  {m.resultText ?? "—"}
+                <TableCell className="text-xs font-semibold max-w-64">
+                  {m.resultText ? (
+                    <span className="flex items-center gap-1.5 font-bold text-emerald-500">
+                      <Trophy className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      {m.resultText}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-2 items-center">

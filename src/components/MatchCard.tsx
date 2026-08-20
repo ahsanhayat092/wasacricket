@@ -186,10 +186,10 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
           )}
 
           {/* Completed Result Banner */}
-          {match.status === "COMPLETED" && match.resultText && (
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-              <p className="text-xs sm:text-sm font-black text-emerald-500 flex items-center justify-center gap-1.5">
-                <Trophy className="h-3.5 w-3.5" /> {match.resultText}
+          {(match.status === "COMPLETED" || match.resultText) && match.resultText && (
+            <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-teal-500/15 border border-emerald-500/30 text-center shadow-sm">
+              <p className="text-xs sm:text-sm font-extrabold text-emerald-400 flex items-center justify-center gap-1.5 uppercase tracking-wide">
+                <Trophy className="h-4 w-4 text-amber-400 shrink-0" /> {match.resultText}
               </p>
             </div>
           )}

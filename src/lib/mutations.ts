@@ -469,7 +469,7 @@ export async function saveInnings(input: {
   completed: boolean;
   recentBalls?: string[];
   recentEvent?: {
-    type: "FOUR" | "SIX" | "WICKET";
+    type: "FOUR" | "SIX" | "WICKET" | "MAIDEN";
     text?: string;
     timestamp: number;
   } | null;

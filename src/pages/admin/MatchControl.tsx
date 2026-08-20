@@ -1216,9 +1216,40 @@ function InningsLiveConsole({
     const newRecentBalls = [...recentBalls, ballStr];
     setRecentBalls(newRecentBalls);
 
+    // Check if this over end was a Maiden Over (0 runs conceded across 6 legal balls)
+    let isMaiden = false;
+    if (isOverEnd) {
+      let overLegalCount = 0;
+      let overRuns = 0;
+      for (let i = newRecentBalls.length - 1; i >= 0; i--) {
+        const b = newRecentBalls[i];
+        if (b === "4" || b === "Nb+4") overRuns += 4;
+        else if (b === "6" || b === "Nb+6") overRuns += 6;
+        else if (b === "1" || b === "2" || b === "3") overRuns += Number(b);
+        else if (b.toLowerCase().includes("wd") || b.toLowerCase().startsWith("nb")) {
+          overRuns += 1;
+        }
+
+        const isLegal = !b.toLowerCase().includes("wd") && !b.toLowerCase().startsWith("nb");
+        if (isLegal) overLegalCount++;
+        if (overLegalCount === 6) break;
+      }
+      isMaiden = overRuns === 0;
+    }
+
+    let finalBowl = newBowl;
+    if (isMaiden) {
+      finalBowl = newBowl.map((b) =>
+        b.playerId === currentBowlerId ? { ...b, maidens: b.maidens + 1 } : b,
+      );
+      setBowlRows(finalBowl);
+    }
+
     // Event notification for public viewers
-    let celebrationEvent: { type: "FOUR" | "SIX" | "WICKET"; text?: string; timestamp: number } | null = null;
+    let celebrationEvent: { type: "FOUR" | "SIX" | "WICKET" | "MAIDEN"; text?: string; timestamp: number } | null = null;
     const strikerPlayer = battingPlayers.find((p) => p.id === strikerId);
+    const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
+
     if (runsScored === 4) {
       celebrationEvent = {
         type: "FOUR",
@@ -1231,11 +1262,18 @@ function InningsLiveConsole({
         text: `${strikerPlayer?.name ?? "Striker"} launches a colossal MAXIMUM SIX! 🚀`,
         timestamp: Date.now(),
       };
+    } else if (isMaiden) {
+      celebrationEvent = {
+        type: "MAIDEN",
+        text: `MAIDEN OVER! Outstanding 0-run spell by ${bowlerPlayer?.name ?? "Bowler"}! 🎯`,
+        timestamp: Date.now(),
+      };
+      toast.success(`🎯 MAIDEN OVER delivered by ${bowlerPlayer?.name ?? "Bowler"}!`);
     }
 
-    const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, extras, newTotalBalls);
+    const isFinished = checkInningsAndMatchCompletion(newBat, finalBowl, extras, newTotalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, extras, false, newRecentBalls, celebrationEvent);
+      triggerSave(newBat, finalBowl, extras, false, newRecentBalls, celebrationEvent);
       if (isOverEnd) {
         triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
       }
