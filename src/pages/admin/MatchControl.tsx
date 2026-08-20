@@ -836,11 +836,26 @@ function InningsLiveConsole({
     return notOut[1]?.playerId ?? battingPlayers[1]?.id ?? "";
   });
   const [currentBowlerId, setCurrentBowlerId] = useState<string>(() => {
+    const totalBalls = existing?.bowling.reduce((s, b) => s + b.balls, 0) ?? 0;
+    // If an over just completed (6, 12, 18, 24), bowler must be newly selected
+    if (totalBalls > 0 && totalBalls % 6 === 0) {
+      return "";
+    }
     const activeBowlers = bowlRows.filter((b) => b.bowled);
     return activeBowlers[activeBowlers.length - 1]?.playerId ?? bowlingPlayers[0]?.id ?? "";
   });
 
-  // Auto-select initial batsmen and bowler if not yet selected
+  // Track the bowler who bowled the immediately preceding over (to prevent consecutive overs)
+  const [lastOverBowlerId, setLastOverBowlerId] = useState<string | null>(() => {
+    const totalBalls = existing?.bowling.reduce((s, b) => s + b.balls, 0) ?? 0;
+    if (totalBalls > 0 && totalBalls % 6 === 0) {
+      const active = existing?.bowling.filter((b) => b.balls > 0);
+      return active?.[active.length - 1]?.playerId ?? null;
+    }
+    return null;
+  });
+
+  // Auto-select initial batsmen and first bowler on innings start (0 legal balls only)
   useEffect(() => {
     if (!strikerId && battingPlayers.length > 0) {
       const notOut = batRows.filter((b) => b.batted && !b.isOut);
@@ -850,11 +865,11 @@ function InningsLiveConsole({
       const notOut = batRows.filter((b) => b.batted && !b.isOut);
       setNonStrikerId(notOut[1]?.playerId ?? battingPlayers[1]?.id ?? "");
     }
-    if (!currentBowlerId && bowlingPlayers.length > 0) {
-      const activeBowlers = bowlRows.filter((b) => b.bowled);
-      setCurrentBowlerId(activeBowlers[activeBowlers.length - 1]?.playerId ?? bowlingPlayers[0]?.id ?? "");
+    // Only auto-select bowler for 1st over (0 legal balls bowled)
+    if (!currentBowlerId && bowlingPlayers.length > 0 && totalLegalBalls === 0) {
+      setCurrentBowlerId(bowlingPlayers[0]?.id ?? "");
     }
-  }, [battingPlayers, bowlingPlayers, batRows, bowlRows, strikerId, nonStrikerId, currentBowlerId]);
+  }, [battingPlayers, bowlingPlayers, batRows, strikerId, nonStrikerId, currentBowlerId, totalLegalBalls]);
 
   // Recent Balls Feed (History for this session & stored in Firestore)
   const [recentBalls, setRecentBalls] = useState<string[]>(() => existing?.recentBalls ?? []);
@@ -897,11 +912,11 @@ function InningsLiveConsole({
     if (newTotalBalls >= maxLegalBallsInnings) return; // Innings already finished
     const overNum = Math.floor(newTotalBalls / 6);
     setCompletedOverNum(Math.max(1, overNum));
-    // Auto-find next eligible bowler other than the previous one
-    const nextEligible =
-      bowlingPlayers.find((p) => p.id !== previousBowlerId && !isBowlerQuotaExhausted(p.id)) ??
-      bowlingPlayers.find((p) => !isBowlerQuotaExhausted(p.id));
-    setSelectedNextBowlerId(nextEligible?.id ?? "");
+    // Auto-find next eligible bowler other than the previous one (cannot bowl consecutive overs)
+    const eligible = bowlingPlayers.filter(
+      (p) => p.id !== previousBowlerId && !isBowlerQuotaExhausted(p.id),
+    );
+    setSelectedNextBowlerId(eligible[0]?.id ?? "");
     setNextBowlerModalOpen(true);
   };
 
@@ -910,13 +925,17 @@ function InningsLiveConsole({
       toast.error("Please select the next bowler.");
       return;
     }
+    if (lastOverBowlerId && selectedNextBowlerId === lastOverBowlerId) {
+      toast.error("A bowler cannot bowl 2 consecutive overs. Please select a different bowler.");
+      return;
+    }
     setCurrentBowlerId(selectedNextBowlerId);
     setBowlRows((prev) =>
       prev.map((b) => (b.playerId === selectedNextBowlerId ? { ...b, bowled: true } : b)),
     );
     setNextBowlerModalOpen(false);
     const bName = bowlingPlayers.find((p) => p.id === selectedNextBowlerId)?.name ?? "Bowler";
-    toast.success(`Bowler set to ${bName}! Balls will now count towards them.`);
+    toast.success(`Bowler for Over ${completedOverNum + 1} set to ${bName}!`);
   };
 
   // Calculated Totals
@@ -1136,8 +1155,22 @@ function InningsLiveConsole({
       return;
     }
 
-    if (!strikerId || !currentBowlerId) {
-      toast.error("Please select both Striker and Bowler first.");
+    if (!strikerId) {
+      toast.error("Please select the Striker.");
+      return;
+    }
+
+    if (!currentBowlerId) {
+      const nextOverNum = Math.floor(totalLegalBalls / 6) + 1;
+      toast.error(`Please select the bowler for Over ${nextOverNum}.`);
+      triggerNextBowlerDialog(totalLegalBalls, lastOverBowlerId ?? "");
+      return;
+    }
+
+    if (lastOverBowlerId && currentBowlerId === lastOverBowlerId && totalLegalBalls > 0 && totalLegalBalls % 6 === 0) {
+      const bName = bowlingPlayers.find((p) => p.id === currentBowlerId)?.name ?? "This bowler";
+      toast.error(`Consecutive Over Guard: ${bName} just bowled the previous over and cannot bowl consecutive overs.`);
+      triggerNextBowlerDialog(totalLegalBalls, lastOverBowlerId);
       return;
     }
 
@@ -1152,7 +1185,7 @@ function InningsLiveConsole({
     }
 
     if (isBowlerQuotaExhausted(currentBowlerId)) {
-      toast.info("Over completed! Please select the bowler for the next over.");
+      toast.info("This bowler has reached their maximum quota limit.");
       triggerNextBowlerDialog(totalLegalBalls, currentBowlerId);
       return;
     }
@@ -1275,7 +1308,10 @@ function InningsLiveConsole({
     if (!isFinished) {
       triggerSave(newBat, finalBowl, extras, false, newRecentBalls, celebrationEvent);
       if (isOverEnd) {
-        triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+        const finishedBowler = currentBowlerId;
+        setLastOverBowlerId(finishedBowler);
+        setCurrentBowlerId("");
+        triggerNextBowlerDialog(newTotalBalls, finishedBowler);
       }
     }
   };
@@ -1288,7 +1324,16 @@ function InningsLiveConsole({
     }
 
     if (!currentBowlerId) {
-      toast.error("Please select the Current Bowler.");
+      const nextOverNum = Math.floor(totalLegalBalls / 6) + 1;
+      toast.error(`Please select the bowler for Over ${nextOverNum}.`);
+      triggerNextBowlerDialog(totalLegalBalls, lastOverBowlerId ?? "");
+      return;
+    }
+
+    if (lastOverBowlerId && currentBowlerId === lastOverBowlerId && totalLegalBalls > 0 && totalLegalBalls % 6 === 0) {
+      const bName = bowlingPlayers.find((p) => p.id === currentBowlerId)?.name ?? "This bowler";
+      toast.error(`Consecutive Over Guard: ${bName} just bowled the previous over and cannot bowl consecutive overs.`);
+      triggerNextBowlerDialog(totalLegalBalls, lastOverBowlerId);
       return;
     }
 
@@ -1303,7 +1348,7 @@ function InningsLiveConsole({
     }
 
     if (isBowlerQuotaExhausted(currentBowlerId)) {
-      toast.info("Over completed! Please select the bowler for the next over.");
+      toast.info("This bowler has reached their maximum quota limit.");
       triggerNextBowlerDialog(totalLegalBalls, currentBowlerId);
       return;
     }
@@ -1374,7 +1419,10 @@ function InningsLiveConsole({
     if (!isFinished) {
       triggerSave(newBat, newBowl, newExtras, false, newRecentBalls);
       if (isOverEnd) {
-        triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+        const finishedBowler = currentBowlerId;
+        setLastOverBowlerId(finishedBowler);
+        setCurrentBowlerId("");
+        triggerNextBowlerDialog(newTotalBalls, finishedBowler);
       }
     }
   };
@@ -1385,12 +1433,24 @@ function InningsLiveConsole({
       toast.info("Innings is completed.");
       return;
     }
-    if (!strikerId || !currentBowlerId) {
-      toast.error("Please select both Striker and Bowler.");
+    if (!strikerId) {
+      toast.error("Please select the Striker.");
+      return;
+    }
+    if (!currentBowlerId) {
+      const nextOverNum = Math.floor(totalLegalBalls / 6) + 1;
+      toast.error(`Please select the bowler for Over ${nextOverNum}.`);
+      triggerNextBowlerDialog(totalLegalBalls, lastOverBowlerId ?? "");
+      return;
+    }
+    if (lastOverBowlerId && currentBowlerId === lastOverBowlerId && totalLegalBalls > 0 && totalLegalBalls % 6 === 0) {
+      const bName = bowlingPlayers.find((p) => p.id === currentBowlerId)?.name ?? "This bowler";
+      toast.error(`Consecutive Over Guard: ${bName} just bowled the previous over and cannot bowl consecutive overs.`);
+      triggerNextBowlerDialog(totalLegalBalls, lastOverBowlerId);
       return;
     }
     if (isBowlerQuotaExhausted(currentBowlerId)) {
-      toast.info("Over completed! Please select the bowler for the next over.");
+      toast.info("This bowler has reached their maximum quota limit.");
       triggerNextBowlerDialog(totalLegalBalls, currentBowlerId);
       return;
     }
@@ -1483,6 +1543,18 @@ function InningsLiveConsole({
       toast.info("Innings is completed.");
       return;
     }
+    if (!currentBowlerId) {
+      const nextOverNum = Math.floor(totalLegalBalls / 6) + 1;
+      toast.error(`Please select the bowler for Over ${nextOverNum}.`);
+      triggerNextBowlerDialog(totalLegalBalls, lastOverBowlerId ?? "");
+      return;
+    }
+    if (lastOverBowlerId && currentBowlerId === lastOverBowlerId && totalLegalBalls > 0 && totalLegalBalls % 6 === 0) {
+      const bName = bowlingPlayers.find((p) => p.id === currentBowlerId)?.name ?? "This bowler";
+      toast.error(`Consecutive Over Guard: ${bName} just bowled the previous over and cannot bowl consecutive overs.`);
+      triggerNextBowlerDialog(totalLegalBalls, lastOverBowlerId);
+      return;
+    }
     if (totalWickets >= maxWickets) {
       toast.error(`Team is already All Out (${maxWickets} wickets).`);
       return;
@@ -1563,7 +1635,10 @@ function InningsLiveConsole({
       triggerSave(newBat, newBowl, extras, false, newRecentBalls, celebrationEvent);
       toast.success(`Wicket recorded (${dismissalType})!`);
       if (isOverEnd) {
-        triggerNextBowlerDialog(newTotalBalls, currentBowlerId);
+        const finishedBowler = currentBowlerId;
+        setLastOverBowlerId(finishedBowler);
+        setCurrentBowlerId("");
+        triggerNextBowlerDialog(newTotalBalls, finishedBowler);
       }
     }
   };
@@ -1776,9 +1851,18 @@ function InningsLiveConsole({
                     </Button>
                   </div>
                 </div>
-                <Select value={currentBowlerId || undefined} onValueChange={setCurrentBowlerId}>
+                <Select
+                  value={currentBowlerId || undefined}
+                  onValueChange={(id) => {
+                    if (id === lastOverBowlerId && totalLegalBalls > 0 && totalLegalBalls % 6 === 0) {
+                      toast.error("A bowler cannot bowl 2 consecutive overs.");
+                      return;
+                    }
+                    setCurrentBowlerId(id);
+                  }}
+                >
                   <SelectTrigger className="h-8 text-xs font-semibold">
-                    <SelectValue placeholder="Select Bowler" />
+                    <SelectValue placeholder="Select Bowler for this over" />
                   </SelectTrigger>
                   <SelectContent>
                     {bowlingPlayers.map((p) => {
@@ -1786,11 +1870,21 @@ function InningsLiveConsole({
                       const bCount = row?.balls ?? 0;
                       const isExhausted = isBowlerQuotaExhausted(p.id);
                       const maxB = getBowlerMaxBalls(p.id);
+                      const isConsecutive =
+                        p.id === lastOverBowlerId && totalLegalBalls > 0 && totalLegalBalls % 6 === 0;
 
                       return (
-                        <SelectItem key={p.id} value={p.id} disabled={isExhausted}>
+                        <SelectItem
+                          key={p.id}
+                          value={p.id}
+                          disabled={isExhausted || isConsecutive}
+                        >
                           {p.name} ({ballsToOversText(bCount)} / {ballsToOversText(maxB)} ov)
-                          {isExhausted ? " [LIMIT REACHED]" : ""}
+                          {isConsecutive
+                            ? " [Cannot bowl consecutive overs]"
+                            : isExhausted
+                              ? " [LIMIT REACHED]"
+                              : ""}
                         </SelectItem>
                       );
                     })}
@@ -2468,16 +2562,20 @@ function InningsLiveConsole({
                     const bCount = row?.balls ?? 0;
                     const isExhausted = isBowlerQuotaExhausted(p.id);
                     const maxB = getBowlerMaxBalls(p.id);
-                    const isPrevious = p.id === currentBowlerId;
+                    const isConsecutive = p.id === lastOverBowlerId;
 
                     return (
                       <SelectItem
                         key={p.id}
                         value={p.id}
-                        disabled={isExhausted || isPrevious}
+                        disabled={isExhausted || isConsecutive}
                       >
                         {p.name} ({ballsToOversText(bCount)} / {ballsToOversText(maxB)} ov)
-                        {isPrevious ? " [Just Bowled]" : isExhausted ? " [Quota Completed]" : ""}
+                        {isConsecutive
+                          ? " [Cannot bowl consecutive overs]"
+                          : isExhausted
+                            ? " [Quota Completed]"
+                            : ""}
                       </SelectItem>
                     );
                   })}
