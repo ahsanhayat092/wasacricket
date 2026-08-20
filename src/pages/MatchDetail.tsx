@@ -46,6 +46,10 @@ export default function MatchDetail() {
   const teamA = match.teamA;
   const teamB = match.teamB;
 
+  const inn1 = innings.find((i) => i.inningsNumber === 1);
+  const inn2 = innings.find((i) => i.inningsNumber === 2);
+  const currentInnings = inn2 ?? inn1 ?? null;
+
   const teamName = (teamId: string) =>
     teamA?.id === teamId ? teamA.name : teamB?.id === teamId ? teamB.name : "Team";
 
