@@ -734,14 +734,46 @@ function InningsLiveConsole({
     }
   }
 
-  const battingPlayers = players.filter((p) => p.teamId === battingTeamId);
-  const bowlingPlayers = players.filter((p) => p.teamId === bowlingTeamId);
+  // Filter squad to only active Playing VI (6 starters), strictly excluding benched/reserve player unless subbed for injury
+  const getPlayingSquad = (teamId: string | null) => {
+    if (!teamId) return [];
+    const teamSquad = players.filter((p) => p.teamId === teamId);
+
+    const isTeamA = teamId === match.teamAId;
+    const playingVI = isTeamA ? match.teamAPlayingVI : match.teamBPlayingVI;
+    const reserveId = isTeamA ? match.teamAReserveId : match.teamBReserveId;
+
+    if (playingVI && playingVI.length > 0) {
+      return teamSquad.filter((p) => playingVI.includes(p.id));
+    }
+    if (reserveId) {
+      return teamSquad.filter((p) => p.id !== reserveId);
+    }
+    // Default: first 6 are Playing VI starters, 7th is benched reserve
+    if (teamSquad.length > 6) {
+      return teamSquad.slice(0, 6);
+    }
+    return teamSquad;
+  };
+
+  const battingPlayers = getPlayingSquad(battingTeamId);
+  const bowlingPlayers = getPlayingSquad(bowlingTeamId);
   const battingTeam = teams.find((t) => t.id === battingTeamId);
   const bowlingTeam = teams.find((t) => t.id === bowlingTeamId);
 
   // Batting and Bowling State
-  const [batRows, setBatRows] = useState<BatRow[]>(() =>
-    battingPlayers.map((p) => {
+  const [batRows, setBatRows] = useState<BatRow[]>(() => {
+    const playingIds = new Set(battingPlayers.map((p) => p.id));
+    const allRelevant = [
+      ...battingPlayers,
+      ...players.filter(
+        (p) =>
+          p.teamId === battingTeamId &&
+          !playingIds.has(p.id) &&
+          existing?.batting.some((b) => b.playerId === p.id),
+      ),
+    ];
+    return allRelevant.map((p) => {
       const ex = existing?.batting.find((b) => b.playerId === p.id);
       return {
         playerId: p.id,
@@ -754,11 +786,21 @@ function InningsLiveConsole({
         isOut: ex?.isOut ?? false,
         dismissal: ex?.dismissal ?? "",
       };
-    }),
-  );
+    });
+  });
 
-  const [bowlRows, setBowlRows] = useState<BowlRow[]>(() =>
-    bowlingPlayers.map((p) => {
+  const [bowlRows, setBowlRows] = useState<BowlRow[]>(() => {
+    const playingIds = new Set(bowlingPlayers.map((p) => p.id));
+    const allRelevant = [
+      ...bowlingPlayers,
+      ...players.filter(
+        (p) =>
+          p.teamId === bowlingTeamId &&
+          !playingIds.has(p.id) &&
+          existing?.bowling.some((b) => b.playerId === p.id),
+      ),
+    ];
+    return allRelevant.map((p) => {
       const ex = existing?.bowling.find((b) => b.playerId === p.id);
       return {
         playerId: p.id,
@@ -771,8 +813,8 @@ function InningsLiveConsole({
         wides: ex?.wides ?? 0,
         noBalls: ex?.noBalls ?? 0,
       };
-    }),
-  );
+    });
+  });
 
   const [extras, setExtras] = useState({
     wides: existing?.wides ?? 0,
