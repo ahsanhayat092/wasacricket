@@ -4,7 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { getTournament, getPlayers } from "@/lib/queries";
 import { subscribeToMatch } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
-import { ScorecardView, type InningsData } from "@/components/ScorecardView";
+import {
+  ScorecardView,
+  PartnershipsSection,
+  type InningsData,
+} from "@/components/ScorecardView";
 import { ManhattanGraph } from "@/components/ManhattanGraph";
 import { RecentBalls } from "@/components/RecentBalls";
 import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
@@ -16,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ballsToOversText, formatMatchDay, getInningsPartnerships } from "@/lib/cricket";
 import type { Match, Innings, BattingScore, BowlingScore, Team, Player } from "@/lib/firestore";
 import { getSchedule } from "@/lib/queries";
-import { Trophy, Users, ArrowRightLeft, Zap, BarChart3 } from "lucide-react";
+import { Trophy, Users, ArrowRightLeft, Zap, BarChart3, ShieldAlert } from "lucide-react";
 
 type LiveData = {
   match: Match;
@@ -317,20 +321,40 @@ export default function LiveMatch() {
         </CardContent>
       </Card>
 
-      {/* Tabs: Live Scorecard vs Manhattan vs Playing VI */}
+      {/* Tabs: Live Scorecard vs Partnerships vs Manhattan vs Playing VI */}
       <Tabs defaultValue="scorecard" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="scorecard" className="text-xs sm:text-sm font-bold gap-1.5">
             <Trophy className="h-4 w-4 text-amber-500" /> Scorecard
+          </TabsTrigger>
+          <TabsTrigger value="partnerships" className="text-xs sm:text-sm font-bold gap-1.5">
+            <Users className="h-4 w-4 text-amber-500" /> Partnerships
           </TabsTrigger>
           <TabsTrigger value="manhattan" className="text-xs sm:text-sm font-bold gap-1.5">
             <BarChart3 className="h-4 w-4 text-indigo-400" /> Manhattan
           </TabsTrigger>
           <TabsTrigger value="lineup" className="text-xs sm:text-sm font-bold gap-1.5">
-            <Users className="h-4 w-4 text-emerald-500" />
+            <ShieldAlert className="h-4 w-4 text-emerald-500" />
             {lineupA.hasConfirmed || lineupB.hasConfirmed ? "Playing VI" : "Squads"}
           </TabsTrigger>
         </TabsList>
+
+        {/* Tab: Partnerships */}
+        <TabsContent value="partnerships" className="mt-4 space-y-6">
+          {inningsView.length === 0 ? (
+            <Card className="p-8 text-center text-muted-foreground text-sm">
+              Waiting for match data...
+            </Card>
+          ) : (
+            inningsView.map((inn) => (
+              <PartnershipsSection
+                key={`part-${inn.id}`}
+                innings={inn}
+                squadPlayers={allPlayers ?? []}
+              />
+            ))
+          )}
+        </TabsContent>
 
         {/* Tab: Manhattan Graph */}
         <TabsContent value="manhattan" className="mt-4 space-y-6">
@@ -433,7 +457,12 @@ export default function LiveMatch() {
             </Card>
           ) : (
             inningsView.map((inn) => (
-              <ScorecardView key={inn.id} innings={inn} squadPlayers={allPlayers ?? []} />
+              <ScorecardView
+                key={inn.id}
+                innings={inn}
+                squadPlayers={allPlayers ?? []}
+                showPartnerships={false}
+              />
             ))
           )}
         </TabsContent>

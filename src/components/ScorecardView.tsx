@@ -66,9 +66,11 @@ export type InningsData = {
 export function ScorecardView({
   innings,
   squadPlayers = [],
+  showPartnerships = true,
 }: {
   innings: InningsData;
   squadPlayers?: Player[];
+  showPartnerships?: boolean;
 }) {
   const extras =
     innings.wides + innings.noBalls + innings.byes + innings.legByes + innings.penaltyRuns;
@@ -270,105 +272,107 @@ export function ScorecardView({
           )}
         </div>
 
-        {/* Partnerships Section */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-amber-500" /> Batting Partnerships
-            </h4>
-            <Badge variant="outline" className="text-[10px] font-mono">
-              {partnerships.length} Stand{partnerships.length === 1 ? "" : "s"}
-            </Badge>
+        {/* Partnerships Section (Optional inside ScorecardView) */}
+        {showPartnerships && (
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-amber-500" /> Batting Partnerships
+              </h4>
+              <Badge variant="outline" className="text-[10px] font-mono">
+                {partnerships.length} Stand{partnerships.length === 1 ? "" : "s"}
+              </Badge>
+            </div>
+
+            {partnerships.length === 0 ? (
+              <div className="p-3 rounded-lg border border-dashed text-xs text-muted-foreground text-center bg-muted/5">
+                No partnerships recorded yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {partnerships.map((p) => {
+                  const totalRuns = Math.max(0, p.totalRuns);
+                  const p1Share = totalRuns > 0 ? Math.round((p.player1Runs / totalRuns) * 100) : 50;
+                  const p2Share = 100 - p1Share;
+                  const runRate =
+                    p.totalBalls > 0 ? ((p.totalRuns / p.totalBalls) * 6).toFixed(2) : "0.00";
+
+                  return (
+                    <div
+                      key={`${p.wicketNumber}-${p.player1Id}-${p.player2Id}`}
+                      className="p-3.5 rounded-xl border bg-card/70 space-y-2.5 shadow-sm hover:border-amber-500/30 transition-colors"
+                    >
+                      {/* Header: Stand & Total Runs */}
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-foreground">
+                            {p.wicketNumber}
+                            {p.wicketNumber === 1
+                              ? "st"
+                              : p.wicketNumber === 2
+                                ? "nd"
+                                : p.wicketNumber === 3
+                                  ? "rd"
+                                  : "th"}{" "}
+                            Wicket Stand
+                          </span>
+                          {p.isUnbroken && (
+                            <Badge className="bg-emerald-500/20 border-emerald-500/40 text-emerald-400 text-[10px] font-black px-1.5 py-0">
+                              Unbroken *
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="font-mono text-xs">
+                          <span className="font-black text-amber-400 text-sm">{p.totalRuns}</span>{" "}
+                          <span className="text-muted-foreground">
+                            runs ({p.totalBalls}b, RR: {runRate})
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Split Visual Progress Bar */}
+                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
+                        <div
+                          style={{ width: `${Math.max(10, Math.min(90, p1Share))}%` }}
+                          className="bg-gradient-to-r from-amber-500 to-amber-400 transition-all"
+                        />
+                        <div
+                          style={{ width: `${Math.max(10, Math.min(90, p2Share))}%` }}
+                          className="bg-gradient-to-r from-sky-400 to-sky-500 transition-all"
+                        />
+                      </div>
+
+                      {/* Player Breakdown Row */}
+                      <div className="flex items-center justify-between text-xs pt-0.5">
+                        {/* Player 1 */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                          <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
+                            {p.player1Name ?? "Batter 1"}
+                          </span>
+                          <span className="font-mono text-muted-foreground text-[11px]">
+                            {p.player1Runs} ({p.player1Balls}b)
+                          </span>
+                        </div>
+
+                        {/* Player 2 */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-muted-foreground text-[11px]">
+                            {p.player2Runs} ({p.player2Balls}b)
+                          </span>
+                          <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
+                            {p.player2Name ?? "Batter 2"}
+                          </span>
+                          <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0" />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
-          {partnerships.length === 0 ? (
-            <div className="p-3 rounded-lg border border-dashed text-xs text-muted-foreground text-center bg-muted/5">
-              No partnerships recorded yet.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {partnerships.map((p) => {
-                const totalRuns = Math.max(0, p.totalRuns);
-                const p1Share = totalRuns > 0 ? Math.round((p.player1Runs / totalRuns) * 100) : 50;
-                const p2Share = 100 - p1Share;
-                const runRate =
-                  p.totalBalls > 0 ? ((p.totalRuns / p.totalBalls) * 6).toFixed(2) : "0.00";
-
-                return (
-                  <div
-                    key={`${p.wicketNumber}-${p.player1Id}-${p.player2Id}`}
-                    className="p-3.5 rounded-xl border bg-card/70 space-y-2.5 shadow-sm hover:border-amber-500/30 transition-colors"
-                  >
-                    {/* Header: Stand & Total Runs */}
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-foreground">
-                          {p.wicketNumber}
-                          {p.wicketNumber === 1
-                            ? "st"
-                            : p.wicketNumber === 2
-                              ? "nd"
-                              : p.wicketNumber === 3
-                                ? "rd"
-                                : "th"}{" "}
-                          Wicket Stand
-                        </span>
-                        {p.isUnbroken && (
-                          <Badge className="bg-emerald-500/20 border-emerald-500/40 text-emerald-400 text-[10px] font-black px-1.5 py-0">
-                            Unbroken *
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="font-mono text-xs">
-                        <span className="font-black text-amber-400 text-sm">{p.totalRuns}</span>{" "}
-                        <span className="text-muted-foreground">
-                          runs ({p.totalBalls}b, RR: {runRate})
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Split Visual Progress Bar */}
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
-                      <div
-                        style={{ width: `${Math.max(10, Math.min(90, p1Share))}%` }}
-                        className="bg-gradient-to-r from-amber-500 to-amber-400 transition-all"
-                      />
-                      <div
-                        style={{ width: `${Math.max(10, Math.min(90, p2Share))}%` }}
-                        className="bg-gradient-to-r from-sky-400 to-sky-500 transition-all"
-                      />
-                    </div>
-
-                    {/* Player Breakdown Row */}
-                    <div className="flex items-center justify-between text-xs pt-0.5">
-                      {/* Player 1 */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-                        <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
-                          {p.player1Name ?? "Batter 1"}
-                        </span>
-                        <span className="font-mono text-muted-foreground text-[11px]">
-                          {p.player1Runs} ({p.player1Balls}b)
-                        </span>
-                      </div>
-
-                      {/* Player 2 */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-muted-foreground text-[11px]">
-                          {p.player2Runs} ({p.player2Balls}b)
-                        </span>
-                        <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
-                          {p.player2Name ?? "Batter 2"}
-                        </span>
-                        <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Bowling Table */}
         {(() => {
@@ -422,6 +426,123 @@ export function ScorecardView({
             </div>
           );
         })()}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function PartnershipsSection({
+  innings,
+  squadPlayers = [],
+  title,
+}: {
+  innings: InningsData;
+  squadPlayers?: Player[];
+  title?: string;
+}) {
+  const partnerships = getInningsPartnerships(innings, squadPlayers);
+
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="p-4 sm:p-5 border-b bg-muted/20">
+        <CardTitle className="flex flex-wrap items-center justify-between text-base sm:text-lg gap-2">
+          <span className="font-extrabold flex items-center gap-2">
+            <Users className="h-5 w-5 text-amber-500" />
+            {title ?? `${innings.battingTeamName ?? `Innings ${innings.inningsNumber}`} — Batting Partnerships`}
+          </span>
+          <Badge variant="outline" className="text-xs font-mono">
+            {partnerships.length} Stand{partnerships.length === 1 ? "" : "s"}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 sm:p-6">
+        {partnerships.length === 0 ? (
+          <div className="p-4 rounded-lg border border-dashed text-xs text-muted-foreground text-center bg-muted/5">
+            No partnerships recorded yet for this innings.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {partnerships.map((p) => {
+              const totalRuns = Math.max(0, p.totalRuns);
+              const p1Share = totalRuns > 0 ? Math.round((p.player1Runs / totalRuns) * 100) : 50;
+              const p2Share = 100 - p1Share;
+              const runRate =
+                p.totalBalls > 0 ? ((p.totalRuns / p.totalBalls) * 6).toFixed(2) : "0.00";
+
+              return (
+                <div
+                  key={`${p.wicketNumber}-${p.player1Id}-${p.player2Id}`}
+                  className="p-3.5 rounded-xl border bg-card/70 space-y-2.5 shadow-sm hover:border-amber-500/30 transition-colors"
+                >
+                  {/* Header: Stand & Total Runs */}
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-foreground">
+                        {p.wicketNumber}
+                        {p.wicketNumber === 1
+                          ? "st"
+                          : p.wicketNumber === 2
+                            ? "nd"
+                            : p.wicketNumber === 3
+                              ? "rd"
+                              : "th"}{" "}
+                        Wicket Stand
+                      </span>
+                      {p.isUnbroken && (
+                        <Badge className="bg-emerald-500/20 border-emerald-500/40 text-emerald-400 text-[10px] font-black px-1.5 py-0">
+                          Unbroken *
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="font-mono text-xs">
+                      <span className="font-black text-amber-400 text-sm">{p.totalRuns}</span>{" "}
+                      <span className="text-muted-foreground">
+                        runs ({p.totalBalls}b, RR: {runRate})
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Split Visual Progress Bar */}
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
+                    <div
+                      style={{ width: `${Math.max(10, Math.min(90, p1Share))}%` }}
+                      className="bg-gradient-to-r from-amber-500 to-amber-400 transition-all"
+                    />
+                    <div
+                      style={{ width: `${Math.max(10, Math.min(90, p2Share))}%` }}
+                      className="bg-gradient-to-r from-sky-400 to-sky-500 transition-all"
+                    />
+                  </div>
+
+                  {/* Player Breakdown Row */}
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    {/* Player 1 */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                      <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
+                        {p.player1Name ?? "Batter 1"}
+                      </span>
+                      <span className="font-mono text-muted-foreground text-[11px]">
+                        {p.player1Runs} ({p.player1Balls}b)
+                      </span>
+                    </div>
+
+                    {/* Player 2 */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-muted-foreground text-[11px]">
+                        {p.player2Runs} ({p.player2Balls}b)
+                      </span>
+                      <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
+                        {p.player2Name ?? "Batter 2"}
+                      </span>
+                      <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
