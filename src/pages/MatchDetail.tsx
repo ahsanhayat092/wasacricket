@@ -3,6 +3,7 @@ import { getMatchById } from "@/lib/queries";
 import { useParams, Link } from "react-router";
 import { TeamBadge } from "@/components/TeamBadge";
 import { ScorecardView, type InningsData } from "@/components/ScorecardView";
+import { ManhattanGraph } from "@/components/ManhattanGraph";
 import { RecentBalls } from "@/components/RecentBalls";
 import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -21,6 +22,7 @@ import {
   Shield,
   Zap,
   ArrowRightLeft,
+  BarChart3,
 } from "lucide-react";
 import type { Player } from "@/lib/firestore";
 
@@ -270,11 +272,14 @@ export default function MatchDetail() {
         </CardContent>
       </Card>
 
-      {/* Main Tabs: Scorecards vs Playing VI vs Match Info */}
+      {/* Main Tabs: Scorecards vs Manhattan Graph vs Playing VI vs Match Info */}
       <Tabs defaultValue="scorecard" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-0">
           <TabsTrigger value="scorecard" className="text-xs sm:text-sm font-bold gap-1.5">
             <Trophy className="h-4 w-4 text-amber-500" /> Scorecard
+          </TabsTrigger>
+          <TabsTrigger value="manhattan" className="text-xs sm:text-sm font-bold gap-1.5">
+            <BarChart3 className="h-4 w-4 text-indigo-400" /> Manhattan
           </TabsTrigger>
           <TabsTrigger value="lineup" className="text-xs sm:text-sm font-bold gap-1.5">
             <Users className="h-4 w-4 text-emerald-500" />
@@ -300,6 +305,17 @@ export default function MatchDetail() {
               />
             ))
           )}
+        </TabsContent>
+
+        {/* Tab: Manhattan Graph */}
+        <TabsContent value="manhattan" className="mt-4 space-y-6">
+          <ManhattanGraph
+            inn1={inn1}
+            inn2={inn2}
+            teamA={teamA}
+            teamB={teamB}
+            maxOvers={match.stage === "FINAL" ? 5 : 4}
+          />
         </TabsContent>
 
         {/* Tab 2: Team Squads (Pre-match) OR Match Playing VI (Post-toss/Live) */}

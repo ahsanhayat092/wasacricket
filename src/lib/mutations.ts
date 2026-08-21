@@ -37,6 +37,8 @@ import {
   type Player,
   type Match,
   type Innings,
+  type FallOfWicket,
+  type Partnership,
   type UserAccount,
   type UserRole,
   now,
@@ -468,6 +470,8 @@ export async function saveInnings(input: {
   }[];
   completed: boolean;
   recentBalls?: string[];
+  fallOfWickets?: FallOfWicket[];
+  partnerships?: Partnership[];
   recentEvent?: {
     type: "FOUR" | "SIX" | "WICKET" | "MAIDEN";
     text?: string;
@@ -508,9 +512,11 @@ export async function saveInnings(input: {
       wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0,
       allOut: false, completed: false,
       recentBalls: input.recentBalls ?? [],
+      fallOfWickets: input.fallOfWickets ?? [],
+      partnerships: input.partnerships ?? [],
       createdAt: now(), updatedAt: now(),
     });
-    inn = { id: ref.id, matchId: input.matchId, inningsNumber: input.inningsNumber, battingTeamId, bowlingTeamId, runs: 0, wickets: 0, balls: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0, allOut: false, completed: false, recentBalls: input.recentBalls ?? [], createdAt: now(), updatedAt: now() };
+    inn = { id: ref.id, matchId: input.matchId, inningsNumber: input.inningsNumber, battingTeamId, bowlingTeamId, runs: 0, wickets: 0, balls: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0, allOut: false, completed: false, recentBalls: input.recentBalls ?? [], fallOfWickets: input.fallOfWickets ?? [], partnerships: input.partnerships ?? [], createdAt: now(), updatedAt: now() };
   }
 
   // Strict Tournament Rules Guardrails
@@ -548,7 +554,7 @@ export async function saveInnings(input: {
     outCount >= maxWickets ||
     accumulatedBalls >= maxBalls;
 
-  // Update innings extras + completed flag + recent deliveries
+  // Update innings extras + completed flag + recent deliveries + FOW & partnerships
   await updateDoc(inningsDoc(inn.id), {
     wides: input.wides,
     noBalls: input.noBalls,
@@ -557,6 +563,8 @@ export async function saveInnings(input: {
     penaltyRuns: input.penaltyRuns,
     completed: isAutoCompleted,
     recentBalls: input.recentBalls ?? inn.recentBalls ?? [],
+    ...(input.fallOfWickets !== undefined ? { fallOfWickets: input.fallOfWickets } : {}),
+    ...(input.partnerships !== undefined ? { partnerships: input.partnerships } : {}),
     updatedAt: now(),
   });
 

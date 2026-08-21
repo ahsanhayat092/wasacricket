@@ -188,6 +188,15 @@ export async function recalculateStandings(tournamentId: number) {
       x.teamName.localeCompare(y.teamName),
   );
 
+  const allLeagueMatchesCompleted =
+    leagueMatches.length > 0 &&
+    leagueMatches.every(
+      (m) =>
+        m.status === "COMPLETED" ||
+        m.status === "NO_RESULT" ||
+        m.status === "ABANDONED",
+    );
+
   await db.transaction(async (tx) => {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
@@ -208,7 +217,7 @@ export async function recalculateStandings(tournamentId: number) {
           ballsAgainst: r.ballsAgainst,
           nrr: r.nrr,
           position: i + 1,
-          qualified: i < 2 && r.played > 0,
+          qualified: allLeagueMatchesCompleted && i < 2,
           adminTiebreak: r.adminTiebreak,
         })
         .onDuplicateKeyUpdate({
@@ -225,7 +234,7 @@ export async function recalculateStandings(tournamentId: number) {
             ballsAgainst: r.ballsAgainst,
             nrr: r.nrr,
             position: i + 1,
-            qualified: i < 2 && r.played > 0,
+            qualified: allLeagueMatchesCompleted && i < 2,
             adminTiebreak: r.adminTiebreak,
           },
         });

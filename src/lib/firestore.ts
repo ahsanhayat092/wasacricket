@@ -95,6 +95,33 @@ export type Match = {
   updatedAt: string;
 };
 
+export type FallOfWicket = {
+  wicketNumber: number;
+  runs: number;
+  balls: number;
+  overs: string;
+  playerId: string;
+  playerName?: string;
+  dismissal?: string | null;
+  partnershipRuns?: number;
+  partnershipBalls?: number;
+};
+
+export type Partnership = {
+  wicketNumber: number;
+  player1Id: string;
+  player1Name?: string;
+  player1Runs: number;
+  player1Balls: number;
+  player2Id: string;
+  player2Name?: string;
+  player2Runs: number;
+  player2Balls: number;
+  totalRuns: number;
+  totalBalls: number;
+  isUnbroken?: boolean;
+};
+
 export type Innings = {
   id: string;
   matchId: string;
@@ -112,6 +139,8 @@ export type Innings = {
   allOut: boolean;
   completed: boolean;
   recentBalls?: string[];
+  fallOfWickets?: FallOfWicket[];
+  partnerships?: Partnership[];
   createdAt: string;
   updatedAt: string;
 };

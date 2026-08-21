@@ -5,6 +5,7 @@ import { getTournament, getPlayers } from "@/lib/queries";
 import { subscribeToMatch } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
 import { ScorecardView, type InningsData } from "@/components/ScorecardView";
+import { ManhattanGraph } from "@/components/ManhattanGraph";
 import { RecentBalls } from "@/components/RecentBalls";
 import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -12,10 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ballsToOversText, formatMatchDay } from "@/lib/cricket";
+import { ballsToOversText, formatMatchDay, getInningsPartnerships } from "@/lib/cricket";
 import type { Match, Innings, BattingScore, BowlingScore, Team, Player } from "@/lib/firestore";
 import { getSchedule } from "@/lib/queries";
-import { Trophy, Users, ArrowRightLeft, Zap } from "lucide-react";
+import { Trophy, Users, ArrowRightLeft, Zap, BarChart3 } from "lucide-react";
 
 type LiveData = {
   match: Match;
@@ -107,6 +108,11 @@ export default function LiveMatch() {
         ...b,
         playerName: b.playerName && b.playerName !== "Unknown" ? b.playerName : playerName(b.playerId),
       })) ?? [];
+
+  const activePartnerships = current ? getInningsPartnerships(current, allPlayers ?? []) : [];
+  const currentStand =
+    activePartnerships.find((p) => p.isUnbroken) ??
+    (activePartnerships.length > 0 ? activePartnerships[activePartnerships.length - 1] : null);
 
   const fallOfWickets =
     current?.batting
@@ -264,13 +270,32 @@ export default function LiveMatch() {
 
           {/* Rates banner (if live) */}
           {match.status === "LIVE" && (
-            <div className="mt-4 pt-4 border-t flex flex-wrap items-center justify-between text-xs sm:text-sm font-mono text-muted-foreground gap-2">
-              <span>CRR: <strong className="text-foreground">{crr}</strong></span>
-              {rrr && <span>RRR: <strong className="text-foreground">{rrr}</strong></span>}
-              {runsNeeded !== null && ballsRemaining !== null && (
-                <span className="text-primary font-bold">
-                  Need {runsNeeded} runs from {ballsRemaining} balls
-                </span>
+            <div className="mt-4 pt-4 border-t space-y-3">
+              <div className="flex flex-wrap items-center justify-between text-xs sm:text-sm font-mono text-muted-foreground gap-2">
+                <span>CRR: <strong className="text-foreground">{crr}</strong></span>
+                {rrr && <span>RRR: <strong className="text-foreground">{rrr}</strong></span>}
+                {runsNeeded !== null && ballsRemaining !== null && (
+                  <span className="text-primary font-bold">
+                    Need {runsNeeded} runs from {ballsRemaining} balls
+                  </span>
+                )}
+              </div>
+
+              {currentStand && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-amber-500 text-slate-950 font-black text-[10px] gap-1 px-2 py-0.5">
+                      <Users className="h-3 w-3" /> Current Stand
+                    </Badge>
+                    <span className="font-bold text-foreground">
+                      {currentStand.player1Name} ({currentStand.player1Runs}) & {currentStand.player2Name} ({currentStand.player2Runs})
+                    </span>
+                  </div>
+                  <div className="font-mono text-xs font-semibold">
+                    <span className="font-black text-amber-400 text-sm">{currentStand.totalRuns} runs</span>
+                    <span className="text-muted-foreground ml-1">({currentStand.totalBalls} balls)</span>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -290,17 +315,31 @@ export default function LiveMatch() {
         </CardContent>
       </Card>
 
-      {/* Tabs: Live Scorecard vs Playing VI */}
+      {/* Tabs: Live Scorecard vs Manhattan vs Playing VI */}
       <Tabs defaultValue="scorecard" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="scorecard" className="text-xs sm:text-sm font-bold gap-1.5">
-            <Trophy className="h-4 w-4 text-amber-500" /> Live Scorecard
+            <Trophy className="h-4 w-4 text-amber-500" /> Scorecard
+          </TabsTrigger>
+          <TabsTrigger value="manhattan" className="text-xs sm:text-sm font-bold gap-1.5">
+            <BarChart3 className="h-4 w-4 text-indigo-400" /> Manhattan
           </TabsTrigger>
           <TabsTrigger value="lineup" className="text-xs sm:text-sm font-bold gap-1.5">
             <Users className="h-4 w-4 text-emerald-500" />
             {lineupA.hasConfirmed || lineupB.hasConfirmed ? "Playing VI" : "Squads"}
           </TabsTrigger>
         </TabsList>
+
+        {/* Tab: Manhattan Graph */}
+        <TabsContent value="manhattan" className="mt-4 space-y-6">
+          <ManhattanGraph
+            inn1={inn1}
+            inn2={inn2}
+            teamA={teamA}
+            teamB={teamB}
+            maxOvers={isFinal ? 5 : 4}
+          />
+        </TabsContent>
 
         <TabsContent value="scorecard" className="mt-4 space-y-6">
           {/* Current batsmen + bowlers */}

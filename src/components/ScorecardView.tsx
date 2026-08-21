@@ -8,8 +8,14 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ballsToOversText } from "@/lib/cricket";
-import type { Player } from "@/lib/firestore";
+import {
+  ballsToOversText,
+  getInningsFallOfWickets,
+  getInningsPartnerships,
+} from "@/lib/cricket";
+import type { Player, FallOfWicket, Partnership } from "@/lib/firestore";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { Users, ShieldAlert, Zap, ArrowRightLeft } from "lucide-react";
 
 type BattingRow = {
   playerId: string;
@@ -21,6 +27,7 @@ type BattingRow = {
   isOut: boolean;
   isOnStrike?: boolean;
   dismissal?: string | null;
+  battingOrder?: number;
 };
 
 type BowlingRow = {
@@ -50,6 +57,8 @@ export type InningsData = {
   bowlingTeamId: string;
   strikerId?: string | null;
   currentStrikerId?: string | null;
+  fallOfWickets?: FallOfWicket[];
+  partnerships?: Partnership[];
   batting: BattingRow[];
   bowling: BowlingRow[];
 };
@@ -75,10 +84,21 @@ export function ScorecardView({
     return found?.name ?? fallback ?? "Player";
   };
 
+  const fallOfWickets = getInningsFallOfWickets(innings, squadPlayers);
+  const partnerships = getInningsPartnerships(innings, squadPlayers);
+
+  // Compact FOW string (e.g. 1-14 (A. Khan, 1.2 ov), 2-35 (B. Ahmed, 3.4 ov))
+  const fowString = fallOfWickets
+    .map(
+      (f) =>
+        `${f.runs}/${f.wicketNumber} (${f.playerName ?? "Player"}, ${f.overs || ballsToOversText(f.balls)} ov)`,
+    )
+    .join(", ");
+
   return (
     <Card className="border shadow-sm">
       <CardHeader className="p-4 sm:p-5 border-b bg-muted/20">
-        <CardTitle className="flex flex-wrap items-center justify-between text-base sm:text-lg">
+        <CardTitle className="flex flex-wrap items-center justify-between text-base sm:text-lg gap-2">
           <span className="font-extrabold">
             {innings.battingTeamName ?? `Innings ${innings.inningsNumber}`}
           </span>
@@ -182,6 +202,173 @@ export function ScorecardView({
             ))}
           </div>
         )}
+
+        {/* Fall of Wickets (FOW) Section */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5 text-rose-500" /> Fall of Wickets
+            </h4>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              {fallOfWickets.length} Wicket{fallOfWickets.length === 1 ? "" : "s"} Fallen
+            </Badge>
+          </div>
+
+          {fallOfWickets.length === 0 ? (
+            <div className="p-3 rounded-lg border border-dashed text-xs text-muted-foreground text-center bg-muted/5">
+              No wickets have fallen in this innings yet.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {/* Summary Text Bar */}
+              <div className="p-2.5 rounded-lg bg-rose-500/5 border border-rose-500/15 text-xs text-muted-foreground leading-relaxed">
+                <span className="font-bold text-rose-400 mr-1.5">FOW:</span>
+                <span className="font-mono text-foreground">{fowString}</span>
+              </div>
+
+              {/* Structured FOW Grid Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {fallOfWickets.map((fow) => (
+                  <div
+                    key={`${fow.wicketNumber}-${fow.playerId}`}
+                    className="p-3 rounded-xl border bg-card/60 flex items-center justify-between text-xs hover:border-rose-500/30 transition-colors shadow-sm"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Badge className="bg-rose-600 text-white text-[10px] font-black px-1.5 py-0">
+                          {fow.wicketNumber}
+                          {fow.wicketNumber === 1
+                            ? "st"
+                            : fow.wicketNumber === 2
+                              ? "nd"
+                              : fow.wicketNumber === 3
+                                ? "rd"
+                                : "th"}{" "}
+                          Wkt
+                        </Badge>
+                        <span className="font-bold text-foreground truncate max-w-[120px] sm:max-w-[140px]">
+                          {fow.playerName}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-mono">
+                        {fow.dismissal ?? "dismissed"}
+                      </p>
+                    </div>
+
+                    <div className="text-right font-mono">
+                      <span className="text-base font-black text-rose-400">
+                        {fow.runs}/{fow.wicketNumber}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground">
+                        {fow.overs || ballsToOversText(fow.balls)} ov
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Partnerships Section */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-amber-500" /> Batting Partnerships
+            </h4>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              {partnerships.length} Stand{partnerships.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+
+          {partnerships.length === 0 ? (
+            <div className="p-3 rounded-lg border border-dashed text-xs text-muted-foreground text-center bg-muted/5">
+              No partnerships recorded yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {partnerships.map((p) => {
+                const totalRuns = Math.max(0, p.totalRuns);
+                const p1Share = totalRuns > 0 ? Math.round((p.player1Runs / totalRuns) * 100) : 50;
+                const p2Share = 100 - p1Share;
+                const runRate =
+                  p.totalBalls > 0 ? ((p.totalRuns / p.totalBalls) * 6).toFixed(2) : "0.00";
+
+                return (
+                  <div
+                    key={`${p.wicketNumber}-${p.player1Id}-${p.player2Id}`}
+                    className="p-3.5 rounded-xl border bg-card/70 space-y-2.5 shadow-sm hover:border-amber-500/30 transition-colors"
+                  >
+                    {/* Header: Stand & Total Runs */}
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-foreground">
+                          {p.wicketNumber}
+                          {p.wicketNumber === 1
+                            ? "st"
+                            : p.wicketNumber === 2
+                              ? "nd"
+                              : p.wicketNumber === 3
+                                ? "rd"
+                                : "th"}{" "}
+                          Wicket Stand
+                        </span>
+                        {p.isUnbroken && (
+                          <Badge className="bg-emerald-500/20 border-emerald-500/40 text-emerald-400 text-[10px] font-black px-1.5 py-0">
+                            Unbroken *
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="font-mono text-xs">
+                        <span className="font-black text-amber-400 text-sm">{p.totalRuns}</span>{" "}
+                        <span className="text-muted-foreground">
+                          runs ({p.totalBalls}b, RR: {runRate})
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Split Visual Progress Bar */}
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
+                      <div
+                        style={{ width: `${Math.max(10, Math.min(90, p1Share))}%` }}
+                        className="bg-gradient-to-r from-amber-500 to-amber-400 transition-all"
+                      />
+                      <div
+                        style={{ width: `${Math.max(10, Math.min(90, p2Share))}%` }}
+                        className="bg-gradient-to-r from-sky-400 to-sky-500 transition-all"
+                      />
+                    </div>
+
+                    {/* Player Breakdown Row */}
+                    <div className="flex items-center justify-between text-xs pt-0.5">
+                      {/* Player 1 */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                        <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
+                          {p.player1Name ?? "Batter 1"}
+                        </span>
+                        <span className="font-mono text-muted-foreground text-[11px]">
+                          {p.player1Runs} ({p.player1Balls}b)
+                        </span>
+                      </div>
+
+                      {/* Player 2 */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-muted-foreground text-[11px]">
+                          {p.player2Runs} ({p.player2Balls}b)
+                        </span>
+                        <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
+                          {p.player2Name ?? "Batter 2"}
+                        </span>
+                        <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Bowling Table */}
         {innings.bowling.length > 0 && (

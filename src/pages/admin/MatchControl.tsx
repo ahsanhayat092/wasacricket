@@ -44,7 +44,15 @@ import {
 import { TeamBadge } from "@/components/TeamBadge";
 import { RecentBalls } from "@/components/RecentBalls";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { statusBadgeClass, oversToBalls, ballsToOversText, formatMatchDay, type MatchStatus } from "@/lib/cricket";
+import {
+  statusBadgeClass,
+  oversToBalls,
+  ballsToOversText,
+  formatMatchDay,
+  getInningsFallOfWickets,
+  getInningsPartnerships,
+  type MatchStatus,
+} from "@/lib/cricket";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -59,7 +67,16 @@ import {
   Award,
   Users,
 } from "lucide-react";
-import type { Match, Team, Player, Innings, BattingScore, BowlingScore } from "@/lib/firestore";
+import type {
+  Match,
+  Team,
+  Player,
+  Innings,
+  BattingScore,
+  BowlingScore,
+  FallOfWicket,
+  Partnership,
+} from "@/lib/firestore";
 
 type WorkspaceData = {
   match: Match;
@@ -1012,6 +1029,35 @@ function InningsLiveConsole({
         noBalls: r.noBalls,
       }));
 
+    const totalRunsCalc =
+      newBat.filter((b) => b.batted).reduce((s, b) => s + b.runs, 0) +
+      newExtras.wides +
+      newExtras.noBalls +
+      newExtras.byes +
+      newExtras.legByes +
+      newExtras.penaltyRuns;
+    const totalBallsCalc = newBowl.filter((b) => b.bowled).reduce((s, b) => s + b.balls, 0);
+
+    const dynamicFow = getInningsFallOfWickets(
+      {
+        runs: totalRunsCalc,
+        wickets: newBat.filter((b) => b.batted && b.isOut).length,
+        balls: totalBallsCalc,
+        batting: battingPayload,
+      },
+      players,
+    );
+
+    const dynamicPartnerships = getInningsPartnerships(
+      {
+        runs: totalRunsCalc,
+        wickets: newBat.filter((b) => b.batted && b.isOut).length,
+        balls: totalBallsCalc,
+        batting: battingPayload,
+      },
+      players,
+    );
+
     return save.mutateAsync({
       matchId,
       inningsNumber,
@@ -1024,6 +1070,8 @@ function InningsLiveConsole({
       bowling: bowlingPayload,
       completed: isCompleted,
       recentBalls: customRecentBalls ?? recentBalls,
+      fallOfWickets: dynamicFow,
+      partnerships: dynamicPartnerships,
       recentEvent,
     });
   };
