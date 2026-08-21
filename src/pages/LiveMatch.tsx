@@ -314,14 +314,25 @@ export default function LiveMatch() {
                   <p className="text-xs text-muted-foreground">Waiting for deliveries…</p>
                 ) : (
                   <div className="space-y-2">
-                    {currentBatsmen.map((b) => (
-                      <div key={b.playerId} className="flex justify-between text-sm">
-                        <span className="font-semibold">{b.playerName ?? "—"}</span>
-                        <span className="font-mono font-bold text-amber-500">
-                          {b.runs} ({b.balls}b)
-                        </span>
-                      </div>
-                    ))}
+                    {currentBatsmen.map((b) => {
+                      const isOnStrike =
+                        (b as { isOnStrike?: boolean }).isOnStrike ||
+                        b.playerId === (current as unknown as { strikerId?: string })?.strikerId ||
+                        b.playerId === (current as unknown as { currentStrikerId?: string })?.currentStrikerId;
+                      return (
+                        <div key={b.playerId} className="flex justify-between text-sm">
+                          <span className="font-semibold flex items-center gap-1">
+                            {isOnStrike && (
+                              <span className="text-amber-500 font-black text-sm leading-none">*</span>
+                            )}
+                            {b.playerName ?? "—"}
+                          </span>
+                          <span className="font-mono font-bold text-amber-500">
+                            {b.runs} ({b.balls}b)
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -19,6 +19,7 @@ type BattingRow = {
   fours: number;
   sixes: number;
   isOut: boolean;
+  isOnStrike?: boolean;
   dismissal?: string | null;
 };
 
@@ -47,6 +48,8 @@ export type InningsData = {
   battingTeamName?: string;
   battingTeamId: string;
   bowlingTeamId: string;
+  strikerId?: string | null;
+  currentStrikerId?: string | null;
   batting: BattingRow[];
   bowling: BowlingRow[];
 };
@@ -104,27 +107,45 @@ export function ScorecardView({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {innings.batting.map((b) => (
-                <TableRow key={b.playerId} className="hover:bg-muted/30">
-                  <TableCell className="font-semibold text-sm">
-                    {getPlayerDisplayName(b.playerId, b.playerName)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-mono">
-                    {b.isOut ? (b.dismissal ?? "out") : (
-                      <span className="text-emerald-500 font-bold">not out</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-black text-amber-500 font-mono text-base">
-                    {b.runs}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">{b.balls}</TableCell>
-                  <TableCell className="text-right font-mono">{b.fours}</TableCell>
-                  <TableCell className="text-right font-mono">{b.sixes}</TableCell>
-                  <TableCell className="text-right font-mono font-medium">
-                    {b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(1) : "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {innings.batting.map((b) => {
+                const isOnStrike =
+                  !b.isOut &&
+                  (b.isOnStrike ||
+                    b.playerId === innings.strikerId ||
+                    b.playerId === innings.currentStrikerId);
+                const name = getPlayerDisplayName(b.playerId, b.playerName);
+
+                return (
+                  <TableRow key={b.playerId} className="hover:bg-muted/30">
+                    <TableCell className="font-semibold text-sm">
+                      {isOnStrike ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="text-amber-500 font-black text-base leading-none">*</span>
+                          <span>{name}</span>
+                        </span>
+                      ) : (
+                        name
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs font-mono">
+                      {b.isOut ? (
+                        b.dismissal ?? "out"
+                      ) : (
+                        <span className="text-emerald-500 font-bold">not out</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-black text-amber-500 font-mono text-base">
+                      {b.runs}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{b.balls}</TableCell>
+                    <TableCell className="text-right font-mono">{b.fours}</TableCell>
+                    <TableCell className="text-right font-mono">{b.sixes}</TableCell>
+                    <TableCell className="text-right font-mono font-medium">
+                      {b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(1) : "—"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               <TableRow className="bg-muted/30 text-xs">
                 <TableCell colSpan={2} className="font-semibold">
                   Extras

@@ -2094,10 +2094,13 @@ function InningsLiveConsole({
                       />
                     </TableCell>
                     <TableCell className="font-semibold text-sm">
+                      {r.playerId === strikerId && (
+                        <span className="text-amber-500 font-black mr-1">*</span>
+                      )}
                       {r.name}
                       {r.playerId === strikerId && (
                         <Badge className="ml-2 bg-amber-600 text-white text-[9px] py-0 px-1">
-                          Striker *
+                          Striker
                         </Badge>
                       )}
                     </TableCell>
