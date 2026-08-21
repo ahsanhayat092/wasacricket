@@ -37,7 +37,7 @@ export default function App() {
           <Route path="/points-table" element={<PointsTable />} />
           <Route path="/results" element={<Results />} />
           <Route path="/statistics" element={<Statistics />} />
-          <Route path="/matches/:id" element={<MatchDetail />} />
+          <Route path="/matches/:id" element={<LiveMatch />} />
           <Route path="/live/:id" element={<LiveMatch />} />
         </Route>
 

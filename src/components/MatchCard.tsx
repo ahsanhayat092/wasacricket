@@ -10,7 +10,7 @@ import type { HydratedMatch } from "@/lib/firestore";
 export type { HydratedMatch };
 
 export function MatchCard({ match }: { match: HydratedMatch }) {
-  const to = match.status === "LIVE" ? `/live/${match.id}` : `/matches/${match.id}`;
+  const to = `/live/${match.id}`;
   const isFinal = match.stage === "FINAL";
   const matchOvers = isFinal ? 5 : 4;
   const quotaBalls = matchOvers * 6;
