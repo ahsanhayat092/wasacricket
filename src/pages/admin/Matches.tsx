@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { statusBadgeClass, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Trophy } from "lucide-react";
 
 export default function AdminMatches() {
   const { data: matches, isLoading } = useQuery({
