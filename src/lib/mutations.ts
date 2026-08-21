@@ -469,6 +469,9 @@ export async function saveInnings(input: {
     noBalls: number;
   }[];
   completed: boolean;
+  strikerId?: string | null;
+  nonStrikerId?: string | null;
+  currentBowlerId?: string | null;
   recentBalls?: string[];
   fallOfWickets?: FallOfWicket[];
   partnerships?: Partnership[];
@@ -589,6 +592,9 @@ export async function saveInnings(input: {
   await updateDoc(inningsDoc(inn.id), {
     ...(!inn.battingTeamId && inferredBattingTeamId ? { battingTeamId: inferredBattingTeamId } : {}),
     ...(!inn.bowlingTeamId && inferredBowlingTeamId ? { bowlingTeamId: inferredBowlingTeamId } : {}),
+    ...(input.strikerId !== undefined ? { strikerId: input.strikerId } : {}),
+    ...(input.nonStrikerId !== undefined ? { nonStrikerId: input.nonStrikerId } : {}),
+    ...(input.currentBowlerId !== undefined ? { currentBowlerId: input.currentBowlerId } : {}),
     wides: input.wides,
     noBalls: input.noBalls,
     byes: input.byes,

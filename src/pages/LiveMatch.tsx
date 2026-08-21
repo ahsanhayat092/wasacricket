@@ -385,19 +385,41 @@ export default function LiveMatch() {
                   const activeBowlers = current.bowling.filter(
                     (b) => b.balls > 0 || b.wides > 0 || b.noBalls > 0 || b.runs > 0 || b.wickets > 0,
                   );
-                  if (activeBowlers.length === 0) {
+                  const currentBowlerId = (current as unknown as { currentBowlerId?: string | null })?.currentBowlerId;
+
+                  // Exactly 1 bowler who is currently bowling
+                  let currentBowler = currentBowlerId
+                    ? current.bowling.find((b) => b.playerId === currentBowlerId) ?? null
+                    : null;
+
+                  if (!currentBowler && activeBowlers.length > 0) {
+                    // Fallback to the bowler who delivered the latest ball in this innings
+                    currentBowler = activeBowlers[activeBowlers.length - 1];
+                  }
+
+                  if (!currentBowler) {
                     return <p className="text-xs text-muted-foreground">Waiting for deliveries…</p>;
                   }
+
+                  const econ =
+                    currentBowler.balls > 0
+                      ? ((currentBowler.runs / currentBowler.balls) * 6).toFixed(2)
+                      : "0.00";
+
                   return (
                     <div className="space-y-2">
-                      {activeBowlers.map((b) => (
-                        <div key={b.playerId} className="flex justify-between text-sm">
-                          <span className="font-semibold">{b.playerName ?? "—"}</span>
-                          <span className="font-mono font-bold text-sky-500">
-                            {b.wickets}/{b.runs} ({ballsToOversText(b.balls)} ov)
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0 animate-pulse" />
+                          {currentBowler.playerName ?? "—"}
+                        </span>
+                        <span className="font-mono font-bold text-sky-500">
+                          {currentBowler.wickets}/{currentBowler.runs}{" "}
+                          <span className="text-xs text-muted-foreground font-normal">
+                            ({ballsToOversText(currentBowler.balls)} ov, Econ {econ})
                           </span>
-                        </div>
-                      ))}
+                        </span>
+                      </div>
                     </div>
                   );
                 })()}

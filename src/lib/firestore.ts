@@ -138,6 +138,9 @@ export type Innings = {
   penaltyRuns: number;
   allOut: boolean;
   completed: boolean;
+  strikerId?: string | null;
+  nonStrikerId?: string | null;
+  currentBowlerId?: string | null;
   recentBalls?: string[];
   fallOfWickets?: FallOfWicket[];
   partnerships?: Partnership[];
