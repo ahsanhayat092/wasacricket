@@ -116,7 +116,8 @@ export function RecentBalls({ balls = [], className, maxOversToShow = 4 }: Recen
     );
   }
 
-  const displayedGroups = overGroups.slice(-maxOversToShow);
+  // Display only valid match overs up to the format limit (e.g. max 4 in league, max 5 in final)
+  const displayedGroups = overGroups.slice(0, maxOversToShow);
 
   return (
     <div className={cn("space-y-2.5", className)}>

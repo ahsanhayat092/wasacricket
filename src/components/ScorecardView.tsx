@@ -80,7 +80,7 @@ export function ScorecardView({
             {innings.battingTeamName ?? `Innings ${innings.inningsNumber}`}
           </span>
           <span className="font-mono font-bold text-foreground">
-            {innings.runs}/{innings.wickets}
+            {innings.runs}/{Math.min(5, innings.wickets)}
             <span className="text-xs sm:text-sm text-muted-foreground ml-2 font-semibold">
               ({ballsToOversText(innings.balls)} ov, RR:{" "}
               {innings.balls > 0 ? ((innings.runs / innings.balls) * 6).toFixed(2) : "0.00"})
@@ -139,7 +139,7 @@ export function ScorecardView({
               <TableRow className="bg-muted/60 font-black text-sm">
                 <TableCell colSpan={2}>Total</TableCell>
                 <TableCell className="text-right font-mono text-base">
-                  {innings.runs}/{innings.wickets}
+                  {innings.runs}/{Math.min(5, innings.wickets)}
                 </TableCell>
                 <TableCell colSpan={4} className="text-right text-xs font-mono text-muted-foreground">
                   {ballsToOversText(innings.balls)} overs

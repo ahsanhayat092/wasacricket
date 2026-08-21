@@ -284,7 +284,7 @@ export default function LiveMatch() {
                 </span>
                 <span className="text-[10px] text-muted-foreground">Live Delivery Feed</span>
               </div>
-              <RecentBalls balls={current.recentBalls} />
+              <RecentBalls balls={current.recentBalls} maxOversToShow={isFinal ? 5 : 4} />
             </div>
           )}
         </CardContent>

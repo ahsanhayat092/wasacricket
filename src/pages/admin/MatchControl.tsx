@@ -1678,7 +1678,7 @@ function InningsLiveConsole({
               <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                 Recent Deliveries
               </span>
-              <RecentBalls balls={recentBalls} />
+              <RecentBalls balls={recentBalls} maxOversToShow={maxMatchOvers} />
             </div>
           </div>
         </CardContent>

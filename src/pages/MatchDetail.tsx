@@ -222,7 +222,7 @@ export default function MatchDetail() {
                   Innings {currentInnings.inningsNumber}
                 </span>
               </div>
-              <RecentBalls balls={currentInnings.recentBalls} />
+              <RecentBalls balls={currentInnings.recentBalls} maxOversToShow={match.stage === "FINAL" ? 5 : 4} />
             </div>
           )}
 
