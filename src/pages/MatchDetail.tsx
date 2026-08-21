@@ -134,7 +134,7 @@ export default function MatchDetail() {
               {innings.find((i) => i.battingTeamId === match.teamA?.id) ? (
                 <span className="font-mono text-xl sm:text-2xl font-black text-foreground">
                   {innings.find((i) => i.battingTeamId === match.teamA?.id)!.runs}/
-                  {innings.find((i) => i.battingTeamId === match.teamA?.id)!.wickets}
+                  {Math.min(5, innings.find((i) => i.battingTeamId === match.teamA?.id)!.wickets)}
                   <span className="text-xs text-muted-foreground ml-1.5 font-normal">
                     (
                     {ballsToOversText(
@@ -163,7 +163,7 @@ export default function MatchDetail() {
               {innings.find((i) => i.battingTeamId === match.teamB?.id) ? (
                 <span className="font-mono text-xl sm:text-2xl font-black text-foreground">
                   {innings.find((i) => i.battingTeamId === match.teamB?.id)!.runs}/
-                  {innings.find((i) => i.battingTeamId === match.teamB?.id)!.wickets}
+                  {Math.min(5, innings.find((i) => i.battingTeamId === match.teamB?.id)!.wickets)}
                   <span className="text-xs text-muted-foreground ml-1.5 font-normal">
                     (
                     {ballsToOversText(

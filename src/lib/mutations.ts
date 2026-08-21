@@ -513,6 +513,41 @@ export async function saveInnings(input: {
     inn = { id: ref.id, matchId: input.matchId, inningsNumber: input.inningsNumber, battingTeamId, bowlingTeamId, runs: 0, wickets: 0, balls: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0, allOut: false, completed: false, recentBalls: input.recentBalls ?? [], createdAt: now(), updatedAt: now() };
   }
 
+  // Strict Tournament Rules Guardrails
+  const maxOvers = match.stage === "FINAL" ? 5 : 4;
+  const maxBalls = maxOvers * 6; // 24 balls for League, 30 for Final
+  const maxWickets = 5; // 6 players per team = 5 outs max
+
+  // Clamp batting to max 6 players and max 5 dismissals
+  let outCount = 0;
+  const clampedBatting = input.batting.slice(0, 6).map((b) => {
+    let isOut = b.isOut;
+    if (isOut) {
+      if (outCount < maxWickets) {
+        outCount += 1;
+      } else {
+        isOut = false; // Cap at strictly 5 dismissals
+      }
+    }
+    return { ...b, isOut };
+  });
+
+  // Clamp total bowling legal balls to max quota
+  let accumulatedBalls = 0;
+  const clampedBowling = input.bowling.slice(0, 6).map((b) => {
+    let balls = Math.max(0, b.balls);
+    if (accumulatedBalls + balls > maxBalls) {
+      balls = Math.max(0, maxBalls - accumulatedBalls);
+    }
+    accumulatedBalls += balls;
+    return { ...b, balls };
+  });
+
+  const isAutoCompleted =
+    input.completed ||
+    outCount >= maxWickets ||
+    accumulatedBalls >= maxBalls;
+
   // Update innings extras + completed flag + recent deliveries
   await updateDoc(inningsDoc(inn.id), {
     wides: input.wides,
@@ -520,7 +555,7 @@ export async function saveInnings(input: {
     byes: input.byes,
     legByes: input.legByes,
     penaltyRuns: input.penaltyRuns,
-    completed: input.completed,
+    completed: isAutoCompleted,
     recentBalls: input.recentBalls ?? inn.recentBalls ?? [],
     updatedAt: now(),
   });
@@ -542,7 +577,7 @@ export async function saveInnings(input: {
   existingBat.docs.forEach((d) => batch.delete(d.ref));
   existingBowl.docs.forEach((d) => batch.delete(d.ref));
 
-  for (const b of input.batting) {
+  for (const b of clampedBatting) {
     const ref = doc(battingScoresCol());
     batch.set(ref, {
       inningsId: inn.id,
@@ -557,7 +592,7 @@ export async function saveInnings(input: {
     });
   }
 
-  for (const b of input.bowling) {
+  for (const b of clampedBowling) {
     const ref = doc(bowlingScoresCol());
     batch.set(ref, {
       inningsId: inn.id,

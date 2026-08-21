@@ -757,24 +757,14 @@ function InningsLiveConsole({
     return teamSquad;
   };
 
-  const battingPlayers = getPlayingSquad(battingTeamId);
-  const bowlingPlayers = getPlayingSquad(bowlingTeamId);
+  const battingPlayers = getPlayingSquad(battingTeamId).slice(0, 6);
+  const bowlingPlayers = getPlayingSquad(bowlingTeamId).slice(0, 6);
   const battingTeam = teams.find((t) => t.id === battingTeamId);
   const bowlingTeam = teams.find((t) => t.id === bowlingTeamId);
 
-  // Batting and Bowling State
+  // Batting and Bowling State (strictly limited to 6 Playing VI starters)
   const [batRows, setBatRows] = useState<BatRow[]>(() => {
-    const playingIds = new Set(battingPlayers.map((p) => p.id));
-    const allRelevant = [
-      ...battingPlayers,
-      ...players.filter(
-        (p) =>
-          p.teamId === battingTeamId &&
-          !playingIds.has(p.id) &&
-          existing?.batting.some((b) => b.playerId === p.id),
-      ),
-    ];
-    return allRelevant.map((p) => {
+    return battingPlayers.map((p) => {
       const ex = existing?.batting.find((b) => b.playerId === p.id);
       return {
         playerId: p.id,
@@ -791,17 +781,7 @@ function InningsLiveConsole({
   });
 
   const [bowlRows, setBowlRows] = useState<BowlRow[]>(() => {
-    const playingIds = new Set(bowlingPlayers.map((p) => p.id));
-    const allRelevant = [
-      ...bowlingPlayers,
-      ...players.filter(
-        (p) =>
-          p.teamId === bowlingTeamId &&
-          !playingIds.has(p.id) &&
-          existing?.bowling.some((b) => b.playerId === p.id),
-      ),
-    ];
-    return allRelevant.map((p) => {
+    return bowlingPlayers.map((p) => {
       const ex = existing?.bowling.find((b) => b.playerId === p.id);
       return {
         playerId: p.id,
@@ -856,10 +836,10 @@ function InningsLiveConsole({
     return null;
   });
 
-  // Calculated Totals & Match Configuration (declared before effects and handlers)
+  // Calculated Totals & Match Configuration (strictly 4 overs for league, 5 for final, max 5 wickets)
   const isFinal = match.stage === "FINAL";
-  const maxMatchOvers = isFinal ? 5 : (match.oversPerSide ?? 4);
-  const maxLegalBallsInnings = maxMatchOvers * 6;
+  const maxMatchOvers = isFinal ? 5 : 4;
+  const maxLegalBallsInnings = maxMatchOvers * 6; // strictly 24 balls for League, 30 for Final
   const maxWickets = 5; // 6 players per team: 5 dismissals = ALL OUT
   const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
 
@@ -872,12 +852,17 @@ function InningsLiveConsole({
     extras.wides + extras.noBalls + extras.byes + extras.legByes + extras.penaltyRuns;
 
   const totalRuns = totalBatterRuns + totalExtras;
-  const totalWickets = batRows.filter((b) => b.batted && b.isOut).length;
+  const totalWickets = Math.min(maxWickets, batRows.filter((b) => b.batted && b.isOut).length);
 
   const totalLegalBalls = useMemo(
     () => bowlRows.filter((b) => b.bowled).reduce((s, b) => s + b.balls, 0),
     [bowlRows],
   );
+
+  const isTargetReached = inningsNumber === 2 && target !== null && totalRuns >= target;
+  const isAllOut = totalWickets >= maxWickets;
+  const isOversQuotaDone = totalLegalBalls >= maxLegalBallsInnings;
+  const isInningsFinished = closed || isOversQuotaDone || isAllOut || isTargetReached;
 
   const currentStriker = batRows.find((b) => b.playerId === strikerId);
   const currentNonStriker = batRows.find((b) => b.playerId === nonStrikerId);
@@ -1918,6 +1903,36 @@ function InningsLiveConsole({
               </div>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 space-y-6">
+              {/* Innings Completed Status Card */}
+              {isInningsFinished && (
+                <div className="p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-emerald-400">
+                        Innings {inningsNumber} Concluded & Scoring Locked
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {isTargetReached
+                          ? `🏆 Target Reached (${totalRuns}/${totalWickets} in ${ballsToOversText(totalLegalBalls)} ov) — ${battingTeam?.name ?? "Team"} won!`
+                          : isAllOut
+                            ? `🏁 Team All Out (5 wickets fallen in ${ballsToOversText(totalLegalBalls)} ov)`
+                            : `🏁 Quota Reached (${maxMatchOvers}.0 Overs Completed)`}
+                      </p>
+                    </div>
+                  </div>
+                  {inningsNumber === 1 && onInningsCompleted && (
+                    <Button
+                      size="sm"
+                      onClick={onInningsCompleted}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow"
+                    >
+                      Go to 2nd Innings Scorecard <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Runs Buttons */}
               <div className="space-y-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -1928,6 +1943,7 @@ function InningsLiveConsole({
                     <Button
                       key={runs}
                       type="button"
+                      disabled={isInningsFinished || readOnly || !currentBowlerId}
                       variant={runs === 4 ? "default" : runs === 6 ? "default" : "outline"}
                       className={`h-14 sm:h-16 text-lg sm:text-2xl font-black font-mono rounded-xl transition-all shadow-sm ${
                         runs === 4
@@ -1953,6 +1969,7 @@ function InningsLiveConsole({
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={isInningsFinished || readOnly || !currentBowlerId}
                     className="h-12 font-bold text-xs bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/30 text-indigo-400 rounded-xl"
                     onClick={() => recordExtra("WIDE", 1)}
                   >
@@ -1961,6 +1978,7 @@ function InningsLiveConsole({
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={isInningsFinished || readOnly || !currentBowlerId}
                     className="h-12 font-bold text-xs bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-500 rounded-xl"
                     onClick={() => setNoBallModalOpen(true)}
                   >
@@ -1969,6 +1987,7 @@ function InningsLiveConsole({
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={isInningsFinished || readOnly || !currentBowlerId}
                     className="h-12 font-bold text-xs bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-400 rounded-xl"
                     onClick={() => recordNoBall(0)}
                   >
@@ -1977,6 +1996,7 @@ function InningsLiveConsole({
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={isInningsFinished || readOnly || !currentBowlerId}
                     className="h-12 font-bold text-xs rounded-xl"
                     onClick={() => recordExtra("BYE", 1)}
                   >
@@ -1985,6 +2005,7 @@ function InningsLiveConsole({
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={isInningsFinished || readOnly || !currentBowlerId}
                     className="h-12 font-bold text-xs rounded-xl"
                     onClick={() => recordExtra("LEG_BYE", 1)}
                   >
@@ -1992,6 +2013,7 @@ function InningsLiveConsole({
                   </Button>
                   <Button
                     type="button"
+                    disabled={isInningsFinished || readOnly || totalWickets >= maxWickets}
                     className="h-12 font-black text-sm bg-red-600 hover:bg-red-500 text-white rounded-xl shadow-md col-span-2 sm:col-span-1"
                     onClick={promptWicket}
                   >
@@ -2138,6 +2160,11 @@ function InningsLiveConsole({
                       <Checkbox
                         checked={r.isOut}
                         onCheckedChange={(v) => {
+                          const currentOutCount = batRows.filter((b, idx) => idx !== i && b.isOut).length;
+                          if (v && currentOutCount >= maxWickets) {
+                            toast.error("Maximum 5 wickets fallen (All Out in 6-player format).");
+                            return;
+                          }
                           const updated = [...batRows];
                           updated[i].isOut = !!v;
                           setBatRows(updated);

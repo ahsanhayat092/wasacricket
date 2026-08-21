@@ -74,7 +74,7 @@ export default function LiveMatch() {
 
   const { match, innings } = liveData;
   const isFinal = match.stage === "FINAL";
-  const matchOvers = isFinal ? 5 : (match.oversPerSide ?? 4);
+  const matchOvers = isFinal ? 5 : 4;
   const quotaBalls = matchOvers * 6;
 
   const inn1 = innings.find((i) => i.inningsNumber === 1);
@@ -132,11 +132,6 @@ export default function LiveMatch() {
     })),
   }));
 
-  // Squad filtering for Team A & Team B
-  const teamAPlayers = (allPlayers ?? []).filter((p) => p.teamId === match.teamAId);
-  const teamBPlayers = (allPlayers ?? []).filter((p) => p.teamId === match.teamBId);
-
-  // Playing VI lineup (6 playing + 1 reserve) — ONLY when match has confirmed lineup
   const getLineup = (
     teamSquad: Player[],
     playingVIIds?: string[],
@@ -159,19 +154,17 @@ export default function LiveMatch() {
     };
   };
 
-  const lineupA = getLineup(teamAPlayers, match.teamAPlayingVI, match.teamAReserveId);
-  const lineupB = getLineup(teamBPlayers, match.teamBPlayingVI, match.teamBReserveId);
+  const lineupA = getLineup((allPlayers ?? []).filter((p) => p.teamId === match.teamAId), match.teamAPlayingVI, match.teamAReserveId);
+  const lineupB = getLineup((allPlayers ?? []).filter((p) => p.teamId === match.teamBId), match.teamBPlayingVI, match.teamBReserveId);
 
   const playerOfMatch = match.playerOfMatchId
-    ? players.find((p) => p.id === match.playerOfMatchId)
+    ? (allPlayers ?? []).find((p) => p.id === match.playerOfMatchId)
     : null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
-      {/* Live Event Celebratory Overlay (4s, 6s, Wickets) */}
       <EventAnimationOverlay event={match.recentEvent} />
 
-      {/* Live Match Hero Card */}
       <Card className="border shadow-lg bg-card">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
@@ -197,7 +190,7 @@ export default function LiveMatch() {
               <span className="font-extrabold text-base sm:text-lg">{teamA?.name ?? "Rank 1"}</span>
               {inn1?.battingTeamId === teamA?.id && (
                 <span className="font-mono text-xl sm:text-2xl font-black">
-                  {inn1.runs}/{inn1.wickets}{" "}
+                  {inn1.runs}/{Math.min(5, inn1.wickets)}{" "}
                   <span className="text-xs text-muted-foreground font-normal">
                     ({ballsToOversText(inn1.balls)} ov)
                   </span>
@@ -205,7 +198,7 @@ export default function LiveMatch() {
               )}
               {inn2?.battingTeamId === teamA?.id && (
                 <span className="font-mono text-xl sm:text-2xl font-black">
-                  {inn2.runs}/{inn2.wickets}{" "}
+                  {inn2.runs}/{Math.min(5, inn2.wickets)}{" "}
                   <span className="text-xs text-muted-foreground font-normal">
                     ({ballsToOversText(inn2.balls)} ov)
                   </span>
@@ -220,7 +213,7 @@ export default function LiveMatch() {
               <span className="font-extrabold text-base sm:text-lg">{teamB?.name ?? "Rank 2"}</span>
               {inn1?.battingTeamId === teamB?.id && (
                 <span className="font-mono text-xl sm:text-2xl font-black">
-                  {inn1.runs}/{inn1.wickets}{" "}
+                  {inn1.runs}/{Math.min(5, inn1.wickets)}{" "}
                   <span className="text-xs text-muted-foreground font-normal">
                     ({ballsToOversText(inn1.balls)} ov)
                   </span>
@@ -228,7 +221,7 @@ export default function LiveMatch() {
               )}
               {inn2?.battingTeamId === teamB?.id && (
                 <span className="font-mono text-xl sm:text-2xl font-black">
-                  {inn2.runs}/{inn2.wickets}{" "}
+                  {inn2.runs}/{Math.min(5, inn2.wickets)}{" "}
                   <span className="text-xs text-muted-foreground font-normal">
                     ({ballsToOversText(inn2.balls)} ov)
                   </span>
@@ -237,7 +230,6 @@ export default function LiveMatch() {
             </div>
           </div>
 
-          {/* Grand Match Result Banner for Completed Matches */}
           {match.resultText && (
             <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-2 border-emerald-500/40 text-center shadow-lg shadow-emerald-950/30 space-y-3">
               <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs tracking-wider uppercase">

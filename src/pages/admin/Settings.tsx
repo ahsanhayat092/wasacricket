@@ -22,7 +22,7 @@ export default function AdminSettings() {
     tiePoints: "1",
     noResultPoints: "1",
     lossPoints: "0",
-    oversPerSide: "10",
+    oversPerSide: "4",
   });
 
   useEffect(() => {

@@ -68,7 +68,7 @@ export async function recalculateStandings() {
       tiePoints: 1,
       noResultPoints: 1,
       lossPoints: 0,
-      oversPerSide: 10,
+      oversPerSide: 4,
       championTeamId: null,
       createdAt: now(),
       updatedAt: now(),
@@ -78,7 +78,7 @@ export async function recalculateStandings() {
   } else {
     tournament = { id: tournamentSnap.id, ...tournamentSnap.data() } as Tournament;
   }
-  const quotaBalls = tournament.oversPerSide * 6;
+  const quotaBalls = (tournament.oversPerSide || 4) * 6;
 
   const teams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
   const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
@@ -333,7 +333,7 @@ export async function syncInningsTotals(inningsId: string) {
   const extras =
     inn.wides + inn.noBalls + inn.byes + inn.legByes + inn.penaltyRuns;
   const runs = batRuns + extras;
-  const wickets = batting.filter((b) => b.isOut).length;
+  const wickets = Math.min(5, batting.filter((b) => b.isOut).length);
   const balls = bowling.reduce((s, b) => s + b.balls, 0);
   const allOut = wickets >= 5;
 
@@ -359,7 +359,7 @@ export async function finalizeMatch(matchId: string) {
       tiePoints: 1,
       noResultPoints: 1,
       lossPoints: 0,
-      oversPerSide: 10,
+      oversPerSide: 4,
       championTeamId: null,
       createdAt: now(),
       updatedAt: now(),
