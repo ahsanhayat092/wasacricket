@@ -371,50 +371,57 @@ export function ScorecardView({
         </div>
 
         {/* Bowling Table */}
-        {innings.bowling.length > 0 && (
-          <div className="rounded-xl border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 text-xs">
-                  <TableHead>Bowler</TableHead>
-                  <TableHead className="text-right">Overs</TableHead>
-                  <TableHead className="text-right">Maidens</TableHead>
-                  <TableHead className="text-right">Runs</TableHead>
-                  <TableHead className="text-right font-bold text-sky-500">Wickets</TableHead>
-                  <TableHead className="text-right">Econ</TableHead>
-                  <TableHead className="text-right">Wd</TableHead>
-                  <TableHead className="text-right">Nb</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {innings.bowling.map((b) => (
-                  <TableRow key={b.playerId} className="hover:bg-muted/30">
-                    <TableCell className="font-semibold text-sm">
-                      {getPlayerDisplayName(b.playerId, b.playerName)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-bold">
-                      {ballsToOversText(b.balls)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{b.maidens}</TableCell>
-                    <TableCell className="text-right font-mono">{b.runs}</TableCell>
-                    <TableCell className="text-right font-black text-sky-500 font-mono text-base">
-                      {b.wickets}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-medium">
-                      {b.balls > 0 ? ((b.runs / b.balls) * 6).toFixed(2) : "0.00"}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground text-xs">
-                      {b.wides}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      {b.noBalls}
-                    </TableCell>
+        {(() => {
+          const activeBowling = innings.bowling.filter(
+            (b) => b.balls > 0 || b.wides > 0 || b.noBalls > 0 || b.runs > 0 || b.wickets > 0,
+          );
+          if (activeBowling.length === 0) return null;
+
+          return (
+            <div className="rounded-xl border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 text-xs">
+                    <TableHead>Bowler</TableHead>
+                    <TableHead className="text-right">Overs</TableHead>
+                    <TableHead className="text-right">Maidens</TableHead>
+                    <TableHead className="text-right">Runs</TableHead>
+                    <TableHead className="text-right font-bold text-sky-500">Wickets</TableHead>
+                    <TableHead className="text-right">Econ</TableHead>
+                    <TableHead className="text-right">Wd</TableHead>
+                    <TableHead className="text-right">Nb</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                </TableHeader>
+                <TableBody>
+                  {activeBowling.map((b) => (
+                    <TableRow key={b.playerId} className="hover:bg-muted/30">
+                      <TableCell className="font-semibold text-sm">
+                        {getPlayerDisplayName(b.playerId, b.playerName)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold">
+                        {ballsToOversText(b.balls)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">{b.maidens}</TableCell>
+                      <TableCell className="text-right font-mono">{b.runs}</TableCell>
+                      <TableCell className="text-right font-black text-sky-500 font-mono text-base">
+                        {b.wickets}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-medium">
+                        {b.balls > 0 ? ((b.runs / b.balls) * 6).toFixed(2) : "0.00"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-muted-foreground text-xs">
+                        {b.wides}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                        {b.noBalls}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );

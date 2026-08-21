@@ -65,10 +65,12 @@ export default function MatchDetail() {
       ...b,
       playerName: (b as { playerName?: string }).playerName || playerName(b.playerId),
     })),
-    bowling: inn.bowling.map((b) => ({
-      ...b,
-      playerName: (b as { playerName?: string }).playerName || playerName(b.playerId),
-    })),
+    bowling: inn.bowling
+      .filter((b) => b.balls > 0 || b.wides > 0 || b.noBalls > 0 || b.runs > 0 || b.wickets > 0)
+      .map((b) => ({
+        ...b,
+        playerName: (b as { playerName?: string }).playerName || playerName(b.playerId),
+      })),
   }));
 
   // Squad filtering for Team A & Team B

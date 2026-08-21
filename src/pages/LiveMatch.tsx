@@ -132,10 +132,12 @@ export default function LiveMatch() {
       ...b,
       playerName: b.playerName && b.playerName !== "Unknown" ? b.playerName : playerName(b.playerId),
     })),
-    bowling: inn.bowling.map((b) => ({
-      ...b,
-      playerName: b.playerName && b.playerName !== "Unknown" ? b.playerName : playerName(b.playerId),
-    })),
+    bowling: inn.bowling
+      .filter((b) => b.balls > 0 || b.wides > 0 || b.noBalls > 0 || b.runs > 0 || b.wickets > 0)
+      .map((b) => ({
+        ...b,
+        playerName: b.playerName && b.playerName !== "Unknown" ? b.playerName : playerName(b.playerId),
+      })),
   }));
 
   const getLineup = (
@@ -379,20 +381,26 @@ export default function LiveMatch() {
                 <h3 className="font-bold mb-3 text-xs uppercase tracking-wider text-sky-500">
                   🎯 Current Bowling
                 </h3>
-                {current.bowling.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Waiting for deliveries…</p>
-                ) : (
-                  <div className="space-y-2">
-                    {current.bowling.map((b) => (
-                      <div key={b.playerId} className="flex justify-between text-sm">
-                        <span className="font-semibold">{b.playerName ?? "—"}</span>
-                        <span className="font-mono font-bold text-sky-500">
-                          {b.wickets}/{b.runs} ({ballsToOversText(b.balls)} ov)
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {(() => {
+                  const activeBowlers = current.bowling.filter(
+                    (b) => b.balls > 0 || b.wides > 0 || b.noBalls > 0 || b.runs > 0 || b.wickets > 0,
+                  );
+                  if (activeBowlers.length === 0) {
+                    return <p className="text-xs text-muted-foreground">Waiting for deliveries…</p>;
+                  }
+                  return (
+                    <div className="space-y-2">
+                      {activeBowlers.map((b) => (
+                        <div key={b.playerId} className="flex justify-between text-sm">
+                          <span className="font-semibold">{b.playerName ?? "—"}</span>
+                          <span className="font-mono font-bold text-sky-500">
+                            {b.wickets}/{b.runs} ({ballsToOversText(b.balls)} ov)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

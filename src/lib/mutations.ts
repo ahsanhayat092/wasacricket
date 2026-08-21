@@ -554,16 +554,19 @@ export async function saveInnings(input: {
     return { ...b, isOut };
   });
 
-  // Clamp total bowling legal balls to max quota
+  // Clamp total bowling legal balls to max quota (only saving active bowlers who delivered balls/extras/runs/wickets)
   let accumulatedBalls = 0;
-  const clampedBowling = input.bowling.slice(0, 6).map((b) => {
-    let balls = Math.max(0, b.balls);
-    if (accumulatedBalls + balls > maxBalls) {
-      balls = Math.max(0, maxBalls - accumulatedBalls);
-    }
-    accumulatedBalls += balls;
-    return { ...b, balls };
-  });
+  const clampedBowling = input.bowling
+    .filter((b) => b.balls > 0 || b.wides > 0 || b.noBalls > 0 || b.runs > 0 || b.wickets > 0)
+    .slice(0, 6)
+    .map((b) => {
+      let balls = Math.max(0, b.balls);
+      if (accumulatedBalls + balls > maxBalls) {
+        balls = Math.max(0, maxBalls - accumulatedBalls);
+      }
+      accumulatedBalls += balls;
+      return { ...b, balls };
+    });
 
   const isAutoCompleted =
     input.completed ||

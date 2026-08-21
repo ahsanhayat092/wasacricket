@@ -1027,7 +1027,11 @@ function InningsLiveConsole({
       }));
 
     const bowlingPayload = newBowl
-      .filter((r) => r.bowled)
+      .filter(
+        (r) =>
+          r.bowled &&
+          (r.balls > 0 || r.wides > 0 || r.noBalls > 0 || r.runs > 0 || r.wickets > 0),
+      )
       .map((r) => ({
         playerId: r.playerId,
         balls: r.balls,
