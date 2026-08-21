@@ -1079,8 +1079,10 @@ function InningsLiveConsole({
             { duration: 8000 },
           );
         } else {
+          const runsMargin = Math.max(1, (target - 1) - newTotalRuns);
+          const reason = isAllOut ? "Chasing Team All Out (5 wickets fallen)" : `${maxMatchOvers} Overs Completed`;
           toast.success(
-            `🏁 2nd Innings Ended! Match scorecards completed.`,
+            `🏆 Match Concluded (${reason})! ${bowlingTeam?.name ?? "Defending Team"} WON by ${runsMargin} runs!`,
             { duration: 8000 },
           );
         }
@@ -1914,10 +1916,12 @@ function InningsLiveConsole({
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {isTargetReached
-                          ? `🏆 Target Reached (${totalRuns}/${totalWickets} in ${ballsToOversText(totalLegalBalls)} ov) — ${battingTeam?.name ?? "Team"} won!`
-                          : isAllOut
-                            ? `🏁 Team All Out (5 wickets fallen in ${ballsToOversText(totalLegalBalls)} ov)`
-                            : `🏁 Quota Reached (${maxMatchOvers}.0 Overs Completed)`}
+                          ? `🏆 Target Reached (${totalRuns}/${totalWickets} in ${ballsToOversText(totalLegalBalls)} ov) — ${battingTeam?.name ?? "Team"} won by ${Math.max(1, 5 - totalWickets)} wicket${5 - totalWickets === 1 ? "" : "s"}!`
+                          : inningsNumber === 2 && (isAllOut || isOversQuotaDone)
+                            ? `🏆 ${bowlingTeam?.name ?? "Defending Team"} WON by ${Math.max(1, (target ? target - 1 : 0) - totalRuns)} runs! (${isAllOut ? "Chasing Team All Out" : `${maxMatchOvers}.0 Overs Completed`})`
+                            : isAllOut
+                              ? `🏁 Team All Out (5 wickets fallen in ${ballsToOversText(totalLegalBalls)} ov)`
+                              : `🏁 Quota Reached (${maxMatchOvers}.0 Overs Completed)`}
                       </p>
                     </div>
                   </div>

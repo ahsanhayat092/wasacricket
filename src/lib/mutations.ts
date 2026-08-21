@@ -613,6 +613,9 @@ export async function saveInnings(input: {
   await batch.commit();
 
   const totals = await syncInningsTotals(inn.id);
+  if (input.inningsNumber === 2 && isAutoCompleted) {
+    await finalizeMatch(input.matchId);
+  }
   return { ok: true, ...totals };
 }
 
