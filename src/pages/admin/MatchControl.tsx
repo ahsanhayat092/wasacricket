@@ -856,6 +856,58 @@ function InningsLiveConsole({
     return null;
   });
 
+  // Calculated Totals & Match Configuration (declared before effects and handlers)
+  const isFinal = match.stage === "FINAL";
+  const maxMatchOvers = isFinal ? 5 : (match.oversPerSide ?? 4);
+  const maxLegalBallsInnings = maxMatchOvers * 6;
+  const maxWickets = 5; // 6 players per team: 5 dismissals = ALL OUT
+  const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
+
+  const totalBatterRuns = useMemo(
+    () => batRows.filter((b) => b.batted).reduce((s, b) => s + b.runs, 0),
+    [batRows],
+  );
+
+  const totalExtras =
+    extras.wides + extras.noBalls + extras.byes + extras.legByes + extras.penaltyRuns;
+
+  const totalRuns = totalBatterRuns + totalExtras;
+  const totalWickets = batRows.filter((b) => b.batted && b.isOut).length;
+
+  const totalLegalBalls = useMemo(
+    () => bowlRows.filter((b) => b.bowled).reduce((s, b) => s + b.balls, 0),
+    [bowlRows],
+  );
+
+  const currentStriker = batRows.find((b) => b.playerId === strikerId);
+  const currentNonStriker = batRows.find((b) => b.playerId === nonStrikerId);
+  const currentBowler = bowlRows.find((b) => b.playerId === currentBowlerId);
+
+  // Check how many bowlers have bowled 2 overs (in Final)
+  const bowlersWith2Overs = bowlRows.filter((b) => b.balls >= 12);
+  const alreadyHas2OverBowler = bowlersWith2Overs.length >= 1;
+
+  const getBowlerMaxBalls = (playerId: string) => {
+    if (!isFinal) return 6; // League: strictly 1 over (6 balls) max
+    // Final: 1 bowler can bowl up to 2 overs (12 balls), others 1 over (6 balls)
+    const bowler = bowlRows.find((b) => b.playerId === playerId);
+    const bowlerBalls = bowler?.balls ?? 0;
+    if (bowlerBalls >= 6) {
+      if (!alreadyHas2OverBowler || bowlersWith2Overs.some((b) => b.playerId === playerId)) {
+        return 12; // Eligible to bowl 2nd over
+      }
+      return 6; // Another bowler already took the 2-over quota
+    }
+    return 12; // Potentially eligible for 2 overs
+  };
+
+  const isBowlerQuotaExhausted = (playerId: string) => {
+    const bowler = bowlRows.find((b) => b.playerId === playerId);
+    const currentBalls = bowler?.balls ?? 0;
+    const maxBalls = getBowlerMaxBalls(playerId);
+    return currentBalls >= maxBalls;
+  };
+
   // Auto-select initial batsmen and first bowler on innings start (0 legal balls only)
   useEffect(() => {
     if (!strikerId && battingPlayers.length > 0) {
@@ -901,13 +953,6 @@ function InningsLiveConsole({
   const [completedOverNum, setCompletedOverNum] = useState<number>(1);
   const [selectedNextBowlerId, setSelectedNextBowlerId] = useState<string>("");
 
-  const isFinal = match.stage === "FINAL";
-  const maxMatchOvers = isFinal ? 5 : (match.oversPerSide ?? 4);
-  const maxLegalBallsInnings = maxMatchOvers * 6;
-  const maxWickets = 5; // 6 players per team: 5 dismissals = ALL OUT
-
-  const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
-
   // Trigger Next Bowler Selection Dialog on Over Completion or Quota Reached
   const triggerNextBowlerDialog = (newTotalBalls: number, previousBowlerId: string) => {
     if (newTotalBalls >= maxLegalBallsInnings) return; // Innings already finished
@@ -939,27 +984,6 @@ function InningsLiveConsole({
     toast.success(`Bowler for Over ${completedOverNum + 1} set to ${bName}!`);
   };
 
-  // Calculated Totals
-  const totalBatterRuns = useMemo(
-    () => batRows.filter((b) => b.batted).reduce((s, b) => s + b.runs, 0),
-    [batRows],
-  );
-
-  const totalExtras =
-    extras.wides + extras.noBalls + extras.byes + extras.legByes + extras.penaltyRuns;
-
-  const totalRuns = totalBatterRuns + totalExtras;
-  const totalWickets = batRows.filter((b) => b.batted && b.isOut).length;
-
-  const totalLegalBalls = useMemo(
-    () => bowlRows.filter((b) => b.bowled).reduce((s, b) => s + b.balls, 0),
-    [bowlRows],
-  );
-
-  const currentStriker = batRows.find((b) => b.playerId === strikerId);
-  const currentNonStriker = batRows.find((b) => b.playerId === nonStrikerId);
-  const currentBowler = bowlRows.find((b) => b.playerId === currentBowlerId);
-
   // Save Mutation
   const save = useMutation({
     mutationFn: (args: Parameters<typeof fbSaveInnings>[0]) => fbSaveInnings(args),
@@ -976,7 +1000,7 @@ function InningsLiveConsole({
     newExtras: typeof extras,
     isCompleted = closed,
     customRecentBalls?: string[],
-    recentEvent?: { type: "FOUR" | "SIX" | "WICKET"; text?: string; timestamp: number } | null,
+    recentEvent?: { type: "FOUR" | "SIX" | "WICKET" | "MAIDEN"; text?: string; timestamp: number } | null,
   ) => {
     const battingPayload = newBat
       .filter((r) => r.batted)
@@ -1017,31 +1041,6 @@ function InningsLiveConsole({
       recentBalls: customRecentBalls ?? recentBalls,
       recentEvent,
     });
-  };
-
-  // Check how many bowlers have bowled 2 overs (in Final)
-  const bowlersWith2Overs = bowlRows.filter((b) => b.balls >= 12);
-  const alreadyHas2OverBowler = bowlersWith2Overs.length >= 1;
-
-  const getBowlerMaxBalls = (playerId: string) => {
-    if (!isFinal) return 6; // League: strictly 1 over (6 balls) max
-    // Final: 1 bowler can bowl up to 2 overs (12 balls), others 1 over (6 balls)
-    const bowler = bowlRows.find((b) => b.playerId === playerId);
-    const bowlerBalls = bowler?.balls ?? 0;
-    if (bowlerBalls >= 6) {
-      if (!alreadyHas2OverBowler || bowlersWith2Overs.some((b) => b.playerId === playerId)) {
-        return 12; // Eligible to bowl 2nd over
-      }
-      return 6; // Another bowler already took the 2-over quota
-    }
-    return 12; // Potentially eligible for 2 overs
-  };
-
-  const isBowlerQuotaExhausted = (playerId: string) => {
-    const bowler = bowlRows.find((b) => b.playerId === playerId);
-    const currentBalls = bowler?.balls ?? 0;
-    const maxBalls = getBowlerMaxBalls(playerId);
-    return currentBalls >= maxBalls;
   };
 
   // Check if Innings or Match has ended
