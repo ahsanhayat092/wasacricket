@@ -733,22 +733,31 @@ function InningsLiveConsole({
   let battingTeamId: string | null = existing?.battingTeamId ?? null;
   let bowlingTeamId: string | null = existing?.bowlingTeamId ?? null;
 
-  if (!battingTeamId && inningsNumber === 2 && inn1) {
-    battingTeamId = inn1.bowlingTeamId;
-    bowlingTeamId = inn1.battingTeamId;
-  }
-  if (!battingTeamId && inningsNumber === 1) {
-    if (match.tossWinnerId && match.tossDecision) {
-      battingTeamId =
-        match.tossDecision === "BAT"
-          ? match.tossWinnerId
-          : match.tossWinnerId === match.teamAId
-            ? match.teamBId
-            : match.teamAId;
-      bowlingTeamId = battingTeamId === match.teamAId ? match.teamBId : match.teamAId;
-    } else {
-      battingTeamId = match.teamAId ?? null;
-      bowlingTeamId = match.teamBId ?? null;
+  if (inningsNumber === 2) {
+    if (!battingTeamId && inn1) {
+      battingTeamId = inn1.bowlingTeamId || (inn1.battingTeamId === match.teamAId ? match.teamBId : match.teamAId);
+    }
+    if (!battingTeamId) {
+      battingTeamId = match.teamBId ?? null;
+    }
+    if (!bowlingTeamId) {
+      bowlingTeamId = inn1?.battingTeamId || (battingTeamId === match.teamAId ? match.teamBId : match.teamAId) || (match.teamAId ?? null);
+    }
+  } else if (inningsNumber === 1) {
+    if (!battingTeamId) {
+      if (match.tossWinnerId && match.tossDecision) {
+        battingTeamId =
+          match.tossDecision === "BAT"
+            ? match.tossWinnerId
+            : match.tossWinnerId === match.teamAId
+              ? match.teamBId
+              : match.teamAId;
+      } else {
+        battingTeamId = match.teamAId ?? null;
+      }
+    }
+    if (!bowlingTeamId) {
+      bowlingTeamId = battingTeamId === match.teamAId ? (match.teamBId ?? null) : (match.teamAId ?? null);
     }
   }
 
@@ -776,8 +785,8 @@ function InningsLiveConsole({
 
   const battingPlayers = getPlayingSquad(battingTeamId).slice(0, 6);
   const bowlingPlayers = getPlayingSquad(bowlingTeamId).slice(0, 6);
-  const battingTeam = teams.find((t) => t.id === battingTeamId);
-  const bowlingTeam = teams.find((t) => t.id === bowlingTeamId);
+  const battingTeam = teams.find((t) => t.id === battingTeamId) || (battingTeamId === match.teamAId ? match.teamA : match.teamB);
+  const bowlingTeam = teams.find((t) => t.id === bowlingTeamId) || (bowlingTeamId === match.teamAId ? match.teamA : match.teamB);
 
   // Batting and Bowling State (strictly limited to 6 Playing VI starters)
   const [batRows, setBatRows] = useState<BatRow[]>(() => {
@@ -1964,9 +1973,9 @@ function InningsLiveConsole({
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {isTargetReached
-                          ? `🏆 Target Reached (${totalRuns}/${totalWickets} in ${ballsToOversText(totalLegalBalls)} ov) — ${battingTeam?.name ?? "Team"} won by ${Math.max(1, 5 - totalWickets)} wicket${5 - totalWickets === 1 ? "" : "s"}!`
+                          ? `🏆 Target Reached (${totalRuns}/${totalWickets} in ${ballsToOversText(totalLegalBalls)} ov) — ${battingTeam?.name ?? (battingTeamId === match.teamAId ? match.teamA?.name : match.teamB?.name) ?? "Chasing Team"} won by ${Math.max(1, 5 - totalWickets)} wicket${5 - totalWickets === 1 ? "" : "s"}!`
                           : inningsNumber === 2 && (isAllOut || isOversQuotaDone)
-                            ? `🏆 ${bowlingTeam?.name ?? "Defending Team"} WON by ${Math.max(1, (target ? target - 1 : 0) - totalRuns)} runs! (${isAllOut ? "Chasing Team All Out" : `${maxMatchOvers}.0 Overs Completed`})`
+                            ? `🏆 ${bowlingTeam?.name ?? (bowlingTeamId === match.teamAId ? match.teamA?.name : match.teamB?.name) ?? "Defending Team"} WON by ${Math.max(1, (target ? target - 1 : 0) - totalRuns)} runs! (${isAllOut ? "Chasing Team All Out" : `${maxMatchOvers}.0 Overs Completed`})`
                             : isAllOut
                               ? `🏁 Team All Out (5 wickets fallen in ${ballsToOversText(totalLegalBalls)} ov)`
                               : `🏁 Quota Reached (${maxMatchOvers}.0 Overs Completed)`}

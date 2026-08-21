@@ -496,12 +496,28 @@ export async function saveInnings(input: {
 
     if (input.inningsNumber === 1) {
       if (!match.teamAId || !match.teamBId) throw new Error("Teams not set");
-      battingTeamId = match.teamAId;
-      bowlingTeamId = match.teamBId;
+      if (match.tossWinnerId && match.tossDecision) {
+        battingTeamId =
+          match.tossDecision === "BAT"
+            ? match.tossWinnerId
+            : match.tossWinnerId === match.teamAId
+              ? match.teamBId
+              : match.teamAId;
+        bowlingTeamId = battingTeamId === match.teamAId ? match.teamBId : match.teamAId;
+      } else {
+        battingTeamId = match.teamAId;
+        bowlingTeamId = match.teamBId;
+      }
     } else {
       if (!inn1) throw new Error("Save innings 1 first");
-      battingTeamId = inn1.bowlingTeamId;
-      bowlingTeamId = inn1.battingTeamId;
+      battingTeamId =
+        inn1.bowlingTeamId ||
+        (inn1.battingTeamId === match.teamAId ? match.teamBId : match.teamAId) ||
+        (match.teamBId ?? "");
+      bowlingTeamId =
+        inn1.battingTeamId ||
+        (battingTeamId === match.teamAId ? match.teamBId : match.teamAId) ||
+        (match.teamAId ?? "");
     }
 
     const ref = await addDoc(inningsCol(), {
@@ -554,8 +570,22 @@ export async function saveInnings(input: {
     outCount >= maxWickets ||
     accumulatedBalls >= maxBalls;
 
+  const inferredBattingTeamId =
+    inn.battingTeamId ||
+    (input.inningsNumber === 1
+      ? (match.tossWinnerId && match.tossDecision
+          ? (match.tossDecision === "BAT" ? match.tossWinnerId : (match.tossWinnerId === match.teamAId ? match.teamBId : match.teamAId))
+          : match.teamAId)
+      : (existingList.find((i) => i.inningsNumber === 1)?.bowlingTeamId || match.teamBId));
+
+  const inferredBowlingTeamId =
+    inn.bowlingTeamId ||
+    (inferredBattingTeamId === match.teamAId ? match.teamBId : match.teamAId);
+
   // Update innings extras + completed flag + recent deliveries + FOW & partnerships
   await updateDoc(inningsDoc(inn.id), {
+    ...(!inn.battingTeamId && inferredBattingTeamId ? { battingTeamId: inferredBattingTeamId } : {}),
+    ...(!inn.bowlingTeamId && inferredBowlingTeamId ? { bowlingTeamId: inferredBowlingTeamId } : {}),
     wides: input.wides,
     noBalls: input.noBalls,
     byes: input.byes,

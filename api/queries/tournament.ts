@@ -334,14 +334,14 @@ export async function finalizeMatch(matchId: number) {
       innings2Wickets: inn2?.wickets ?? null,
     });
 
-    const battingFirstId = inn1.battingTeamId;
-    const battingSecondId = inn1.bowlingTeamId;
+    const battingFirstId = inn1.battingTeamId || match.teamAId;
+    const battingSecondId = inn1.bowlingTeamId || match.teamBId;
     const teamRows = await db
       .select()
       .from(teams)
-      .where(inArray(teams.id, [battingFirstId, battingSecondId]));
+      .where(inArray(teams.id, [match.teamAId, match.teamBId, battingFirstId, battingSecondId]));
     const nameOf = (id: number) =>
-      teamRows.find((t) => t.id === id)?.name ?? "Team";
+      teamRows.find((t) => t.id === id)?.name ?? "Winning Team";
 
     if (outcome.kind === "TIE") {
       resultText = "Match tied";

@@ -55,8 +55,8 @@ import {
 export async function recalculateStandings() {
   const [tournamentSnap, teamsSnap, matchesSnap] = await Promise.all([
     getDoc(tournamentDoc()),
-    getDocs(query(teamsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
-    getDocs(query(matchesCol(), where("tournamentId", "==", TOURNAMENT_ID))),
+    getDocs(teamsCol()),
+    getDocs(matchesCol()),
   ]);
 
   let tournament: Tournament;
@@ -84,12 +84,11 @@ export async function recalculateStandings() {
   const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
   const leagueMatches = allMatches.filter((m) => m.stage === "LEAGUE");
 
-  const completedIds = leagueMatches
-    .filter((m) => m.status === "COMPLETED")
-    .map((m) => m.id);
-  const noResultIds = leagueMatches
-    .filter((m) => m.status === "NO_RESULT" || m.status === "ABANDONED")
-    .map((m) => m.id);
+  const completedMatches = allMatches.filter((m) => m.status === "COMPLETED");
+  const completedIds = completedMatches.map((m) => m.id);
+  const noResultMatches = leagueMatches.filter(
+    (m) => m.status === "NO_RESULT" || m.status === "ABANDONED",
+  );
 
   const allInnings = completedIds.length
     ? (await getDocs(query(inningsCol(), where("matchId", "in", completedIds)))).docs.map(
@@ -119,8 +118,8 @@ export async function recalculateStandings() {
     });
   }
 
-  // No-result matches
-  for (const m of leagueMatches.filter((x) => noResultIds.includes(x.id))) {
+  // No-result matches for league standings
+  for (const m of noResultMatches) {
     for (const teamId of [m.teamAId, m.teamBId]) {
       if (!teamId) continue;
       const a = agg.get(teamId);
@@ -131,18 +130,36 @@ export async function recalculateStandings() {
     }
   }
 
-  // Completed matches
-  for (const m of leagueMatches.filter((x) => completedIds.includes(x.id))) {
+  const resolveWinnerTeamName = async (
+    winnerTeamId: string,
+    matchObj: Match,
+  ): Promise<string> => {
+    let name = teams.find((t) => t.id === winnerTeamId)?.name;
+    if (!name) {
+      if (winnerTeamId === matchObj.teamAId && matchObj.teamAId) {
+        name = teams.find((t) => t.id === matchObj.teamAId)?.name || matchObj.teamA?.name;
+      } else if (winnerTeamId === matchObj.teamBId && matchObj.teamBId) {
+        name = teams.find((t) => t.id === matchObj.teamBId)?.name || matchObj.teamB?.name;
+      }
+    }
+    if (!name) {
+      try {
+        const directSnap = await getDoc(teamDoc(winnerTeamId));
+        if (directSnap.exists() && directSnap.data()?.name) {
+          name = directSnap.data().name;
+        }
+      } catch {}
+    }
+    return name || "Winning Team";
+  };
+
+  // Process all completed matches (update outcome text and points for league matches)
+  for (const m of completedMatches) {
     if (!m.teamAId || !m.teamBId) continue;
     const matchInnings = allInnings.filter((i) => i.matchId === m.id);
     const inn1 = matchInnings.find((i) => i.inningsNumber === 1);
     const inn2 = matchInnings.find((i) => i.inningsNumber === 2);
     if (!inn1) continue;
-
-    const aA = agg.get(m.teamAId)!;
-    const aB = agg.get(m.teamBId)!;
-    aA.played += 1;
-    aB.played += 1;
 
     const outcome = determineOutcome({
       innings1Runs: inn1.runs,
@@ -155,11 +172,12 @@ export async function recalculateStandings() {
       innings2Wickets: inn2?.wickets ?? null,
     });
 
-    const battingFirstId = inn1.battingTeamId;
+    const battingFirstId = inn1.battingTeamId || m.teamAId;
     const battingSecondId =
       inn2?.battingTeamId ||
       inn1.bowlingTeamId ||
-      (m.teamAId === battingFirstId ? m.teamBId : m.teamAId);
+      (m.teamAId === battingFirstId ? m.teamBId : m.teamAId) ||
+      m.teamBId;
 
     const winnerTeamId =
       outcome.kind === "WIN"
@@ -174,7 +192,7 @@ export async function recalculateStandings() {
     } else if (outcome.kind === "NO_RESULT") {
       expectedResultText = "No result";
     } else if (winnerTeamId) {
-      const winnerName = teams.find((t) => t.id === winnerTeamId)?.name ?? "Team";
+      const winnerName = await resolveWinnerTeamName(winnerTeamId, m);
       expectedResultText = `${winnerName} won by ${outcome.margin}`;
     }
 
@@ -190,22 +208,32 @@ export async function recalculateStandings() {
       });
     }
 
-    if (outcome.kind === "TIE") {
-      aA.tied += 1; aB.tied += 1;
-      aA.points += tournament.tiePoints;
-      aB.points += tournament.tiePoints;
-    } else if (outcome.kind === "NO_RESULT") {
-      aA.noResult += 1; aB.noResult += 1;
-      aA.points += tournament.noResultPoints;
-      aB.points += tournament.noResultPoints;
-    } else if (winnerTeamId === m.teamAId) {
-      aA.won += 1; aB.lost += 1;
-      aA.points += tournament.winPoints;
-      aB.points += tournament.lossPoints;
-    } else if (winnerTeamId === m.teamBId) {
-      aB.won += 1; aA.lost += 1;
-      aB.points += tournament.winPoints;
-      aA.points += tournament.lossPoints;
+    // League match points & NRR aggregation
+    if (m.stage === "LEAGUE") {
+      const aA = agg.get(m.teamAId);
+      const aB = agg.get(m.teamBId);
+      if (aA && aB) {
+        aA.played += 1;
+        aB.played += 1;
+
+        if (outcome.kind === "TIE") {
+          aA.tied += 1; aB.tied += 1;
+          aA.points += tournament.tiePoints;
+          aB.points += tournament.tiePoints;
+        } else if (outcome.kind === "NO_RESULT") {
+          aA.noResult += 1; aB.noResult += 1;
+          aA.points += tournament.noResultPoints;
+          aB.points += tournament.noResultPoints;
+        } else if (winnerTeamId === m.teamAId) {
+          aA.won += 1; aB.lost += 1;
+          aA.points += tournament.winPoints;
+          aB.points += tournament.lossPoints;
+        } else if (winnerTeamId === m.teamBId) {
+          aB.won += 1; aA.lost += 1;
+          aB.points += tournament.winPoints;
+          aA.points += tournament.lossPoints;
+        }
+      }
     }
 
     for (const inn of [inn1, inn2]) {
@@ -408,18 +436,43 @@ export async function finalizeMatch(matchId: string) {
       innings2Wickets: inn2Wickets,
     });
 
-    const battingFirstId = inn1.battingTeamId;
+    const battingFirstId = inn1.battingTeamId || match.teamAId || "";
     const battingSecondId =
       inn2?.battingTeamId ||
       inn1.bowlingTeamId ||
-      (match.teamAId === battingFirstId ? match.teamBId : match.teamAId);
+      (match.teamAId === battingFirstId ? match.teamBId : match.teamAId) ||
+      match.teamBId ||
+      "";
 
-    const [team1Snap, team2Snap] = await Promise.all([
-      getDoc(teamDoc(battingFirstId)),
-      getDoc(teamDoc(battingSecondId)),
+    const [allTeamsSnap, team1Snap, team2Snap] = await Promise.all([
+      getDocs(teamsCol()),
+      battingFirstId ? getDoc(teamDoc(battingFirstId)).catch(() => null) : null,
+      battingSecondId ? getDoc(teamDoc(battingSecondId)).catch(() => null) : null,
     ]);
-    const nameOf = (id: string) =>
-      (id === battingFirstId ? team1Snap : team2Snap).data()?.name ?? "Team";
+    const allTeams = allTeamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+
+    const nameOf = (id: string | null | undefined): string => {
+      if (!id) return "Team";
+      const fromAll = allTeams.find((t) => t.id === id)?.name;
+      if (fromAll) return fromAll;
+      if (id === battingFirstId && team1Snap?.exists() && team1Snap.data()?.name) {
+        return team1Snap.data().name;
+      }
+      if (id === battingSecondId && team2Snap?.exists() && team2Snap.data()?.name) {
+        return team2Snap.data().name;
+      }
+      if (id === match.teamAId) {
+        const tA = allTeams.find((t) => t.id === match.teamAId)?.name;
+        if (tA) return tA;
+        if (match.teamA?.name) return match.teamA.name;
+      }
+      if (id === match.teamBId) {
+        const tB = allTeams.find((t) => t.id === match.teamBId)?.name;
+        if (tB) return tB;
+        if (match.teamB?.name) return match.teamB.name;
+      }
+      return "Winning Team";
+    };
 
     if (outcome.kind === "TIE") {
       resultText = "Match tied";
@@ -429,7 +482,8 @@ export async function finalizeMatch(matchId: string) {
     } else {
       const firstWon = outcome.winner === "TEAM_A";
       winningTeamId = firstWon ? battingFirstId : battingSecondId;
-      resultText = `${nameOf(winningTeamId)} won by ${outcome.margin}`;
+      const winnerName = nameOf(winningTeamId);
+      resultText = `${winnerName} won by ${outcome.margin}`;
     }
   }
 
