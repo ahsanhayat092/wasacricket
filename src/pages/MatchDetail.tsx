@@ -583,7 +583,7 @@ export default function MatchDetail() {
               <div className="grid grid-cols-2 gap-4 border-b pb-3">
                 <span className="text-muted-foreground">Date & Timing:</span>
                 <span className="font-semibold text-foreground">
-                  {match.date ?? "26-27 August"} · {match.time ?? "9:00 PM to 1:00 AM"}
+                  {match.date ?? "24-25 August"} · {match.time ?? "9:00 PM to 1:00 AM"}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-4 border-b pb-3">

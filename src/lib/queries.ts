@@ -111,15 +111,27 @@ function hydrateMatch(m: Match, teams: Team[], innings: Innings[] = []): Hydrate
   const find = (id: string | null | undefined) =>
     teams.find((t) => t.id === id) ?? null;
 
-  // Auto-normalize legacy Friday / Saturday data to Wednesday 26 Aug / Thursday 27 Aug
+  // Auto-normalize match day to Monday 24 Aug / Tuesday 25 Aug
   let normalizedDay = m.day;
   let normalizedDate = m.date;
-  if (m.day === "FRIDAY") {
-    normalizedDay = "WEDNESDAY";
-    normalizedDate = "26 August";
-  } else if (m.day === "SATURDAY") {
-    normalizedDay = "THURSDAY";
-    normalizedDate = "27 August";
+  if (
+    m.day === "MONDAY" ||
+    m.day === "WEDNESDAY" ||
+    m.day === "FRIDAY" ||
+    m.date === "26 August" ||
+    m.date === "28 August"
+  ) {
+    normalizedDay = "MONDAY";
+    normalizedDate = "24 August";
+  } else if (
+    m.day === "TUESDAY" ||
+    m.day === "THURSDAY" ||
+    m.day === "SATURDAY" ||
+    m.date === "27 August" ||
+    m.date === "29 August"
+  ) {
+    normalizedDay = "TUESDAY";
+    normalizedDate = "25 August";
   }
 
   return {
@@ -367,13 +379,25 @@ export async function getMatchWorkspace(matchId: string) {
     if (!snap.exists()) return null;
     const match = { id: snap.id, ...snap.data() } as Match;
 
-    // Auto-normalize legacy Friday / Saturday data
-    if (match.day === "FRIDAY") {
-      match.day = "WEDNESDAY";
-      match.date = "26 August";
-    } else if (match.day === "SATURDAY") {
-      match.day = "THURSDAY";
-      match.date = "27 August";
+    // Auto-normalize match day to Monday 24 Aug / Tuesday 25 Aug
+    if (
+      match.day === "MONDAY" ||
+      match.day === "WEDNESDAY" ||
+      match.day === "FRIDAY" ||
+      match.date === "26 August" ||
+      match.date === "28 August"
+    ) {
+      match.day = "MONDAY";
+      match.date = "24 August";
+    } else if (
+      match.day === "TUESDAY" ||
+      match.day === "THURSDAY" ||
+      match.day === "SATURDAY" ||
+      match.date === "27 August" ||
+      match.date === "29 August"
+    ) {
+      match.day = "TUESDAY";
+      match.date = "25 August";
     }
 
     const [teams, players, inningsSnap] = await Promise.all([

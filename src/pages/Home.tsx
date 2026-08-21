@@ -69,7 +69,7 @@ export default function Home() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-sm shadow-sm backdrop-blur">
               <Calendar className="h-4 w-4 text-emerald-400" />
-              <span className="font-bold text-slate-100">26, 27 August</span>
+              <span className="font-bold text-slate-100">24, 25 August</span>
             </div>
 
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-sm shadow-sm backdrop-blur">

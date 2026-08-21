@@ -182,10 +182,11 @@ export function teamColor(shortName?: string | null): string {
 
 /** Format match day display text consistently */
 export function formatMatchDay(day?: string | null, date?: string | null): string {
-  if (!day && !date) return "";
+  if (date) return date;
+  if (!day) return "";
   const d = (day || "").toUpperCase().trim();
-  if (d === "FRIDAY" || d === "WEDNESDAY") return "Wed, 26 Aug";
-  if (d === "SATURDAY" || d === "THURSDAY") return "Thu, 27 Aug";
+  if (d === "MONDAY" || d === "WEDNESDAY" || d === "FRIDAY") return "Mon, 24 Aug";
+  if (d === "TUESDAY" || d === "THURSDAY" || d === "SATURDAY") return "Tue, 25 Aug";
   if (d === "SUNDAY") return "Sun (Finals)";
   return date ? `${day} · ${date}` : (day || "");
 }

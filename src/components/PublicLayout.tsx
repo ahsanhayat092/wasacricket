@@ -142,7 +142,7 @@ export function PublicLayout() {
             {tournamentTitle} — Officers Event
           </p>
           <p className="text-xs text-muted-foreground">
-            Askari XI, Lahore • 26, 27 August (9:00 PM to 1:00 AM) • WASA Lahore
+            Askari XI, Lahore • 24, 25 August (9:00 PM to 1:00 AM) • WASA Lahore
           </p>
           <p className="text-[11px] text-muted-foreground/80 pt-2 border-t border-border/40 max-w-xs mx-auto">
             Team Spirit • Competition • Excellence — Play Hard, Win Together!

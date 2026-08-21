@@ -24,22 +24,22 @@ const TEAM_SEED = [
 
 const FIXTURES: {
   matchNumber: number;
-  day: "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
+  day: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   date: string;
   time: string;
   venue: string;
   teamA: string;
   teamB: string;
 }[] = [
-  { matchNumber: 1, day: "WEDNESDAY", date: "26 August", time: "9:00 PM", venue: "Askari XI, Lahore", teamA: "Wolves", teamB: "Stallions" },
-  { matchNumber: 2, day: "WEDNESDAY", date: "26 August", time: "9:45 PM", venue: "Askari XI, Lahore", teamA: "Lions", teamB: "Dolphins" },
-  { matchNumber: 3, day: "WEDNESDAY", date: "26 August", time: "10:30 PM", venue: "Askari XI, Lahore", teamA: "Falcons", teamB: "Tigers" },
-  { matchNumber: 4, day: "WEDNESDAY", date: "26 August", time: "11:15 PM", venue: "Askari XI, Lahore", teamA: "Wolves", teamB: "Dolphins" },
-  { matchNumber: 5, day: "THURSDAY", date: "27 August", time: "9:00 PM", venue: "Askari XI, Lahore", teamA: "Lions", teamB: "Tigers" },
-  { matchNumber: 6, day: "THURSDAY", date: "27 August", time: "9:45 PM", venue: "Askari XI, Lahore", teamA: "Falcons", teamB: "Stallions" },
-  { matchNumber: 7, day: "THURSDAY", date: "27 August", time: "10:30 PM", venue: "Askari XI, Lahore", teamA: "Wolves", teamB: "Tigers" },
-  { matchNumber: 8, day: "THURSDAY", date: "27 August", time: "11:15 PM", venue: "Askari XI, Lahore", teamA: "Lions", teamB: "Stallions" },
-  { matchNumber: 9, day: "THURSDAY", date: "27 August", time: "12:00 AM", venue: "Askari XI, Lahore", teamA: "Falcons", teamB: "Dolphins" },
+  { matchNumber: 1, day: "MONDAY", date: "24 August", time: "9:00 PM", venue: "Askari XI, Lahore", teamA: "Wolves", teamB: "Stallions" },
+  { matchNumber: 2, day: "MONDAY", date: "24 August", time: "9:45 PM", venue: "Askari XI, Lahore", teamA: "Lions", teamB: "Dolphins" },
+  { matchNumber: 3, day: "MONDAY", date: "24 August", time: "10:30 PM", venue: "Askari XI, Lahore", teamA: "Falcons", teamB: "Tigers" },
+  { matchNumber: 4, day: "MONDAY", date: "24 August", time: "11:15 PM", venue: "Askari XI, Lahore", teamA: "Wolves", teamB: "Dolphins" },
+  { matchNumber: 5, day: "TUESDAY", date: "25 August", time: "9:00 PM", venue: "Askari XI, Lahore", teamA: "Lions", teamB: "Tigers" },
+  { matchNumber: 6, day: "TUESDAY", date: "25 August", time: "9:45 PM", venue: "Askari XI, Lahore", teamA: "Falcons", teamB: "Stallions" },
+  { matchNumber: 7, day: "TUESDAY", date: "25 August", time: "10:30 PM", venue: "Askari XI, Lahore", teamA: "Wolves", teamB: "Tigers" },
+  { matchNumber: 8, day: "TUESDAY", date: "25 August", time: "11:15 PM", venue: "Askari XI, Lahore", teamA: "Lions", teamB: "Stallions" },
+  { matchNumber: 9, day: "TUESDAY", date: "25 August", time: "12:00 AM", venue: "Askari XI, Lahore", teamA: "Falcons", teamB: "Dolphins" },
 ];
 
 export async function seedFirestore() {

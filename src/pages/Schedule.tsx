@@ -5,13 +5,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Clock, Trophy } from "lucide-react";
 
-const DAY_ORDER = ["WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
+const DAY_ORDER = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
 
 const DAY_LABELS: Record<string, string> = {
-  WEDNESDAY: "Day 1 — Wednesday, 26 August (9:00 PM to 1:00 AM)",
-  THURSDAY: "Day 2 — Thursday, 27 August (9:00 PM to 1:00 AM)",
-  FRIDAY: "Day 1 — 26 August (Wednesday)",
-  SATURDAY: "Day 2 — 27 August (Thursday)",
+  MONDAY: "Day 1 — Monday, 24 August (9:00 PM to 1:00 AM)",
+  TUESDAY: "Day 2 — Tuesday, 25 August (9:00 PM to 1:00 AM)",
+  WEDNESDAY: "Day 1 — Monday, 24 August",
+  THURSDAY: "Day 2 — Tuesday, 25 August",
+  FRIDAY: "Day 1 — 24 August (Monday)",
+  SATURDAY: "Day 2 — 25 August (Tuesday)",
   SUNDAY: "Day 3 — Finals",
 };
 
@@ -51,7 +53,7 @@ export default function Schedule() {
           <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5 text-emerald-500" />
-              26, 27 August
+              24, 25 August
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5 text-amber-500" />
