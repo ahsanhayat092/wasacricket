@@ -108,17 +108,29 @@ export async function getPlayersByTeam(teamId: string): Promise<Player[]> {
 // Matches
 // ---------------------------------------------------------------------------
 
-function hydrateMatch(m: Match, teams: Team[], innings: Innings[] = []): HydratedMatch {
+function hydrateMatch(
+  m: Match,
+  teams: Team[],
+  innings: Innings[] = [],
+  top1Team: Team | null = null,
+  top2Team: Team | null = null,
+): HydratedMatch {
   const find = (id: string | null | undefined) =>
     teams.find((t) => t.id === id) ?? null;
+
+  const isFinal = m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL";
+  const teamA = find(m.teamAId) ?? (isFinal ? top1Team : null);
+  const teamB = find(m.teamBId) ?? (isFinal ? top2Team : null);
 
   return {
     ...m,
     day: m.day,
     date: m.date,
     time: m.time,
-    teamA: find(m.teamAId),
-    teamB: find(m.teamBId),
+    teamAId: m.teamAId ?? (isFinal && top1Team ? top1Team.id : m.teamAId),
+    teamBId: m.teamBId ?? (isFinal && top2Team ? top2Team.id : m.teamBId),
+    teamA,
+    teamB,
     tossWinner: find(m.tossWinnerId),
     winningTeam: find(m.winningTeamId),
     innings: innings.filter((i) => i.matchId === m.id).sort((a, b) => a.inningsNumber - b.inningsNumber),
@@ -127,16 +139,24 @@ function hydrateMatch(m: Match, teams: Team[], innings: Innings[] = []): Hydrate
 
 export async function getSchedule(): Promise<HydratedMatch[]> {
   try {
-    const [matchSnap, teams, inningsSnap] = await Promise.all([
+    const [matchSnap, teams, inningsSnap, standingsSnap] = await Promise.all([
       getDocs(query(matchesCol(), where("tournamentId", "==", TOURNAMENT_ID))),
       getTeams(),
       getDocs(inningsCol()),
+      getDocs(query(standingsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
     ]);
     const allInnings = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+    const standings = standingsSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as Standing)
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+
+    const top1Team = standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
+    const top2Team = standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
+
     const matches = matchSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Match)
       .sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0));
-    return matches.map((m) => hydrateMatch(m, teams, allInnings));
+    return matches.map((m) => hydrateMatch(m, teams, allInnings, top1Team, top2Team));
   } catch (err) {
     console.error("Error loading schedule:", err);
     return [];
@@ -163,13 +183,21 @@ export async function getMatchById(matchId: string): Promise<{
   if (!snap.exists()) return null;
   const match = { id: snap.id, ...snap.data() } as Match;
 
-  const [teams, players, inningsSnap] = await Promise.all([
+  const [teams, players, inningsSnap, standingsSnap] = await Promise.all([
     getTeams(),
     getPlayers(),
     getDocs(query(inningsCol(), where("matchId", "==", matchId))),
+    getDocs(query(standingsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
   ]);
 
-  const hydrated = await hydrateMatch(match, teams);
+  const standings = standingsSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Standing)
+    .sort((a, b) => (a.position || 0) - (b.position || 0));
+
+  const top1Team = standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
+  const top2Team = standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
+
+  const hydrated = await hydrateMatch(match, teams, [], top1Team, top2Team);
   const inningsList = inningsSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as Innings)
     .sort((a, b) => a.inningsNumber - b.inningsNumber);

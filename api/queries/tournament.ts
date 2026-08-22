@@ -252,21 +252,6 @@ export async function recalculateStandings(tournamentId: number) {
  */
 export async function maybeGenerateFinalFixture(tournamentId: number) {
   const db = getDb();
-  const leagueMatches = await db
-    .select()
-    .from(matches)
-    .where(
-      and(eq(matches.tournamentId, tournamentId), eq(matches.stage, "LEAGUE")),
-    );
-  if (leagueMatches.length === 0) return;
-  const allDone = leagueMatches.every(
-    (m) =>
-      m.status === "COMPLETED" ||
-      m.status === "NO_RESULT" ||
-      m.status === "ABANDONED",
-  );
-  if (!allDone) return;
-
   const topTwo = await db
     .select()
     .from(standings)
@@ -275,13 +260,18 @@ export async function maybeGenerateFinalFixture(tournamentId: number) {
     .limit(2);
   if (topTwo.length < 2) return;
 
-  const [final] = await db
+  const allMatchesList = await db
     .select()
     .from(matches)
-    .where(
-      and(eq(matches.tournamentId, tournamentId), eq(matches.stage, "FINAL")),
-    )
-    .limit(1);
+    .where(eq(matches.tournamentId, tournamentId));
+
+  let final = allMatchesList.find(
+    (m) =>
+      m.stage === "FINAL" ||
+      m.stage?.toUpperCase() === "FINAL" ||
+      m.matchNumber >= 10 ||
+      (!m.teamAId && !m.teamBId),
+  );
   if (!final) return;
   if (final.status === "COMPLETED" || final.status === "LIVE") return;
   if (final.teamAId === topTwo[0].teamId && final.teamBId === topTwo[1].teamId)
@@ -289,7 +279,11 @@ export async function maybeGenerateFinalFixture(tournamentId: number) {
 
   await db
     .update(matches)
-    .set({ teamAId: topTwo[0].teamId, teamBId: topTwo[1].teamId })
+    .set({
+      teamAId: topTwo[0].teamId,
+      teamBId: topTwo[1].teamId,
+      stage: "FINAL",
+    })
     .where(eq(matches.id, final.id));
 }
 

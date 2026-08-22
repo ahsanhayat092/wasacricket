@@ -182,9 +182,21 @@ export default function AdminMatchControl() {
   }
 
   const { match, teams = [], players = [], innings = [] } = data;
-  const teamA = teams.find((t) => t.id === match.teamAId) ?? null;
-  const teamB = teams.find((t) => t.id === match.teamBId) ?? null;
+  const isFinalMatch = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
+  const teamA = teams.find((t) => t.id === match.teamAId) ?? match.teamA ?? null;
+  const teamB = teams.find((t) => t.id === match.teamBId) ?? match.teamB ?? null;
   const canEnterScores = match.status === "LIVE";
+
+  useEffect(() => {
+    if (isFinalMatch && (!match.teamAId || !match.teamBId) && teamA && teamB) {
+      fbUpdateMatchSchedule({
+        matchId: match.id,
+        teamAId: teamA.id,
+        teamBId: teamB.id,
+        stage: "FINAL",
+      }).catch(console.error);
+    }
+  }, [isFinalMatch, match.teamAId, match.teamBId, teamA?.id, teamB?.id, match.id]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
