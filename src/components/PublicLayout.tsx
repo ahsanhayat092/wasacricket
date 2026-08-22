@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { getTournament } from "@/lib/queries";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlayerModal } from "@/context/PlayerModalContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Moon, Sun, Menu, Trophy, Shield, KeyRound, LogIn } from "lucide-react";
+import { Moon, Sun, Menu, Trophy, Shield, KeyRound, LogIn, Search } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ const NAV = [
 export function PublicLayout() {
   const { theme, toggle } = useTheme();
   const { user, isAdmin, isScorer } = useAuth();
+  const { openPlayerSearch } = usePlayerModal();
   const { data: tournament } = useQuery({
     queryKey: ["tournament"],
     queryFn: getTournament,
@@ -64,6 +66,17 @@ export function PublicLayout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Player Search Trigger */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openPlayerSearch}
+              className="gap-2 text-xs font-semibold rounded-xl bg-muted/30 hover:bg-muted border-border/60"
+            >
+              <Search className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="hidden sm:inline">Search Players</span>
+            </Button>
+
             {isAdmin ? (
               <Link to="/admin">
                 <Button variant="outline" size="sm" className="gap-1.5 font-semibold border-emerald-500/40 text-emerald-500">
@@ -99,6 +112,18 @@ export function PublicLayout() {
               </SheetTrigger>
               <SheetContent side="right" className="w-64">
                 <div className="flex flex-col gap-1 mt-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setOpen(false);
+                      openPlayerSearch();
+                    }}
+                    className="gap-2 text-xs font-semibold rounded-xl justify-start mb-2"
+                  >
+                    <Search className="h-4 w-4 text-emerald-500" />
+                    <span>Search Players</span>
+                  </Button>
                   {NAV.map((n) => (
                     <NavLink
                       key={n.to}

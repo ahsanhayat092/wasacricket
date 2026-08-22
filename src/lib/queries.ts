@@ -25,6 +25,7 @@ import {
   usersCol,
   teamDoc,
   matchDoc,
+  playerDoc,
   TOURNAMENT_ID,
   type Tournament,
   type Team,
@@ -306,6 +307,409 @@ export async function getStatistics() {
     getTournamentSummaryStats(schedule),
   ]);
   return { batting, bowling, summary, teams };
+}
+
+// ---------------------------------------------------------------------------
+// Player performance & search
+// ---------------------------------------------------------------------------
+
+export type PlayerMatchPerformance = {
+  matchId: string;
+  matchNumber: number;
+  stage: string;
+  date?: string | null;
+  time?: string | null;
+  venue?: string | null;
+  status: string;
+  opponentTeam?: Team | null;
+  playerTeam?: Team | null;
+  resultText?: string | null;
+  isPlayerOfMatch: boolean;
+  batting?: {
+    runs: number;
+    balls: number;
+    fours: number;
+    sixes: number;
+    isOut: boolean;
+    dismissal?: string | null;
+    strikeRate: number;
+    battingOrder: number;
+  } | null;
+  bowling?: {
+    overs: string;
+    balls: number;
+    maidens: number;
+    runs: number;
+    wickets: number;
+    economy: number;
+    wides: number;
+    noBalls: number;
+  } | null;
+};
+
+export type PlayerPerformanceData = {
+  player: Player;
+  team: Team | null;
+  teammates: Player[];
+  matchesCount: number;
+  potmCount: number;
+  batting: {
+    inningsCount: number;
+    runs: number;
+    balls: number;
+    notOuts: number;
+    outs: number;
+    highestScore: number;
+    highestIsOut: boolean;
+    average: number | null;
+    strikeRate: number;
+    fours: number;
+    sixes: number;
+    thirties: number;
+    fifties: number;
+    ducks: number;
+  };
+  bowling: {
+    inningsCount: number;
+    balls: number;
+    overs: string;
+    maidens: number;
+    runs: number;
+    wickets: number;
+    bestWickets: number;
+    bestRuns: number;
+    bestFigures: string;
+    economy: number;
+    average: number | null;
+    strikeRate: number | null;
+    threeWickets: number;
+    wides: number;
+    noBalls: number;
+  };
+  matchLogs: PlayerMatchPerformance[];
+};
+
+export async function getPlayerPerformance(
+  playerId: string,
+): Promise<PlayerPerformanceData | null> {
+  try {
+    const playerSnap = await getDoc(playerDoc(playerId));
+    if (!playerSnap.exists()) return null;
+    const player = { id: playerSnap.id, ...playerSnap.data() } as Player;
+
+    const [teamSnap, teamPlayersSnap, schedule] = await Promise.all([
+      getDoc(teamDoc(player.teamId)),
+      getDocs(query(playersCol(), where("teamId", "==", player.teamId))),
+      getSchedule(),
+    ]);
+
+    const team = teamSnap.exists()
+      ? ({ id: teamSnap.id, ...teamSnap.data() } as Team)
+      : null;
+    const teammates = teamPlayersSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as Player,
+    );
+
+    // Find all matches involving player's team
+    const relevantMatches = schedule.filter(
+      (m) => m.teamAId === player.teamId || m.teamBId === player.teamId,
+    );
+    const relevantMatchIds = relevantMatches.map((m) => m.id);
+
+    if (relevantMatchIds.length === 0) {
+      return {
+        player,
+        team,
+        teammates,
+        matchesCount: 0,
+        potmCount: 0,
+        batting: {
+          inningsCount: 0,
+          runs: 0,
+          balls: 0,
+          notOuts: 0,
+          outs: 0,
+          highestScore: 0,
+          highestIsOut: false,
+          average: null,
+          strikeRate: 0,
+          fours: 0,
+          sixes: 0,
+          thirties: 0,
+          fifties: 0,
+          ducks: 0,
+        },
+        bowling: {
+          inningsCount: 0,
+          balls: 0,
+          overs: "0.0",
+          maidens: 0,
+          runs: 0,
+          wickets: 0,
+          bestWickets: 0,
+          bestRuns: 0,
+          bestFigures: "0/0",
+          economy: 0,
+          average: null,
+          strikeRate: null,
+          threeWickets: 0,
+          wides: 0,
+          noBalls: 0,
+        },
+        matchLogs: [],
+      };
+    }
+
+    // Fetch innings and scores
+    const inningsSnap = await getDocs(
+      query(inningsCol(), where("matchId", "in", relevantMatchIds)),
+    );
+    const inningsList = inningsSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as Innings,
+    );
+    const inningsIds = inningsList.map((i) => i.id);
+
+    const [battingSnap, bowlingSnap] = inningsIds.length
+      ? await Promise.all([
+          getDocs(query(battingScoresCol(), where("inningsId", "in", inningsIds))),
+          getDocs(query(bowlingScoresCol(), where("inningsId", "in", inningsIds))),
+        ])
+      : [{ docs: [] }, { docs: [] }];
+
+    const battingScores = battingSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as BattingScore,
+    );
+    const bowlingScores = bowlingSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as BowlingScore,
+    );
+
+    // Calculate aggregated batting
+    const playerBattingScores = battingScores.filter((b) => b.playerId === playerId);
+    let totalRuns = 0;
+    let totalBalls = 0;
+    let totalFours = 0;
+    let totalSixes = 0;
+    let totalOuts = 0;
+    let totalNotOuts = 0;
+    let highestScore = 0;
+    let highestIsOut = false;
+    let thirties = 0;
+    let fifties = 0;
+    let ducks = 0;
+
+    for (const b of playerBattingScores) {
+      totalRuns += b.runs;
+      totalBalls += b.balls;
+      totalFours += b.fours;
+      totalSixes += b.sixes;
+      if (b.isOut) {
+        totalOuts += 1;
+        if (b.runs === 0) ducks += 1;
+      } else {
+        totalNotOuts += 1;
+      }
+      if (b.runs > highestScore) {
+        highestScore = b.runs;
+        highestIsOut = b.isOut;
+      }
+      if (b.runs >= 50) {
+        fifties += 1;
+      } else if (b.runs >= 30) {
+        thirties += 1;
+      }
+    }
+
+    // Calculate aggregated bowling
+    const playerBowlingScores = bowlingScores.filter((b) => b.playerId === playerId);
+    let totalBowlBalls = 0;
+    let totalMaidens = 0;
+    let totalConcededRuns = 0;
+    let totalWickets = 0;
+    let bestWickets = 0;
+    let bestRuns = 0;
+    let threeWickets = 0;
+    let totalWides = 0;
+    let totalNoBalls = 0;
+
+    for (const b of playerBowlingScores) {
+      totalBowlBalls += b.balls;
+      totalMaidens += b.maidens;
+      totalConcededRuns += b.runs;
+      totalWickets += b.wickets;
+      totalWides += b.wides;
+      totalNoBalls += b.noBalls;
+      if (b.wickets >= 3) threeWickets += 1;
+
+      if (
+        b.wickets > bestWickets ||
+        (b.wickets === bestWickets && (bestWickets === 0 || b.runs < bestRuns))
+      ) {
+        bestWickets = b.wickets;
+        bestRuns = b.runs;
+      }
+    }
+
+    // Build chronological match logs
+    const matchLogs: PlayerMatchPerformance[] = [];
+    let playedMatchesCount = 0;
+    let potmCount = 0;
+
+    for (const m of relevantMatches) {
+      const matchInnings = inningsList.filter((i) => i.matchId === m.id);
+      const mInningsIds = matchInnings.map((i) => i.id);
+
+      const mBat = playerBattingScores.find((b) => mInningsIds.includes(b.inningsId));
+      const mBowl = playerBowlingScores.find((b) => mInningsIds.includes(b.inningsId));
+
+      const isTeamA = m.teamAId === player.teamId;
+      const opponentTeam = isTeamA ? m.teamB : m.teamA;
+      const playerTeam = isTeamA ? m.teamA : m.teamB;
+
+      const isInLineup = isTeamA
+        ? m.teamAPlayingVI?.includes(playerId)
+        : m.teamBPlayingVI?.includes(playerId);
+
+      const isPOTM = m.playerOfMatchId === playerId;
+      if (isPOTM) potmCount += 1;
+
+      if (mBat || mBowl || isInLineup || m.status === "COMPLETED") {
+        playedMatchesCount += 1;
+      }
+
+      matchLogs.push({
+        matchId: m.id,
+        matchNumber: m.matchNumber,
+        stage: m.stage,
+        date: m.date,
+        time: m.time,
+        venue: m.venue,
+        status: m.status,
+        opponentTeam,
+        playerTeam,
+        resultText: m.resultText,
+        isPlayerOfMatch: isPOTM,
+        batting: mBat
+          ? {
+              runs: mBat.runs,
+              balls: mBat.balls,
+              fours: mBat.fours,
+              sixes: mBat.sixes,
+              isOut: mBat.isOut,
+              dismissal: mBat.dismissal,
+              strikeRate: mBat.balls > 0 ? (mBat.runs / mBat.balls) * 100 : 0,
+              battingOrder: mBat.battingOrder,
+            }
+          : null,
+        bowling: mBowl
+          ? {
+              overs: `${Math.floor(mBowl.balls / 6)}.${mBowl.balls % 6}`,
+              balls: mBowl.balls,
+              maidens: mBowl.maidens,
+              runs: mBowl.runs,
+              wickets: mBowl.wickets,
+              economy: mBowl.balls > 0 ? (mBowl.runs / mBowl.balls) * 6 : 0,
+              wides: mBowl.wides,
+              noBalls: mBowl.noBalls,
+            }
+          : null,
+      });
+    }
+
+    const oversFull = `${Math.floor(totalBowlBalls / 6)}.${totalBowlBalls % 6}`;
+
+    return {
+      player,
+      team,
+      teammates,
+      matchesCount: playedMatchesCount,
+      potmCount,
+      batting: {
+        inningsCount: playerBattingScores.length,
+        runs: totalRuns,
+        balls: totalBalls,
+        notOuts: totalNotOuts,
+        outs: totalOuts,
+        highestScore,
+        highestIsOut,
+        average: totalOuts > 0 ? totalRuns / totalOuts : null,
+        strikeRate: totalBalls > 0 ? (totalRuns / totalBalls) * 100 : 0,
+        fours: totalFours,
+        sixes: totalSixes,
+        thirties,
+        fifties,
+        ducks,
+      },
+      bowling: {
+        inningsCount: playerBowlingScores.length,
+        balls: totalBowlBalls,
+        overs: oversFull,
+        maidens: totalMaidens,
+        runs: totalConcededRuns,
+        wickets: totalWickets,
+        bestWickets,
+        bestRuns,
+        bestFigures: `${bestWickets}/${bestRuns}`,
+        economy: totalBowlBalls > 0 ? (totalConcededRuns / totalBowlBalls) * 6 : 0,
+        average: totalWickets > 0 ? totalConcededRuns / totalWickets : null,
+        strikeRate: totalWickets > 0 ? totalBowlBalls / totalWickets : null,
+        threeWickets,
+        wides: totalWides,
+        noBalls: totalNoBalls,
+      },
+      matchLogs,
+    };
+  } catch (err) {
+    console.error("Error loading player performance:", err);
+    return null;
+  }
+}
+
+export type PlayerSearchItem = Player & {
+  teamName: string;
+  teamShortName: string;
+  teamLogoUrl?: string | null;
+  totalRuns: number;
+  totalWickets: number;
+  matchesPlayed: number;
+};
+
+export async function getAllPlayersWithStats(): Promise<PlayerSearchItem[]> {
+  try {
+    const [playersSnap, teamsSnap, battingSnap, bowlingSnap] = await Promise.all([
+      getDocs(playersCol()),
+      getDocs(query(teamsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
+      getDocs(battingScoresCol()),
+      getDocs(bowlingScoresCol()),
+    ]);
+
+    const players = playersSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
+    const teams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+    const batting = battingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
+    const bowling = bowlingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
+
+    return players.map((p) => {
+      const team = teams.find((t) => t.id === p.teamId);
+      const pBat = batting.filter((b) => b.playerId === p.id);
+      const pBowl = bowling.filter((b) => b.playerId === p.id);
+
+      const totalRuns = pBat.reduce((acc, b) => acc + b.runs, 0);
+      const totalWickets = pBowl.reduce((acc, b) => acc + b.wickets, 0);
+      const matchesPlayed = Math.max(pBat.length, pBowl.length);
+
+      return {
+        ...p,
+        teamName: team?.name ?? "WASA Team",
+        teamShortName: team?.shortName ?? "TBD",
+        teamLogoUrl: team?.logoUrl ?? null,
+        totalRuns,
+        totalWickets,
+        matchesPlayed,
+      };
+    });
+  } catch (err) {
+    console.error("Error loading all players with stats:", err);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------

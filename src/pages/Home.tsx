@@ -4,6 +4,7 @@ import { MatchCard } from "@/components/MatchCard";
 import { StandingsTable } from "@/components/StandingsTable";
 import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PlayerLink } from "@/components/PlayerLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -187,7 +188,9 @@ export default function Home() {
                     className="ring-2 ring-amber-400/50 shadow-sm"
                   />
                   <div>
-                    <p className="text-lg font-bold">{topBatsman.name}</p>
+                    <p className="text-lg font-bold">
+                      <PlayerLink playerId={topBatsman.playerId} name={topBatsman.name} />
+                    </p>
                     <p className="text-sm text-muted-foreground">{topBatsman.teamName}</p>
                   </div>
                   <div className="ml-auto text-right">
@@ -214,7 +217,9 @@ export default function Home() {
                     className="ring-2 ring-sky-400/50 shadow-sm"
                   />
                   <div>
-                    <p className="text-lg font-bold">{topBowler.name}</p>
+                    <p className="text-lg font-bold">
+                      <PlayerLink playerId={topBowler.playerId} name={topBowler.name} />
+                    </p>
                     <p className="text-sm text-muted-foreground">{topBowler.teamName}</p>
                   </div>
                   <div className="ml-auto text-right">

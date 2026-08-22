@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PlayerLink } from "@/components/PlayerLink";
 import { ballsToOversText } from "@/lib/cricket";
 import { Trophy, Zap, Target, Award, Flame, Shield, Users } from "lucide-react";
 
@@ -174,7 +175,9 @@ export default function Statistics() {
                     className="ring-1 ring-amber-400/50"
                   />
                   <div className="min-w-0">
-                    <p className="text-base font-bold truncate">{bestBatsman.name}</p>
+                    <p className="text-base font-bold truncate">
+                      <PlayerLink playerId={bestBatsman.playerId} name={bestBatsman.name} />
+                    </p>
                     <p className="text-xs text-muted-foreground truncate">{bestBatsman.teamName}</p>
                   </div>
                 </div>
@@ -212,7 +215,9 @@ export default function Statistics() {
                     className="ring-1 ring-sky-400/50"
                   />
                   <div className="min-w-0">
-                    <p className="text-base font-bold truncate">{bestBowler.name}</p>
+                    <p className="text-base font-bold truncate">
+                      <PlayerLink playerId={bestBowler.playerId} name={bestBowler.name} />
+                    </p>
                     <p className="text-xs text-muted-foreground truncate">{bestBowler.teamName}</p>
                   </div>
                 </div>
@@ -249,7 +254,9 @@ export default function Statistics() {
                     className="ring-1 ring-emerald-400/50"
                   />
                   <div className="min-w-0">
-                    <p className="text-base font-bold truncate">{mostBoundaries.name}</p>
+                    <p className="text-base font-bold truncate">
+                      <PlayerLink playerId={mostBoundaries.playerId} name={mostBoundaries.name} />
+                    </p>
                     <p className="text-xs text-muted-foreground truncate">{mostBoundaries.teamName}</p>
                   </div>
                 </div>
@@ -286,7 +293,9 @@ export default function Statistics() {
                     className="ring-1 ring-indigo-400/50"
                   />
                   <div className="min-w-0">
-                    <p className="text-base font-bold truncate">{bestEconomy.name}</p>
+                    <p className="text-base font-bold truncate">
+                      <PlayerLink playerId={bestEconomy.playerId} name={bestEconomy.name} />
+                    </p>
                     <p className="text-xs text-muted-foreground truncate">{bestEconomy.teamName}</p>
                   </div>
                 </div>
@@ -348,7 +357,13 @@ export default function Statistics() {
                         <Zap className="h-3 w-3 text-amber-500" /> Best Batter:
                       </span>
                       <span className="font-bold text-foreground">
-                        {topB ? `${topB.name} (${topB.runs}r)` : "—"}
+                        {topB ? (
+                          <>
+                            <PlayerLink playerId={topB.playerId} name={topB.name} /> ({topB.runs}r)
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -356,7 +371,13 @@ export default function Statistics() {
                         <Trophy className="h-3 w-3 text-sky-500" /> Best Bowler:
                       </span>
                       <span className="font-bold text-foreground">
-                        {topW ? `${topW.name} (${topW.wickets}w)` : "—"}
+                        {topW ? (
+                          <>
+                            <PlayerLink playerId={topW.playerId} name={topW.name} /> ({topW.wickets}w)
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </span>
                     </div>
                   </CardContent>
@@ -444,7 +465,7 @@ export default function Statistics() {
                         <TableCell className="font-semibold">
                           <div className="flex items-center gap-2">
                             <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                            <span>{p.name}</span>
+                            <PlayerLink playerId={p.playerId} name={p.name} />
                           </div>
                         </TableCell>
                         {selectedTeamId === "all" && (
@@ -517,7 +538,7 @@ export default function Statistics() {
                         <TableCell className="font-semibold">
                           <div className="flex items-center gap-2">
                             <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                            <span>{p.name}</span>
+                            <PlayerLink playerId={p.playerId} name={p.name} />
                           </div>
                         </TableCell>
                         {selectedTeamId === "all" && (

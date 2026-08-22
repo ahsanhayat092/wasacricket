@@ -13,6 +13,7 @@ import { ManhattanGraph } from "@/components/ManhattanGraph";
 import { RecentBalls } from "@/components/RecentBalls";
 import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PlayerLink } from "@/components/PlayerLink";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -265,11 +266,11 @@ export default function LiveMatch() {
                     className="ring-2 ring-amber-400 shadow-md"
                   />
                   <div className="text-center sm:text-left">
-                    <Badge className="bg-amber-500 text-slate-950 font-black gap-1.5 py-1 px-3 shadow-sm text-xs">
+                    <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 text-[10px] gap-1 px-2 py-0.5">
                       <Award className="h-3.5 w-3.5" /> Player of the Match
                     </Badge>
                     <p className="text-base sm:text-lg font-black text-foreground mt-0.5">
-                      {playerOfMatch.name}
+                      <PlayerLink playerId={playerOfMatch.id} name={playerOfMatch.name} />
                     </p>
                     <p className="text-xs text-muted-foreground font-medium">
                       {playerOfMatch.role}
@@ -300,7 +301,8 @@ export default function LiveMatch() {
                       <Users className="h-3 w-3" /> Current Stand
                     </Badge>
                     <span className="font-bold text-foreground">
-                      {currentStand.player1Name} ({currentStand.player1Runs}) & {currentStand.player2Name} ({currentStand.player2Runs})
+                      <PlayerLink playerId={currentStand.player1Id} name={currentStand.player1Name} /> ({currentStand.player1Runs}) &{" "}
+                      <PlayerLink playerId={currentStand.player2Id} name={currentStand.player2Name} /> ({currentStand.player2Runs})
                     </span>
                   </div>
                   <div className="font-mono text-xs font-semibold">
@@ -396,7 +398,7 @@ export default function LiveMatch() {
                             {isOnStrike && (
                               <span className="text-amber-500 font-black text-sm leading-none">*</span>
                             )}
-                            {b.playerName ?? "—"}
+                            <PlayerLink playerId={b.playerId} name={b.playerName ?? "—"} />
                           </span>
                           <span className="font-mono font-bold text-amber-500">
                             {b.runs} ({b.balls}b)
@@ -441,7 +443,7 @@ export default function LiveMatch() {
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-semibold flex items-center gap-1.5">
                           <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0 animate-pulse" />
-                          {currentBowler.playerName ?? "—"}
+                          <PlayerLink playerId={currentBowler.playerId} name={currentBowler.playerName ?? "—"} />
                         </span>
                         <span className="font-mono font-bold text-sky-500">
                           {currentBowler.wickets}/{currentBowler.runs}{" "}
@@ -504,7 +506,7 @@ export default function LiveMatch() {
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">{idx + 1}</span>
                             <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                            <span className="font-semibold">{p.name}</span>
+                            <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
                             {(p.isCaptain || p.designation === "Captain") && (
                               <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
                             )}
@@ -525,7 +527,7 @@ export default function LiveMatch() {
                         <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
                           <div className="flex items-center gap-2">
                             <PlayerAvatar name={lineupA.reservePlayer.name} photoUrl={lineupA.reservePlayer.photoUrl} size="xs" />
-                            <span className="font-semibold">{lineupA.reservePlayer.name}</span>
+                            <PlayerLink playerId={lineupA.reservePlayer.id} name={lineupA.reservePlayer.name} className="font-semibold" />
                             <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
                               Reserve
                             </Badge>
@@ -548,7 +550,7 @@ export default function LiveMatch() {
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">{idx + 1}</span>
                           <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                          <span className="font-semibold">{p.name}</span>
+                          <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
                           {(p.isCaptain || p.designation === "Captain") && (
                             <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
                           )}
@@ -595,7 +597,7 @@ export default function LiveMatch() {
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">{idx + 1}</span>
                             <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                            <span className="font-semibold">{p.name}</span>
+                            <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
                             {(p.isCaptain || p.designation === "Captain") && (
                               <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
                             )}
@@ -616,7 +618,7 @@ export default function LiveMatch() {
                         <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
                           <div className="flex items-center gap-2">
                             <PlayerAvatar name={lineupB.reservePlayer.name} photoUrl={lineupB.reservePlayer.photoUrl} size="xs" />
-                            <span className="font-semibold">{lineupB.reservePlayer.name}</span>
+                            <PlayerLink playerId={lineupB.reservePlayer.id} name={lineupB.reservePlayer.name} className="font-semibold" />
                             <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
                               Reserve
                             </Badge>
@@ -639,7 +641,7 @@ export default function LiveMatch() {
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">{idx + 1}</span>
                           <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                          <span className="font-semibold">{p.name}</span>
+                          <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
                           {(p.isCaptain || p.designation === "Captain") && (
                             <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">(C)</Badge>
                           )}

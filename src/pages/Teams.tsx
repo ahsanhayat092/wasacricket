@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getTeams, getPlayers } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PlayerLink } from "@/components/PlayerLink";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -106,9 +107,11 @@ export default function Teams() {
                                       {idx + 1}
                                     </span>
                                     <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                                    <span className="font-semibold truncate text-foreground">
-                                      {p.name}
-                                    </span>
+                                    <PlayerLink
+                                      playerId={p.id}
+                                      name={p.name}
+                                      className="font-semibold truncate text-foreground"
+                                    />
                                     {isCap && (
                                       <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold shrink-0">
                                         (C)

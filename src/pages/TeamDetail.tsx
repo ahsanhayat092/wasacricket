@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getTeamDetail } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PlayerLink } from "@/components/PlayerLink";
 import { MatchCard, type HydratedMatch } from "@/components/MatchCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +109,7 @@ export default function TeamDetail() {
                         <div className="flex items-center gap-2.5">
                           <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="sm" />
                           <div className="flex items-center gap-1.5">
-                            <span>{p.name}</span>
+                            <PlayerLink playerId={p.id} name={p.name} />
                             {isCap && (
                               <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px] py-0 px-1.5 font-bold">
                                 (C) Captain

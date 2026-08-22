@@ -15,6 +15,7 @@ import {
 } from "@/lib/cricket";
 import type { Player, FallOfWicket, Partnership } from "@/lib/firestore";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PlayerLink } from "@/components/PlayerLink";
 import { Users, ShieldAlert, Zap, ArrowRightLeft } from "lucide-react";
 
 type BattingRow = {
@@ -143,10 +144,10 @@ export function ScorecardView({
                       {isOnStrike ? (
                         <span className="inline-flex items-center gap-1">
                           <span className="text-amber-500 font-black text-base leading-none">*</span>
-                          <span>{name}</span>
+                          <PlayerLink playerId={b.playerId} name={name} />
                         </span>
                       ) : (
-                        name
+                        <PlayerLink playerId={b.playerId} name={name} />
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs font-mono">
@@ -198,7 +199,7 @@ export function ScorecardView({
             <span className="font-bold text-muted-foreground">Did not bat:</span>
             {didNotBat.map((p, idx) => (
               <span key={p.id} className="font-medium text-foreground">
-                {p.name}
+                <PlayerLink playerId={p.id} name={p.name} />
                 {idx < didNotBat.length - 1 ? "," : ""}
               </span>
             ))}
@@ -248,9 +249,11 @@ export function ScorecardView({
                                 : "th"}{" "}
                           Wkt
                         </Badge>
-                        <span className="font-bold text-foreground truncate max-w-[120px] sm:max-w-[140px]">
-                          {fow.playerName}
-                        </span>
+                        <PlayerLink
+                          playerId={fow.playerId}
+                          name={fow.playerName}
+                          className="font-bold text-foreground truncate max-w-[120px] sm:max-w-[140px]"
+                        />
                       </div>
                       <p className="text-[11px] text-muted-foreground font-mono">
                         {fow.dismissal ?? "dismissed"}
@@ -347,9 +350,11 @@ export function ScorecardView({
                         {/* Player 1 */}
                         <div className="flex items-center gap-1.5">
                           <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-                          <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
-                            {p.player1Name ?? "Batter 1"}
-                          </span>
+                          <PlayerLink
+                            playerId={p.player1Id}
+                            name={p.player1Name ?? "Batter 1"}
+                            className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]"
+                          />
                           <span className="font-mono text-muted-foreground text-[11px]">
                             {p.player1Runs} ({p.player1Balls}b)
                           </span>
@@ -360,9 +365,11 @@ export function ScorecardView({
                           <span className="font-mono text-muted-foreground text-[11px]">
                             {p.player2Runs} ({p.player2Balls}b)
                           </span>
-                          <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
-                            {p.player2Name ?? "Batter 2"}
-                          </span>
+                          <PlayerLink
+                            playerId={p.player2Id}
+                            name={p.player2Name ?? "Batter 2"}
+                            className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]"
+                          />
                           <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0" />
                         </div>
                       </div>
@@ -400,7 +407,10 @@ export function ScorecardView({
                   {activeBowling.map((b) => (
                     <TableRow key={b.playerId} className="hover:bg-muted/30">
                       <TableCell className="font-semibold text-sm">
-                        {getPlayerDisplayName(b.playerId, b.playerName)}
+                        <PlayerLink
+                          playerId={b.playerId}
+                          name={getPlayerDisplayName(b.playerId, b.playerName)}
+                        />
                       </TableCell>
                       <TableCell className="text-right font-mono font-bold">
                         {ballsToOversText(b.balls)}
@@ -519,9 +529,11 @@ export function PartnershipsSection({
                     {/* Player 1 */}
                     <div className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-                      <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
-                        {p.player1Name ?? "Batter 1"}
-                      </span>
+                      <PlayerLink
+                        playerId={p.player1Id}
+                        name={p.player1Name ?? "Batter 1"}
+                        className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]"
+                      />
                       <span className="font-mono text-muted-foreground text-[11px]">
                         {p.player1Runs} ({p.player1Balls}b)
                       </span>
@@ -532,9 +544,11 @@ export function PartnershipsSection({
                       <span className="font-mono text-muted-foreground text-[11px]">
                         {p.player2Runs} ({p.player2Balls}b)
                       </span>
-                      <span className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]">
-                        {p.player2Name ?? "Batter 2"}
-                      </span>
+                      <PlayerLink
+                        playerId={p.player2Id}
+                        name={p.player2Name ?? "Batter 2"}
+                        className="font-bold text-foreground truncate max-w-[110px] sm:max-w-[160px]"
+                      />
                       <span className="h-2 w-2 rounded-full bg-sky-500 shrink-0" />
                     </div>
                   </div>
