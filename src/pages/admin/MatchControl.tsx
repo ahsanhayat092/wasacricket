@@ -1027,7 +1027,14 @@ function InningsLiveConsole({
     newExtras: typeof extras,
     isCompleted = closed,
     customRecentBalls?: string[],
-    recentEvent?: { type: "FOUR" | "SIX" | "WICKET" | "MAIDEN"; text?: string; timestamp: number } | null,
+    recentEvent?: {
+      type: "FOUR" | "SIX" | "WICKET" | "MAIDEN" | "TOSS";
+      text?: string;
+      timestamp: number;
+      batterName?: string;
+      bowlerName?: string;
+      dismissal?: string;
+    } | null,
   ) => {
     const battingPayload = newBat
       .filter((r) => r.batted)
@@ -1346,27 +1353,39 @@ function InningsLiveConsole({
     }
 
     // Event notification for public viewers
-    let celebrationEvent: { type: "FOUR" | "SIX" | "WICKET" | "MAIDEN"; text?: string; timestamp: number } | null = null;
+    let celebrationEvent: {
+      type: "FOUR" | "SIX" | "WICKET" | "MAIDEN" | "TOSS";
+      text?: string;
+      timestamp: number;
+      batterName?: string;
+      bowlerName?: string;
+      dismissal?: string;
+    } | null = null;
     const strikerPlayer = battingPlayers.find((p) => p.id === strikerId);
     const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
 
     if (runsScored === 4) {
       celebrationEvent = {
         type: "FOUR",
-        text: `${strikerPlayer?.name ?? "Striker"} smashes a gorgeous boundary FOUR! 🏏`,
+        text: `${strikerPlayer?.name ?? "Batsman"} smashes a gorgeous boundary FOUR! 🏏`,
         timestamp: Date.now(),
+        batterName: strikerPlayer?.name,
+        bowlerName: bowlerPlayer?.name,
       };
     } else if (runsScored === 6) {
       celebrationEvent = {
         type: "SIX",
-        text: `${strikerPlayer?.name ?? "Striker"} launches a colossal MAXIMUM SIX! 🚀`,
+        text: `${strikerPlayer?.name ?? "Batsman"} launches a colossal MAXIMUM SIX! 🚀`,
         timestamp: Date.now(),
+        batterName: strikerPlayer?.name,
+        bowlerName: bowlerPlayer?.name,
       };
     } else if (isMaiden) {
       celebrationEvent = {
         type: "MAIDEN",
         text: `MAIDEN OVER! Outstanding 0-run spell by ${bowlerPlayer?.name ?? "Bowler"}! 🎯`,
         timestamp: Date.now(),
+        bowlerName: bowlerPlayer?.name,
       };
       toast.success(`🎯 MAIDEN OVER delivered by ${bowlerPlayer?.name ?? "Bowler"}!`);
     }
@@ -1578,18 +1597,32 @@ function InningsLiveConsole({
     setRecentBalls(newRecentBalls);
 
     // Event notification for public viewers
-    let celebrationEvent: { type: "FOUR" | "SIX" | "WICKET"; text?: string; timestamp: number } | null = null;
+    let celebrationEvent: {
+      type: "FOUR" | "SIX" | "WICKET" | "MAIDEN" | "TOSS";
+      text?: string;
+      timestamp: number;
+      batterName?: string;
+      bowlerName?: string;
+      dismissal?: string;
+    } | null = null;
+    const strikerPlayer = battingPlayers.find((p) => p.id === strikerId);
+    const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
+
     if (batsmanRuns === 4) {
       celebrationEvent = {
         type: "FOUR",
-        text: `NO BALL & BOUNDARY FOUR! 🏏`,
+        text: `${strikerPlayer?.name ?? "Batsman"} smashes a NO BALL BOUNDARY FOUR! 🏏`,
         timestamp: Date.now(),
+        batterName: strikerPlayer?.name,
+        bowlerName: bowlerPlayer?.name,
       };
     } else if (batsmanRuns === 6) {
       celebrationEvent = {
         type: "SIX",
-        text: `NO BALL & MAXIMUM SIX! 🚀`,
+        text: `${strikerPlayer?.name ?? "Batsman"} launches a NO BALL MAXIMUM SIX! 🚀`,
         timestamp: Date.now(),
+        batterName: strikerPlayer?.name,
+        bowlerName: bowlerPlayer?.name,
       };
     }
 
@@ -1691,10 +1724,14 @@ function InningsLiveConsole({
     setWicketModalOpen(false);
 
     const outPlayer = battingPlayers.find((p) => p.id === outPlayerId);
+    const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
     const celebrationEvent = {
       type: "WICKET" as const,
-      text: `WICKET! ${outPlayer?.name ?? "Batsman"} is OUT (${dismissalType})! 🔴`,
+      text: `${outPlayer?.name ?? "Batsman"} is OUT (${dismissalType}) off ${bowlerPlayer?.name ?? "Bowler"}! 🔴`,
       timestamp: Date.now(),
+      batterName: outPlayer?.name,
+      bowlerName: bowlerPlayer?.name,
+      dismissal: dismissalType,
     };
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, extras, newTotalBalls);

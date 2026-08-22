@@ -86,9 +86,12 @@ export type Match = {
   teamBPlayingVI?: string[];
   teamBReserveId?: string | null;
   recentEvent?: {
-    type: "FOUR" | "SIX" | "WICKET" | "MAIDEN";
+    type: "FOUR" | "SIX" | "WICKET" | "MAIDEN" | "TOSS";
     text?: string;
     timestamp: number;
+    batterName?: string;
+    bowlerName?: string;
+    dismissal?: string;
   } | null;
   completedAt?: string | null;
   createdAt: string;

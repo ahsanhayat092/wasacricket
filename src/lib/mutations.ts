@@ -488,9 +488,12 @@ export async function saveInnings(input: {
   fallOfWickets?: FallOfWicket[];
   partnerships?: Partnership[];
   recentEvent?: {
-    type: "FOUR" | "SIX" | "WICKET" | "MAIDEN";
+    type: "FOUR" | "SIX" | "WICKET" | "MAIDEN" | "TOSS";
     text?: string;
     timestamp: number;
+    batterName?: string;
+    bowlerName?: string;
+    dismissal?: string;
   } | null;
 }) {
   const matchSnap = await getDoc(matchDoc(input.matchId));

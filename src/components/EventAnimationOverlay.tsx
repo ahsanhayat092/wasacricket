@@ -6,6 +6,9 @@ export interface EventData {
   type: "FOUR" | "SIX" | "WICKET" | "MAIDEN" | "TOSS";
   text?: string;
   timestamp: number;
+  batterName?: string;
+  bowlerName?: string;
+  dismissal?: string;
 }
 
 interface EventAnimationOverlayProps {
@@ -35,7 +38,7 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
       timerRef.current = setTimeout(() => {
         setVisible(false);
         onDismiss?.();
-      }, 4200);
+      }, 4500);
     }
   }, [event, onDismiss]);
 
@@ -53,12 +56,12 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
     <div
       role="dialog"
       aria-label="Live Match Event Notification"
-      className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center p-4 bg-black/40 backdrop-blur-[3px] animate-in fade-in zoom-in-95 duration-300"
+      className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center p-4 bg-black/45 backdrop-blur-[3px] animate-in fade-in zoom-in-95 duration-300"
     >
       <div className="relative pointer-events-auto max-w-sm sm:max-w-md w-full mx-auto">
         {/* WICKET ANIMATION */}
         {type === "WICKET" && (
-          <div className="relative overflow-hidden rounded-3xl border-2 border-rose-500/80 bg-gradient-to-b from-rose-950/95 via-zinc-950/95 to-black/95 p-6 sm:p-8 text-center shadow-2xl shadow-rose-900/60 ring-4 ring-rose-500/30 animate-bounce">
+          <div className="relative overflow-hidden rounded-3xl border-2 border-rose-500/85 bg-gradient-to-b from-rose-950/95 via-zinc-950/95 to-black/95 p-6 sm:p-7 text-center shadow-2xl shadow-rose-900/70 ring-4 ring-rose-500/30 animate-bounce">
             {/* Background glowing aura */}
             <div className="absolute -top-24 -left-24 w-48 h-48 bg-rose-600/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
             <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-red-600/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
@@ -71,7 +74,7 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
               <X className="h-4 w-4" />
             </button>
 
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-rose-600/20 border-2 border-rose-500 shadow-lg shadow-rose-600/40 animate-pulse">
                 <Flame className="h-9 w-9 text-rose-500" />
               </div>
@@ -85,7 +88,29 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
                 </h2>
               </div>
 
-              <p className="text-sm font-semibold text-rose-200/90 pt-1">
+              {/* Batsman Out & Bowler Details Box */}
+              <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-left space-y-2 backdrop-blur-sm shadow-inner">
+                <div className="flex items-center justify-between gap-2 border-b border-rose-500/20 pb-1.5">
+                  <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">👤 Batsman Out:</span>
+                  <span className="text-sm sm:text-base font-black text-white">{activeEvent.batterName || "Batsman"}</span>
+                </div>
+                {activeEvent.bowlerName && (
+                  <div className="flex items-center justify-between gap-2 border-b border-rose-500/20 pb-1.5">
+                    <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">🎯 Bowler:</span>
+                    <span className="text-xs sm:text-sm font-extrabold text-rose-200">{activeEvent.bowlerName}</span>
+                  </div>
+                )}
+                {activeEvent.dismissal && (
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">⚡ Dismissal:</span>
+                    <span className="text-xs font-black text-amber-300 uppercase tracking-wide bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      {activeEvent.dismissal}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs font-medium text-rose-200/90 pt-0.5">
                 {text || "Major breakthrough! The batsman is dismissed!"}
               </p>
             </div>
@@ -94,7 +119,7 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
 
         {/* FOUR ANIMATION */}
         {type === "FOUR" && (
-          <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-500/80 bg-gradient-to-b from-emerald-950/95 via-zinc-950/95 to-black/95 p-6 sm:p-8 text-center shadow-2xl shadow-emerald-900/60 ring-4 ring-emerald-500/30 animate-pulse">
+          <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-500/85 bg-gradient-to-b from-emerald-950/95 via-zinc-950/95 to-black/95 p-6 sm:p-7 text-center shadow-2xl shadow-emerald-900/70 ring-4 ring-emerald-500/30 animate-pulse">
             <div className="absolute -top-24 -left-24 w-48 h-48 bg-emerald-600/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
             <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-lime-600/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
 
@@ -106,7 +131,7 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
               <X className="h-4 w-4" />
             </button>
 
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-600/20 border-2 border-emerald-500 shadow-lg shadow-emerald-600/40 animate-bounce">
                 <span className="text-3xl font-black text-emerald-400">4</span>
               </div>
@@ -120,7 +145,24 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
                 </h2>
               </div>
 
-              <p className="text-sm font-semibold text-emerald-200/90 pt-1">
+              {/* Batsman Who Hit Four Box */}
+              {activeEvent.batterName && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 backdrop-blur-sm shadow-inner text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                    🏏 SMASHED BY BATSMAN
+                  </p>
+                  <p className="text-lg sm:text-xl font-black text-white mt-0.5">
+                    {activeEvent.batterName}
+                  </p>
+                  {activeEvent.bowlerName && (
+                    <p className="text-xs font-semibold text-emerald-200/90 mt-1">
+                      Off the bowling of {activeEvent.bowlerName}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <p className="text-sm font-semibold text-emerald-200/90 pt-0.5">
                 {text || "Pierces the infield and races away to the boundary ropes!"}
               </p>
             </div>
@@ -129,7 +171,7 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
 
         {/* SIX ANIMATION */}
         {type === "SIX" && (
-          <div className="relative overflow-hidden rounded-3xl border-2 border-purple-500/80 bg-gradient-to-b from-purple-950/95 via-zinc-950/95 to-black/95 p-6 sm:p-8 text-center shadow-2xl shadow-purple-900/60 ring-4 ring-purple-500/30 animate-pulse">
+          <div className="relative overflow-hidden rounded-3xl border-2 border-purple-500/85 bg-gradient-to-b from-purple-950/95 via-zinc-950/95 to-black/95 p-6 sm:p-7 text-center shadow-2xl shadow-purple-900/70 ring-4 ring-purple-500/30 animate-pulse">
             <div className="absolute -top-24 -left-24 w-48 h-48 bg-purple-600/50 rounded-full blur-3xl pointer-events-none animate-pulse" />
             <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-500/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
 
@@ -141,7 +183,7 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
               <X className="h-4 w-4" />
             </button>
 
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 border-2 border-purple-400 shadow-xl shadow-purple-600/50 animate-bounce">
                 <span className="text-3xl font-black text-white">6</span>
               </div>
@@ -155,7 +197,24 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
                 </h2>
               </div>
 
-              <p className="text-sm font-semibold text-purple-200/90 pt-1">
+              {/* Batsman Who Hit Six Box */}
+              {activeEvent.batterName && (
+                <div className="p-3.5 rounded-2xl bg-purple-500/15 border border-purple-500/35 backdrop-blur-sm shadow-inner text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                    🚀 LAUNCHED BY BATSMAN
+                  </p>
+                  <p className="text-lg sm:text-xl font-black text-white mt-0.5">
+                    {activeEvent.batterName}
+                  </p>
+                  {activeEvent.bowlerName && (
+                    <p className="text-xs font-semibold text-purple-200/90 mt-1">
+                      Off the bowling of {activeEvent.bowlerName}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <p className="text-sm font-semibold text-purple-200/90 pt-0.5">
                 {text || "Clean strike sailing high into the stands for a huge maximum!"}
               </p>
             </div>
