@@ -49,6 +49,7 @@ import {
   oversToBalls,
   ballsToOversText,
   formatMatchDay,
+  formatMatchDateTime,
   getInningsFallOfWickets,
   getInningsPartnerships,
   type MatchStatus,
@@ -206,7 +207,7 @@ export default function AdminMatchControl() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {formatMatchDay(match.day, match.date)} · {match.venue ?? "Askari XI, Lahore"} · {match.oversPerSide ?? 10} Overs Match
+              {formatMatchDateTime(match.day, match.date, match.time)} · {match.venue ?? "Askari XI, Lahore"} · {match.oversPerSide ?? 10} Overs Match
             </p>
           </div>
         </div>

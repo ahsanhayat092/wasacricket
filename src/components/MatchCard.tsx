@@ -2,8 +2,14 @@ import { Link } from "react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TeamBadge } from "@/components/TeamBadge";
-import { statusBadgeClass, ballsToOversText, formatMatchDay, type MatchStatus } from "@/lib/cricket";
-import { CalendarDays, MapPin, Zap, Trophy, Target } from "lucide-react";
+import {
+  statusBadgeClass,
+  ballsToOversText,
+  formatMatchDay,
+  formatMatchDateTime,
+  type MatchStatus,
+} from "@/lib/cricket";
+import { CalendarDays, MapPin, Zap, Trophy, Target, Clock } from "lucide-react";
 import type { HydratedMatch } from "@/lib/firestore";
 
 // Re-export so pages that import from MatchCard can still get the type
@@ -58,7 +64,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
           <div className="flex items-center justify-between gap-2 border-b pb-2.5">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               {match.stage === "FINAL" ? "🏆 Final Match" : `Match #${match.matchNumber}`} ·{" "}
-              {formatMatchDay(match.day, match.date)}
+              {formatMatchDateTime(match.day, match.date, match.time)}
             </span>
             <Badge
               variant="outline"
@@ -197,19 +203,25 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
           {/* Upcoming Match Info Footer */}
           {match.status === "UPCOMING" && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t text-xs text-muted-foreground">
-              {match.date && (
-                <span className="inline-flex items-center gap-1">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  {match.date} {match.time ? `· ${match.time}` : ""}
+              {(match.date || match.time) && (
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                  <CalendarDays className="h-3.5 w-3.5 text-emerald-500" />
+                  {match.date ? match.date : ""}
+                  {match.time && (
+                    <span className="inline-flex items-center gap-1 text-amber-500 font-bold ml-1">
+                      <Clock className="h-3 w-3" />
+                      {match.time}
+                    </span>
+                  )}
                 </span>
               )}
               {match.venue && (
                 <span className="inline-flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" />
+                  <MapPin className="h-3.5 w-3.5 text-rose-500" />
                   {match.venue}
                 </span>
               )}
-              {!match.date && !match.venue && <span>Schedule to be announced</span>}
+              {!match.date && !match.time && !match.venue && <span>Schedule to be announced</span>}
             </div>
           )}
         </CardContent>

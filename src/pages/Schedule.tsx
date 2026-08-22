@@ -3,19 +3,8 @@ import { getSchedule } from "@/lib/queries";
 import { MatchCard, type HydratedMatch } from "@/components/MatchCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { formatMatchDay } from "@/lib/cricket";
 import { Calendar, MapPin, Clock, Trophy } from "lucide-react";
-
-const DAY_ORDER = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
-
-const DAY_LABELS: Record<string, string> = {
-  MONDAY: "Day 1 — Monday, 24 August (9:00 PM to 1:00 AM)",
-  TUESDAY: "Day 2 — Tuesday, 25 August (9:00 PM to 1:00 AM)",
-  WEDNESDAY: "Day 1 — Monday, 24 August",
-  THURSDAY: "Day 2 — Tuesday, 25 August",
-  FRIDAY: "Day 1 — 24 August (Monday)",
-  SATURDAY: "Day 2 — 25 August (Tuesday)",
-  SUNDAY: "Day 3 — Finals",
-};
 
 export default function Schedule() {
   const { data: matches, isLoading } = useQuery({
@@ -33,9 +22,25 @@ export default function Schedule() {
     );
   }
 
-  // Find any matches that don't match standard DAY_ORDER
-  const otherMatches = matches.filter(
-    (m) => !DAY_ORDER.includes(m.day as (typeof DAY_ORDER)[number]),
+  // Group matches dynamically by date or day
+  const groupMap = new Map<string, HydratedMatch[]>();
+  for (const m of matches) {
+    const key = (m.date && m.date.trim()) || m.day || "Scheduled";
+    if (!groupMap.has(key)) {
+      groupMap.set(key, []);
+    }
+    groupMap.get(key)!.push(m);
+  }
+
+  // Derive unique dates, venues, and time range for the tournament header
+  const allDates = Array.from(
+    new Set(matches.map((m) => m.date?.trim()).filter(Boolean)),
+  );
+  const allVenues = Array.from(
+    new Set(matches.map((m) => m.venue?.trim()).filter(Boolean)),
+  );
+  const allTimes = Array.from(
+    new Set(matches.map((m) => m.time?.trim()).filter(Boolean)),
   );
 
   return (
@@ -51,18 +56,24 @@ export default function Schedule() {
             </Badge>
           </div>
           <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5 text-emerald-500" />
-              24, 25 August
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5 text-amber-500" />
-              9:00 PM to 1:00 AM
-            </span>
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5 text-rose-500" />
-              Askari XI, Lahore
-            </span>
+            {allDates.length > 0 && (
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                {allDates.join(" • ")}
+              </span>
+            )}
+            {allTimes.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                {allTimes.length <= 3 ? allTimes.join(", ") : `${allTimes[0]} onwards`}
+              </span>
+            )}
+            {allVenues.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-rose-500" />
+                {allVenues.join(" • ")}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -76,37 +87,35 @@ export default function Schedule() {
           </p>
         </div>
       ) : (
-        <>
-          {DAY_ORDER.map((day) => {
-            const dayMatches = matches.filter((m) => m.day === day);
-            if (dayMatches.length === 0) return null;
-            return (
-              <section key={day} className="space-y-4">
-                <h2 className="text-sm font-bold text-emerald-400 uppercase tracking-wider bg-emerald-500/10 px-3.5 py-1.5 rounded-lg inline-block border border-emerald-500/20">
-                  {DAY_LABELS[day] ?? day}
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {dayMatches.map((m) => (
-                    <MatchCard key={m.id} match={m as HydratedMatch} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+        Array.from(groupMap.entries()).map(([groupKey, groupMatches], groupIndex) => {
+          const first = groupMatches[0];
+          const hasFinal = groupMatches.some((m) => m.stage === "FINAL");
+          const groupDayText = formatMatchDay(first.day, first.date);
+          const times = Array.from(new Set(groupMatches.map((m) => m.time?.trim()).filter(Boolean)));
+          const timeRangeText = times.length > 1 ? `${times[0]} to ${times[times.length - 1]}` : times[0] ?? "";
 
-          {otherMatches.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="text-sm font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-3.5 py-1.5 rounded-lg inline-block border border-amber-500/20">
-                Additional Fixtures
-              </h2>
+          return (
+            <section key={groupKey} className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm font-bold text-emerald-400 uppercase tracking-wider bg-emerald-500/10 px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 border border-emerald-500/20">
+                  <Calendar className="h-3.5 w-3.5 text-emerald-400" />
+                  {hasFinal ? "🏆 " : `Day ${groupIndex + 1} — `}
+                  {groupDayText}
+                  {timeRangeText && (
+                    <span className="text-xs text-emerald-300 font-normal ml-1">
+                      ({timeRangeText})
+                    </span>
+                  )}
+                </h2>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {otherMatches.map((m) => (
+                {groupMatches.map((m) => (
                   <MatchCard key={m.id} match={m as HydratedMatch} />
                 ))}
               </div>
             </section>
-          )}
-        </>
+          );
+        })
       )}
     </div>
   );

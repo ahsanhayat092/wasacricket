@@ -11,7 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { statusBadgeClass, ballsToOversText, formatMatchDay, type MatchStatus } from "@/lib/cricket";
+import {
+  statusBadgeClass,
+  ballsToOversText,
+  formatMatchDay,
+  formatMatchDateTime,
+  type MatchStatus,
+} from "@/lib/cricket";
 import {
   Award,
   CalendarDays,
@@ -120,7 +126,8 @@ export default function MatchDetail() {
               {match.status.replace("_", " ")}
             </Badge>
             <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} · {formatMatchDay(match.day, match.date)}
+              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} ·{" "}
+              {formatMatchDateTime(match.day, match.date, match.time)}
             </span>
           </div>
 
@@ -601,7 +608,9 @@ export default function MatchDetail() {
               <div className="grid grid-cols-2 gap-4 border-b pb-3">
                 <span className="text-muted-foreground">Date & Timing:</span>
                 <span className="font-semibold text-foreground">
-                  {match.date ?? "24-25 August"} · {match.time ?? "9:00 PM to 1:00 AM"}
+                  {match.date || match.time
+                    ? `${match.date ?? ""} ${match.time ? `· ${match.time}` : ""}`
+                    : "Schedule to be announced"}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-4 border-b pb-3">

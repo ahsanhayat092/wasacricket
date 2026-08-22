@@ -111,33 +111,11 @@ function hydrateMatch(m: Match, teams: Team[], innings: Innings[] = []): Hydrate
   const find = (id: string | null | undefined) =>
     teams.find((t) => t.id === id) ?? null;
 
-  // Auto-normalize match day to Monday 24 Aug / Tuesday 25 Aug
-  let normalizedDay = m.day;
-  let normalizedDate = m.date;
-  if (
-    m.day === "MONDAY" ||
-    m.day === "WEDNESDAY" ||
-    m.day === "FRIDAY" ||
-    m.date === "26 August" ||
-    m.date === "28 August"
-  ) {
-    normalizedDay = "MONDAY";
-    normalizedDate = "24 August";
-  } else if (
-    m.day === "TUESDAY" ||
-    m.day === "THURSDAY" ||
-    m.day === "SATURDAY" ||
-    m.date === "27 August" ||
-    m.date === "29 August"
-  ) {
-    normalizedDay = "TUESDAY";
-    normalizedDate = "25 August";
-  }
-
   return {
     ...m,
-    day: normalizedDay,
-    date: normalizedDate,
+    day: m.day,
+    date: m.date,
+    time: m.time,
     teamA: find(m.teamAId),
     teamB: find(m.teamBId),
     tossWinner: find(m.tossWinnerId),
@@ -378,27 +356,6 @@ export async function getMatchWorkspace(matchId: string) {
     const snap = await getDoc(matchDoc(matchId));
     if (!snap.exists()) return null;
     const match = { id: snap.id, ...snap.data() } as Match;
-
-    // Auto-normalize match day to Monday 24 Aug / Tuesday 25 Aug
-    if (
-      match.day === "MONDAY" ||
-      match.day === "WEDNESDAY" ||
-      match.day === "FRIDAY" ||
-      match.date === "26 August" ||
-      match.date === "28 August"
-    ) {
-      match.day = "MONDAY";
-      match.date = "24 August";
-    } else if (
-      match.day === "TUESDAY" ||
-      match.day === "THURSDAY" ||
-      match.day === "SATURDAY" ||
-      match.date === "27 August" ||
-      match.date === "29 August"
-    ) {
-      match.day = "TUESDAY";
-      match.date = "25 August";
-    }
 
     const [teams, players, inningsSnap] = await Promise.all([
       getTeams(),

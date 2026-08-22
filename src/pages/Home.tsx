@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getOverview } from "@/lib/queries";
+import { getOverview, getSchedule } from "@/lib/queries";
 import { MatchCard } from "@/components/MatchCard";
 import { StandingsTable } from "@/components/StandingsTable";
 import { TeamBadge } from "@/components/TeamBadge";
@@ -27,6 +27,11 @@ export default function Home() {
     refetchInterval: 15000,
   });
 
+  const { data: scheduleMatches } = useQuery({
+    queryKey: ["schedule"],
+    queryFn: getSchedule,
+  });
+
   if (isLoading || !data) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
@@ -37,6 +42,16 @@ export default function Home() {
   }
 
   const { tournament, champion, live, nextMatch, latestResult, upcoming, recentResults, standings, topBatsman, topBowler } = data;
+
+  const allDates = Array.from(
+    new Set(scheduleMatches?.map((m) => m.date?.trim()).filter(Boolean) ?? []),
+  );
+  const allVenues = Array.from(
+    new Set(scheduleMatches?.map((m) => m.venue?.trim()).filter(Boolean) ?? []),
+  );
+  const allTimes = Array.from(
+    new Set(scheduleMatches?.map((m) => m.time?.trim()).filter(Boolean) ?? []),
+  );
 
   return (
     <div>
@@ -69,17 +84,27 @@ export default function Home() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-sm shadow-sm backdrop-blur">
               <Calendar className="h-4 w-4 text-emerald-400" />
-              <span className="font-bold text-slate-100">24, 25 August</span>
+              <span className="font-bold text-slate-100">
+                {allDates.length > 0 ? allDates.join(" • ") : "Tournament Dates"}
+              </span>
             </div>
 
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-sm shadow-sm backdrop-blur">
               <Clock className="h-4 w-4 text-amber-400" />
-              <span className="font-bold text-slate-100">9:00 PM to 1:00 AM</span>
+              <span className="font-bold text-slate-100">
+                {allTimes.length > 0
+                  ? allTimes.length <= 3
+                    ? allTimes.join(", ")
+                    : `${allTimes[0]} onwards`
+                  : "Evening Matches"}
+              </span>
             </div>
 
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-sm shadow-sm backdrop-blur">
               <MapPin className="h-4 w-4 text-rose-400" />
-              <span className="font-bold text-slate-100">Askari XI, Lahore</span>
+              <span className="font-bold text-slate-100">
+                {allVenues.length > 0 ? allVenues.join(" • ") : "Askari XI, Lahore"}
+              </span>
             </div>
           </div>
 

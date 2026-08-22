@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { statusBadgeClass, type MatchStatus } from "@/lib/cricket";
+import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
 import { RotateCcw, Trophy } from "lucide-react";
 
@@ -71,7 +71,12 @@ export default function AdminMatches() {
                 <TableCell className="font-bold">
                   {m.stage === "FINAL" ? "🏆 Final" : `Match ${m.matchNumber}`}
                 </TableCell>
-                <TableCell className="text-sm">{m.day}</TableCell>
+                <TableCell className="text-xs">
+                  <div className="font-semibold text-foreground">{formatMatchDay(m.day, m.date)}</div>
+                  {m.time && (
+                    <div className="text-[11px] text-amber-500 font-mono font-bold">{m.time}</div>
+                  )}
+                </TableCell>
                 <TableCell className="font-semibold">
                   {m.teamA?.shortName ?? "TBD"} vs {m.teamB?.shortName ?? "TBD"}
                 </TableCell>

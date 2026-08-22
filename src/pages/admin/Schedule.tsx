@@ -37,6 +37,8 @@ import { Badge } from "@/components/ui/badge";
 import { statusBadgeClass, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
 import { Plus, Sparkles, Trash2, Calendar, Clock, MapPin } from "lucide-react";
+import { DatePicker } from "@/components/DatePicker";
+import { TimePicker } from "@/components/TimePicker";
 import type { HydratedMatch, Team } from "@/lib/firestore";
 
 type MatchForm = {
@@ -316,18 +318,24 @@ export default function AdminSchedule() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Date</Label>
-                <Input
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  placeholder="e.g. 26 August"
+                <DatePicker
+                  date={form.date}
+                  onChange={(d, dayOfWeek) =>
+                    setForm({
+                      ...form,
+                      date: d,
+                      ...(dayOfWeek ? { day: dayOfWeek } : {}),
+                    })
+                  }
+                  className="w-full h-9 text-xs"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Time</Label>
-                <Input
-                  value={form.time}
-                  onChange={(e) => setForm({ ...form, time: e.target.value })}
-                  placeholder="e.g. 9:00 PM"
+                <TimePicker
+                  time={form.time}
+                  onChange={(t) => setForm({ ...form, time: t })}
+                  className="w-full h-9 text-xs"
                 />
               </div>
             </div>
@@ -503,19 +511,22 @@ function ScheduleRow({
         )}
       </TableCell>
       <TableCell>
-        <Input
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          placeholder="26 August"
-          className="w-28 h-8 text-xs"
+        <DatePicker
+          date={date}
+          size="sm"
+          onChange={(d, dayOfWeek) => {
+            setDate(d);
+            if (dayOfWeek) setDay(dayOfWeek);
+          }}
+          className="w-36 h-8 text-xs font-medium"
         />
       </TableCell>
       <TableCell>
-        <Input
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          placeholder="9:00 PM"
-          className="w-24 h-8 text-xs"
+        <TimePicker
+          time={time}
+          size="sm"
+          onChange={(t) => setTime(t)}
+          className="w-28 h-8 text-xs font-medium"
         />
       </TableCell>
       <TableCell>

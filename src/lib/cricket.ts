@@ -182,15 +182,33 @@ export function teamColor(shortName?: string | null): string {
 
 import type { FallOfWicket, Partnership, Player } from "./firestore";
 
-/** Format match day display text consistently */
+/** Format match day & date display text consistently */
 export function formatMatchDay(day?: string | null, date?: string | null): string {
-  if (date) return date;
+  if (date && date.trim()) {
+    const trimmed = date.trim();
+    if (day && !trimmed.toLowerCase().includes(day.toLowerCase().slice(0, 3))) {
+      const shortDay = day.charAt(0).toUpperCase() + day.slice(1, 3).toLowerCase();
+      return `${shortDay}, ${trimmed}`;
+    }
+    return trimmed;
+  }
   if (!day) return "";
   const d = (day || "").toUpperCase().trim();
-  if (d === "MONDAY" || d === "WEDNESDAY" || d === "FRIDAY") return "Mon, 24 Aug";
-  if (d === "TUESDAY" || d === "THURSDAY" || d === "SATURDAY") return "Tue, 25 Aug";
-  if (d === "SUNDAY") return "Sun (Finals)";
-  return date ? `${day} · ${date}` : (day || "");
+  const cap = d.charAt(0) + d.slice(1).toLowerCase();
+  return cap;
+}
+
+/** Format match date and time for cards, details, and headers */
+export function formatMatchDateTime(
+  day?: string | null,
+  date?: string | null,
+  time?: string | null,
+): string {
+  const dayDate = formatMatchDay(day, date);
+  if (dayDate && time) {
+    return `${dayDate} · ${time}`;
+  }
+  return dayDate || time || "";
 }
 
 type BattingScoreLike = {

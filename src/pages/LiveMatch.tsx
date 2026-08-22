@@ -17,7 +17,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ballsToOversText, formatMatchDay, getInningsPartnerships } from "@/lib/cricket";
+import {
+  ballsToOversText,
+  formatMatchDay,
+  formatMatchDateTime,
+  getInningsPartnerships,
+} from "@/lib/cricket";
 import type { Match, Innings, BattingScore, BowlingScore, Team, Player } from "@/lib/firestore";
 import { getSchedule } from "@/lib/queries";
 import { Trophy, Users, ArrowRightLeft, Zap, BarChart3, ShieldAlert } from "lucide-react";
@@ -192,7 +197,8 @@ export default function LiveMatch() {
               </Badge>
             )}
             <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} · {formatMatchDay(match.day, match.date)}
+              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} ·{" "}
+              {formatMatchDateTime(match.day, match.date, match.time)}
             </span>
           </div>
 
