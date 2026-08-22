@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { ballsToOversText, formatMatchDateTime } from "@/lib/cricket";
+import { useQuery } from "@tanstack/react-query";
+import { getPlayers } from "@/lib/queries";
 import type { Match, Innings, Team, Player, BattingScore, BowlingScore } from "@/lib/firestore";
 import {
   Download,
@@ -74,6 +76,14 @@ export function StoryCardModal({
   const [isExporting, setIsExporting] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const { data: fetchedPlayers = [] } = useQuery({
+    queryKey: ["players"],
+    queryFn: getPlayers,
+    enabled: open,
+  });
+
+  const fullPlayersList = allPlayers && allPlayers.length > 0 ? allPlayers : fetchedPlayers;
+
   // Top performers from Innings 1 and Innings 2
   const topBatters = [
     ...(inn1?.batting ?? []),
@@ -87,9 +97,43 @@ export function StoryCardModal({
   ].filter((b) => b.balls > 0).sort((a, b) => b.wickets - a.wickets || a.runs - b.runs);
   const bestBowler = topBowlers[0] ?? null;
 
+  // Fully resolved POTM player object (with photoUrl, name, teamId, role)
+  const resolvedPotm =
+    playerOfMatch ??
+    (match?.playerOfMatchId
+      ? fullPlayersList.find((p) => p.id === match.playerOfMatchId)
+      : null) ??
+    (bestBatter?.playerId
+      ? fullPlayersList.find((p) => p.id === bestBatter.playerId)
+      : null) ??
+    (bestBowler?.playerId
+      ? fullPlayersList.find((p) => p.id === bestBowler.playerId)
+      : null);
+
+  const potmName = resolvedPotm?.name ?? bestBatter?.playerName ?? "Player of the Match";
+  const potmPhoto = resolvedPotm?.photoUrl ?? null;
+  const potmRole = resolvedPotm?.role ? resolvedPotm.role.replace("_", " ") : "Match Winner";
+  const potmTeam = resolvedPotm?.teamId ? getTeamName(resolvedPotm.teamId) : null;
+
+  // POTM match stats
+  const potmBatting = [
+    ...(inn1?.batting ?? []),
+    ...(inn2?.batting ?? []),
+  ].find((b) => b.playerId === resolvedPotm?.id);
+
+  const potmBowling = [
+    ...(inn1?.bowling ?? []),
+    ...(inn2?.bowling ?? []),
+  ].find((b) => b.playerId === resolvedPotm?.id && (b.balls > 0 || b.wickets > 0 || b.runs > 0));
+
   const getPlayerName = (id?: string | null, fallback?: string) => {
     if (!id) return fallback ?? "Player";
-    return allPlayers.find((p) => p.id === id)?.name ?? fallback ?? "Player";
+    return fullPlayersList.find((p) => p.id === id)?.name ?? fallback ?? "Player";
+  };
+
+  const getPlayerPhoto = (id?: string | null) => {
+    if (!id) return null;
+    return fullPlayersList.find((p) => p.id === id)?.photoUrl ?? null;
   };
 
   const generateImage = async (): Promise<string | null> => {
@@ -416,29 +460,45 @@ export function StoryCardModal({
                   </div>
                 )}
 
-                {/* Top Bat & Top Bowl Micro Summary */}
+                {/* Top Bat & Top Bowl Micro Summary with Avatars */}
                 <div className="grid grid-cols-2 gap-2 text-left text-xs pt-1">
                   {bestBatter && (
-                    <div className="p-2.5 rounded-xl bg-slate-900/60 border border-amber-500/20">
-                      <span className="text-[10px] text-amber-400 uppercase font-black block">🏏 Top Batter</span>
-                      <p className="font-bold text-slate-100 truncate mt-0.5">
-                        {getPlayerName(bestBatter.playerId, bestBatter.playerName)}
-                      </p>
-                      <span className="text-xs font-mono font-bold text-amber-300">
-                        {bestBatter.runs} ({bestBatter.balls}b, {bestBatter.fours}x4, {bestBatter.sixes}x6)
-                      </span>
+                    <div className="p-2.5 rounded-xl bg-slate-900/60 border border-amber-500/20 flex items-center gap-2.5">
+                      <PlayerAvatar
+                        name={getPlayerName(bestBatter.playerId, bestBatter.playerName)}
+                        photoUrl={getPlayerPhoto(bestBatter.playerId)}
+                        size="sm"
+                        className="ring-1 ring-amber-400/50 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-amber-400 uppercase font-black block truncate">🏏 Top Batter</span>
+                        <p className="font-bold text-slate-100 truncate mt-0.5">
+                          {getPlayerName(bestBatter.playerId, bestBatter.playerName)}
+                        </p>
+                        <span className="text-[11px] font-mono font-bold text-amber-300">
+                          {bestBatter.runs} ({bestBatter.balls}b)
+                        </span>
+                      </div>
                     </div>
                   )}
 
                   {bestBowler && (
-                    <div className="p-2.5 rounded-xl bg-slate-900/60 border border-sky-500/20">
-                      <span className="text-[10px] text-sky-400 uppercase font-black block">🎯 Top Bowler</span>
-                      <p className="font-bold text-slate-100 truncate mt-0.5">
-                        {getPlayerName(bestBowler.playerId, bestBowler.playerName)}
-                      </p>
-                      <span className="text-xs font-mono font-bold text-sky-300">
-                        {bestBowler.wickets}/{bestBowler.runs} ({ballsToOversText(bestBowler.balls)} ov)
-                      </span>
+                    <div className="p-2.5 rounded-xl bg-slate-900/60 border border-sky-500/20 flex items-center gap-2.5">
+                      <PlayerAvatar
+                        name={getPlayerName(bestBowler.playerId, bestBowler.playerName)}
+                        photoUrl={getPlayerPhoto(bestBowler.playerId)}
+                        size="sm"
+                        className="ring-1 ring-sky-400/50 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-sky-400 uppercase font-black block truncate">🎯 Top Bowler</span>
+                        <p className="font-bold text-slate-100 truncate mt-0.5">
+                          {getPlayerName(bestBowler.playerId, bestBowler.playerName)}
+                        </p>
+                        <span className="text-[11px] font-mono font-bold text-sky-300">
+                          {bestBowler.wickets}/{bestBowler.runs} ({ballsToOversText(bestBowler.balls)} ov)
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -448,55 +508,85 @@ export function StoryCardModal({
             {/* TEMPLATE 2: PLAYER OF THE MATCH (POTM) CARD */}
             {template === "potm" && (
               <div className="relative z-10 my-auto py-4 text-center space-y-4">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-extrabold text-xs tracking-wider uppercase">
-                  <Trophy className="h-3.5 w-3.5 text-amber-400" /> PLAYER OF THE MATCH
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-extrabold text-xs tracking-wider uppercase">
+                  <Trophy className="h-4 w-4 text-amber-400" /> PLAYER OF THE MATCH
                 </div>
 
-                {/* Player Big Avatar with Rays */}
+                {/* Player Big Avatar with Glowing Rings */}
                 <div className="relative inline-block my-2">
                   <PlayerAvatar
-                    name={playerOfMatch?.name ?? bestBatter?.playerName ?? "Player"}
-                    photoUrl={playerOfMatch?.photoUrl}
+                    name={potmName}
+                    photoUrl={potmPhoto}
                     size="2xl"
-                    className="border-4 border-amber-400/80 ring-8 ring-amber-400/20 shadow-2xl mx-auto"
+                    className="border-4 border-amber-400 ring-8 ring-amber-400/20 shadow-2xl mx-auto"
                   />
-                  <span className="absolute -bottom-2 right-2 bg-amber-500 text-slate-950 font-black text-xs px-2 py-0.5 rounded-full border border-white shadow-md">
+                  <span className="absolute -bottom-2 right-2 bg-amber-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded-full border border-white shadow-md">
                     ★ MVP
                   </span>
                 </div>
 
                 <div className="space-y-1">
                   <h3 className="text-2xl font-black tracking-tight text-white uppercase">
-                    {playerOfMatch?.name ?? getPlayerName(bestBatter?.playerId, bestBatter?.playerName)}
+                    {potmName}
                   </h3>
                   <p className="text-xs font-bold text-emerald-400">
-                    {playerOfMatch?.role ?? "Match Winner"} • {getTeamName(playerOfMatch?.teamId)}
+                    {potmRole} {potmTeam ? `• ${potmTeam}` : ""}
                   </p>
                 </div>
 
                 {/* Performance Pill Grid */}
                 <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto text-xs font-mono">
-                  {bestBatter && (
-                    <div className="p-3 rounded-xl bg-slate-900/80 border border-amber-500/30">
-                      <span className="text-[10px] text-slate-400 block">BATTING</span>
-                      <span className="text-lg font-black text-amber-400">{bestBatter.runs}</span>
-                      <span className="text-[10px] text-slate-400 block font-normal">
-                        ({bestBatter.balls} balls, SR {bestBatter.balls > 0 ? ((bestBatter.runs / bestBatter.balls) * 100).toFixed(1) : 0})
-                      </span>
-                    </div>
-                  )}
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-amber-500/30 text-left">
+                    <span className="text-[10px] text-slate-400 block font-sans">BATTING</span>
+                    {potmBatting ? (
+                      <div>
+                        <span className="text-lg font-black text-amber-400">
+                          {potmBatting.runs}
+                          {potmBatting.isOut ? "" : "*"}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ({potmBatting.balls}b, {potmBatting.fours}x4, {potmBatting.sixes}x6)
+                        </span>
+                      </div>
+                    ) : bestBatter ? (
+                      <div>
+                        <span className="text-lg font-black text-amber-400">
+                          {bestBatter.runs}
+                          {bestBatter.isOut ? "" : "*"}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ({bestBatter.balls} balls)
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">Did not bat</span>
+                    )}
+                  </div>
 
-                  {bestBowler && (
-                    <div className="p-3 rounded-xl bg-slate-900/80 border border-sky-500/30">
-                      <span className="text-[10px] text-slate-400 block">BOWLING</span>
-                      <span className="text-lg font-black text-sky-400">
-                        {bestBowler.wickets}/{bestBowler.runs}
-                      </span>
-                      <span className="text-[10px] text-slate-400 block font-normal">
-                        ({ballsToOversText(bestBowler.balls)} overs)
-                      </span>
-                    </div>
-                  )}
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-sky-500/30 text-left">
+                    <span className="text-[10px] text-slate-400 block font-sans">BOWLING</span>
+                    {potmBowling ? (
+                      <div>
+                        <span className="text-lg font-black text-sky-400">
+                          {potmBowling.wickets}/{potmBowling.runs}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ({ballsToOversText(potmBowling.balls)} overs)
+                        </span>
+                      </div>
+                    ) : bestBowler ? (
+                      <div>
+                        <span className="text-lg font-black text-sky-400">
+                          {bestBowler.wickets}/{bestBowler.runs}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ({ballsToOversText(bestBowler.balls)} overs)
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">Did not bowl</span>
+                    )}
+                  </div>
                 </div>
 
                 {match?.resultText && (
@@ -529,12 +619,16 @@ export function StoryCardModal({
                     <PlayerAvatar
                       name={
                         momentType === "wicket"
-                          ? (bestBowler?.playerName ?? "Bowler")
-                          : (bestBatter?.playerName ?? "Batter")
+                          ? getPlayerName(bestBowler?.playerId, bestBowler?.playerName ?? "Bowler")
+                          : getPlayerName(bestBatter?.playerId, bestBatter?.playerName ?? "Batter")
                       }
-                      photoUrl={null}
+                      photoUrl={
+                        momentType === "wicket"
+                          ? getPlayerPhoto(bestBowler?.playerId)
+                          : getPlayerPhoto(bestBatter?.playerId)
+                      }
                       size="lg"
-                      className="ring-2 ring-amber-400"
+                      className="ring-2 ring-amber-400 shadow-md"
                     />
                     <div className="text-left">
                       <span className="font-extrabold text-base text-white block">
@@ -544,7 +638,7 @@ export function StoryCardModal({
                       </span>
                       <span className="text-xs text-slate-400 font-mono">
                         {momentType === "wicket"
-                          ? `Spell: ${bestBowler?.wickets ?? 1} Wickets`
+                          ? `Spell: ${bestBowler?.wickets ?? 1} Wickets (${bestBowler?.runs ?? 0} runs)`
                           : `Score: ${bestBatter?.runs ?? 30} Runs (${bestBatter?.balls ?? 15}b)`}
                       </span>
                     </div>
