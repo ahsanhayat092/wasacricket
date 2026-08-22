@@ -82,7 +82,21 @@ export function StoryCardModal({
     enabled: open,
   });
 
-  const fullPlayersList = allPlayers && allPlayers.length > 0 ? allPlayers : fetchedPlayers;
+  const getTeamName = (teamId?: string | null) => {
+    if (teamId === teamA?.id) return teamA?.name ?? "Team A";
+    if (teamId === teamB?.id) return teamB?.name ?? "Team B";
+    return "Team";
+  };
+
+  const getPlayerName = (id?: string | null, fallback?: string) => {
+    if (!id) return fallback ?? "Player";
+    return fullPlayersList.find((p) => p.id === id)?.name ?? fallback ?? "Player";
+  };
+
+  const getPlayerPhoto = (id?: string | null) => {
+    if (!id) return null;
+    return fullPlayersList.find((p) => p.id === id)?.photoUrl ?? null;
+  };
 
   // Top performers from Innings 1 and Innings 2
   const topBatters = [
@@ -125,16 +139,6 @@ export function StoryCardModal({
     ...(inn1?.bowling ?? []),
     ...(inn2?.bowling ?? []),
   ].find((b) => b.playerId === resolvedPotm?.id && (b.balls > 0 || b.wickets > 0 || b.runs > 0));
-
-  const getPlayerName = (id?: string | null, fallback?: string) => {
-    if (!id) return fallback ?? "Player";
-    return fullPlayersList.find((p) => p.id === id)?.name ?? fallback ?? "Player";
-  };
-
-  const getPlayerPhoto = (id?: string | null) => {
-    if (!id) return null;
-    return fullPlayersList.find((p) => p.id === id)?.photoUrl ?? null;
-  };
 
   const generateImage = async (): Promise<string | null> => {
     if (!cardRef.current) return null;
@@ -220,12 +224,6 @@ export function StoryCardModal({
     } finally {
       setIsExporting(false);
     }
-  };
-
-  const getTeamName = (teamId?: string | null) => {
-    if (teamId === teamA?.id) return teamA?.name ?? "Team A";
-    if (teamId === teamB?.id) return teamB?.name ?? "Team B";
-    return "Team";
   };
 
   return (
