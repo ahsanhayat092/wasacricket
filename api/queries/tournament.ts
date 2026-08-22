@@ -330,12 +330,15 @@ export async function finalizeMatch(matchId: number) {
 
     const battingFirstId = inn1.battingTeamId || match.teamAId;
     const battingSecondId = inn1.bowlingTeamId || match.teamBId;
-    const teamRows = await db
-      .select()
-      .from(teams)
-      .where(inArray(teams.id, [match.teamAId, match.teamBId, battingFirstId, battingSecondId]));
-    const nameOf = (id: number) =>
-      teamRows.find((t) => t.id === id)?.name ?? "Winning Team";
+    const targetTeamIds = [match.teamAId, match.teamBId, battingFirstId, battingSecondId].filter((id): id is number => id !== null && id !== undefined);
+    const teamRows = targetTeamIds.length > 0
+      ? await db
+          .select()
+          .from(teams)
+          .where(inArray(teams.id, targetTeamIds))
+      : [];
+    const nameOf = (id: number | null) =>
+      (id ? teamRows.find((t) => t.id === id)?.name : null) ?? "Winning Team";
 
     if (outcome.kind === "TIE") {
       resultText = "Match tied";

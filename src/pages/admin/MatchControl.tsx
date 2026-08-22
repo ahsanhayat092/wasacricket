@@ -8,6 +8,7 @@ import {
   resetMatch as fbResetMatch,
   saveInnings as fbSaveInnings,
   updateMatchLineups as fbUpdateMatchLineups,
+  updateMatchDetails as fbUpdateMatchDetails,
 } from "@/lib/mutations";
 import { useParams, Link } from "react-router";
 import { useState, useEffect, useMemo } from "react";
@@ -181,15 +182,14 @@ export default function AdminMatchControl() {
     );
   }
 
-  const { match, teams = [], players = [], innings = [] } = data;
+  const { match, teams = [], players = [], innings: _innings = [] } = data;
   const isFinalMatch = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
-  const teamA = teams.find((t) => t.id === match.teamAId) ?? match.teamA ?? null;
-  const teamB = teams.find((t) => t.id === match.teamBId) ?? match.teamB ?? null;
-  const canEnterScores = match.status === "LIVE";
+  const teamA = teams.find((t) => t.id === match.teamAId) ?? null;
+  const teamB = teams.find((t) => t.id === match.teamBId) ?? null;
 
   useEffect(() => {
     if (isFinalMatch && (!match.teamAId || !match.teamBId) && teamA && teamB) {
-      fbUpdateMatchSchedule({
+      fbUpdateMatchDetails({
         matchId: match.id,
         teamAId: teamA.id,
         teamBId: teamB.id,

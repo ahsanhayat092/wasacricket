@@ -14,8 +14,6 @@ import {
   writeBatch,
   query,
   where,
-  orderBy,
-  limit,
 } from "firebase/firestore";
 import {
   tournamentDoc,
@@ -137,9 +135,9 @@ export async function recalculateStandings() {
     let name = teams.find((t) => t.id === winnerTeamId)?.name;
     if (!name) {
       if (winnerTeamId === matchObj.teamAId && matchObj.teamAId) {
-        name = teams.find((t) => t.id === matchObj.teamAId)?.name || matchObj.teamA?.name;
+        name = teams.find((t) => t.id === matchObj.teamAId)?.name;
       } else if (winnerTeamId === matchObj.teamBId && matchObj.teamBId) {
-        name = teams.find((t) => t.id === matchObj.teamBId)?.name || matchObj.teamB?.name;
+        name = teams.find((t) => t.id === matchObj.teamBId)?.name;
       }
     }
     if (!name) {
@@ -510,12 +508,10 @@ export async function finalizeMatch(matchId: string) {
       if (id === match.teamAId) {
         const tA = allTeams.find((t) => t.id === match.teamAId)?.name;
         if (tA) return tA;
-        if (match.teamA?.name) return match.teamA.name;
       }
       if (id === match.teamBId) {
         const tB = allTeams.find((t) => t.id === match.teamBId)?.name;
         if (tB) return tB;
-        if (match.teamB?.name) return match.teamB.name;
       }
       return "Winning Team";
     };

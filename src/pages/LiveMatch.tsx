@@ -26,6 +26,7 @@ import {
 } from "@/lib/cricket";
 import { StoryCardModal } from "@/components/StoryCardModal";
 import { Button } from "@/components/ui/button";
+import type { Match, Innings, BattingScore, BowlingScore, Team, Player } from "@/lib/firestore";
 import { getSchedule } from "@/lib/queries";
 import {
   Trophy,
@@ -35,7 +36,7 @@ import {
   BarChart3,
   ShieldAlert,
   Camera,
-  Share2,
+  Award,
 } from "lucide-react";
 
 type LiveData = {

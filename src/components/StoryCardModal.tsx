@@ -82,6 +82,8 @@ export function StoryCardModal({
     enabled: open,
   });
 
+  const fullPlayersList = allPlayers && allPlayers.length > 0 ? allPlayers : fetchedPlayers;
+
   const getTeamName = (teamId?: string | null) => {
     if (teamId === teamA?.id) return teamA?.name ?? "Team A";
     if (teamId === teamB?.id) return teamB?.name ?? "Team B";
