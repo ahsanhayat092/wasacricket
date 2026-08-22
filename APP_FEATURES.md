@@ -63,7 +63,20 @@ A dedicated **Live Android Application** is linked in real-time with the web pla
 
 ---
 
-### 3. 📅 Interactive Calendar & Clock Fixture Scheduler
+### 3. 📸 Shareable Story & Highlight Cards Generator
+- **Auto-Generated Instagram Story Cards (9:16) & Square Posts (1:1)**:
+  - **Match Result & Final Scorecard Story**: Team head-to-head showdown, team logos, match scores/wickets/overs, official match result banner, and top batter/bowler micro-cards.
+  - **Player of the Match (POTM) Tribute Card**: Big spotlight player avatar with glowing MVP badge, player role, team badge, batting figures, and bowling figures.
+  - **Big Moment Highlight Cards**: One-click generation for **💥 MAXIMUM 6!**, **🎯 TIMBER! WICKET!**, **🏏 SMASHING 50!**, and **🏆 VICTORY MOMENT**.
+  - **Player Spotlight Story Card**: Instant social share card from any player's profile with their tournament runs, wickets, high score, and strike rate.
+- **Direct Export & Sharing**:
+  - **Download High-Resolution PNG**: Crisp 2.5x retina-rendered image download.
+  - **One-Tap Social Share**: Uses Web Share API on mobile to share directly to Instagram Stories, WhatsApp Status, Twitter, or Facebook.
+  - **Copy Image to Clipboard**: Direct one-click clipboard copy.
+
+---
+
+### 4. 📅 Interactive Calendar & Clock Fixture Scheduler
 - **Interactive Popover Calendar Picker**:
   - Date selection using a graphical calendar with automatic day-of-the-week calculation (Monday, Tuesday, etc.).
 - **Interactive Clock Time Picker**:

@@ -24,9 +24,19 @@ import {
   formatMatchDateTime,
   getInningsPartnerships,
 } from "@/lib/cricket";
-import type { Match, Innings, BattingScore, BowlingScore, Team, Player } from "@/lib/firestore";
+import { StoryCardModal } from "@/components/StoryCardModal";
+import { Button } from "@/components/ui/button";
 import { getSchedule } from "@/lib/queries";
-import { Trophy, Users, ArrowRightLeft, Zap, BarChart3, ShieldAlert } from "lucide-react";
+import {
+  Trophy,
+  Users,
+  ArrowRightLeft,
+  Zap,
+  BarChart3,
+  ShieldAlert,
+  Camera,
+  Share2,
+} from "lucide-react";
 
 type LiveData = {
   match: Match;
@@ -39,6 +49,7 @@ type LiveData = {
 export default function LiveMatch() {
   const { id } = useParams<{ id: string }>();
   const [liveData, setLiveData] = useState<LiveData | null>(null);
+  const [storyModalOpen, setStoryModalOpen] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -186,17 +197,28 @@ export default function LiveMatch() {
       <Card className="border shadow-lg bg-card">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
-            {match.status === "COMPLETED" ? (
-              <Badge className="bg-emerald-600 text-white font-bold flex items-center gap-1.5">
-                <Trophy className="h-3.5 w-3.5" />
-                MATCH COMPLETED
-              </Badge>
-            ) : (
-              <Badge variant="destructive" className="animate-pulse flex items-center gap-1.5 font-bold">
-                <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-                LIVE MATCH
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {match.status === "COMPLETED" ? (
+                <Badge className="bg-emerald-600 text-white font-bold flex items-center gap-1.5">
+                  <Trophy className="h-3.5 w-3.5" />
+                  MATCH COMPLETED
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="animate-pulse flex items-center gap-1.5 font-bold">
+                  <span className="h-2 w-2 rounded-full bg-white animate-ping" />
+                  LIVE MATCH
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStoryModalOpen(true)}
+                className="h-7 text-xs font-bold gap-1.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 rounded-lg px-2.5"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Share Story</span>
+              </Button>
+            </div>
             <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
               {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} ·{" "}
               {formatMatchDateTime(match.day, match.date, match.time)}
@@ -278,6 +300,17 @@ export default function LiveMatch() {
                   </div>
                 </div>
               )}
+
+              <div className="pt-2 flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setStoryModalOpen(true)}
+                  className="gap-2 text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md hover:from-amber-400 hover:to-amber-500 rounded-xl"
+                >
+                  <Camera className="h-4 w-4" />
+                  <span>Generate Match Story Card</span>
+                </Button>
+              </div>
             </div>
           )}
 
@@ -662,6 +695,18 @@ export default function LiveMatch() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <StoryCardModal
+        open={storyModalOpen}
+        onOpenChange={setStoryModalOpen}
+        match={match}
+        teamA={teamA}
+        teamB={teamB}
+        inn1={inn1}
+        inn2={inn2}
+        playerOfMatch={playerOfMatch}
+        allPlayers={allPlayers ?? []}
+      />
     </div>
   );
 }

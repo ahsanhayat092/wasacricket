@@ -27,8 +27,10 @@ import {
   Calendar,
   Sparkles,
   ExternalLink,
+  Camera,
 } from "lucide-react";
 import { Link } from "react-router";
+import { StoryCardModal } from "@/components/StoryCardModal";
 
 export function PlayerPerformanceModal({
   playerId,
@@ -48,6 +50,7 @@ export function PlayerPerformanceModal({
   });
 
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "teammates">("overview");
+  const [storyOpen, setStoryOpen] = useState(false);
 
   if (!open) return null;
 
@@ -142,20 +145,32 @@ export function PlayerPerformanceModal({
                   </div>
                 </div>
 
-                {/* Quick Quick Stat Overview Pills */}
-                <div className="hidden sm:flex items-center gap-2 bg-slate-900/80 p-2 rounded-xl border border-white/10 backdrop-blur">
-                  <div className="text-center px-3 py-1 border-r border-white/10">
-                    <p className="text-[10px] uppercase font-bold text-slate-400">Matches</p>
-                    <p className="text-base font-mono font-black text-white">{data.matchesCount}</p>
+                {/* Quick Quick Stat Overview Pills & Share Button */}
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-2 bg-slate-900/80 p-2 rounded-xl border border-white/10 backdrop-blur">
+                    <div className="text-center px-3 py-1 border-r border-white/10">
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Matches</p>
+                      <p className="text-base font-mono font-black text-white">{data.matchesCount}</p>
+                    </div>
+                    <div className="text-center px-3 py-1 border-r border-white/10">
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Runs</p>
+                      <p className="text-base font-mono font-black text-amber-400">{data.batting.runs}</p>
+                    </div>
+                    <div className="text-center px-3 py-1">
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Wickets</p>
+                      <p className="text-base font-mono font-black text-sky-400">{data.bowling.wickets}</p>
+                    </div>
                   </div>
-                  <div className="text-center px-3 py-1 border-r border-white/10">
-                    <p className="text-[10px] uppercase font-bold text-slate-400">Runs</p>
-                    <p className="text-base font-mono font-black text-amber-400">{data.batting.runs}</p>
-                  </div>
-                  <div className="text-center px-3 py-1">
-                    <p className="text-[10px] uppercase font-bold text-slate-400">Wickets</p>
-                    <p className="text-base font-mono font-black text-sky-400">{data.bowling.wickets}</p>
-                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStoryOpen(true)}
+                    className="gap-1.5 text-xs font-bold bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    <span>Story Card</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -481,6 +496,12 @@ export function PlayerPerformanceModal({
                 </div>
               </TabsContent>
             </Tabs>
+
+            <StoryCardModal
+              open={storyOpen}
+              onOpenChange={setStoryOpen}
+              playerData={data}
+            />
           </>
         )}
       </DialogContent>

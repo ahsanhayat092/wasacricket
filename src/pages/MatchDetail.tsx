@@ -19,6 +19,8 @@ import {
   formatMatchDateTime,
   type MatchStatus,
 } from "@/lib/cricket";
+import { StoryCardModal } from "@/components/StoryCardModal";
+import { Button } from "@/components/ui/button";
 import {
   Award,
   CalendarDays,
@@ -30,11 +32,15 @@ import {
   Zap,
   ArrowRightLeft,
   BarChart3,
+  Camera,
+  Share2,
 } from "lucide-react";
 import type { Player } from "@/lib/firestore";
+import { useState } from "react";
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
+  const [storyModalOpen, setStoryModalOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["match", id],
     queryFn: () => getMatchById(id!),
@@ -120,12 +126,23 @@ export default function MatchDetail() {
       <Card className="border shadow-lg bg-card overflow-hidden">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <Badge
-              variant="outline"
-              className={statusBadgeClass(match.status as MatchStatus)}
-            >
-              {match.status.replace("_", " ")}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className={statusBadgeClass(match.status as MatchStatus)}
+              >
+                {match.status.replace("_", " ")}
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStoryModalOpen(true)}
+                className="h-7 text-xs font-bold gap-1.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 rounded-lg px-2.5"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Share Story</span>
+              </Button>
+            </div>
             <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
               {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} ·{" "}
               {formatMatchDateTime(match.day, match.date, match.time)}
@@ -220,6 +237,17 @@ export default function MatchDetail() {
                   </div>
                 </div>
               )}
+
+              <div className="pt-2 flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setStoryModalOpen(true)}
+                  className="gap-2 text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md hover:from-amber-400 hover:to-amber-500 rounded-xl"
+                >
+                  <Camera className="h-4 w-4" />
+                  <span>Generate Match Story Card</span>
+                </Button>
+              </div>
             </div>
           )}
 
@@ -632,6 +660,18 @@ export default function MatchDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <StoryCardModal
+        open={storyModalOpen}
+        onOpenChange={setStoryModalOpen}
+        match={match}
+        teamA={match.teamA}
+        teamB={match.teamB}
+        inn1={innings[0]}
+        inn2={innings[1]}
+        playerOfMatch={playerOfMatch}
+        allPlayers={[...teamAPlayers, ...teamBPlayers]}
+      />
     </div>
   );
 }
