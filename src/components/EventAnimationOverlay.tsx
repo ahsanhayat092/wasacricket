@@ -3,7 +3,7 @@ import { Zap, Award, Flame, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface EventData {
-  type: "FOUR" | "SIX" | "WICKET" | "MAIDEN";
+  type: "FOUR" | "SIX" | "WICKET" | "MAIDEN" | "TOSS";
   text?: string;
   timestamp: number;
 }
@@ -192,6 +192,53 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
 
               <p className="text-sm font-semibold text-cyan-200/90 pt-1">
                 {text || "Sensational defense! A complete 0-run maiden over delivered under pressure!"}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* TOSS ANIMATION */}
+        {type === "TOSS" && (
+          <div className="relative overflow-hidden rounded-3xl border-2 border-amber-500/90 bg-gradient-to-b from-amber-950/95 via-zinc-950/95 to-black/95 p-6 sm:p-8 text-center shadow-2xl shadow-amber-900/70 ring-4 ring-amber-500/30 animate-in zoom-in-95 duration-300">
+            {/* Ambient Background Glows */}
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
+            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
+
+            <button
+              type="button"
+              onClick={handleClose}
+              className="absolute top-3 right-3 text-amber-300 hover:text-white p-1.5 rounded-full hover:bg-amber-500/20 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="space-y-4">
+              {/* Spinning / Pulsing 3D Coin Badge */}
+              <div className="relative inline-flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-600 via-yellow-400 to-amber-300 p-1 shadow-2xl shadow-amber-500/50 ring-4 ring-amber-400/40 animate-bounce">
+                  <div className="w-full h-full rounded-full bg-slate-950 flex flex-col items-center justify-center border-2 border-amber-300">
+                    <span className="text-3xl animate-pulse">🪙</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-xs font-black tracking-widest uppercase text-amber-400 flex items-center justify-center gap-1.5">
+                  <Award className="h-3.5 w-3.5 text-amber-400" /> OFFICIAL TOSS RESULT
+                </p>
+                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-300 to-emerald-300 uppercase drop-shadow-[0_0_25px_rgba(245,158,11,0.8)]">
+                  TOSS COMPLETED! ⚡
+                </h2>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 backdrop-blur-sm shadow-inner">
+                <p className="text-base sm:text-lg font-black text-white leading-snug">
+                  {text || "Toss conducted! Match is underway."}
+                </p>
+              </div>
+
+              <p className="text-[11px] font-mono font-bold text-amber-300/90 uppercase tracking-widest">
+                ⚡ INNINGS 1 COMMENCING ⚡
               </p>
             </div>
           </div>

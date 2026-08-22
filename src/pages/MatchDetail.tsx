@@ -5,7 +5,7 @@ import { TeamBadge } from "@/components/TeamBadge";
 import { ScorecardView, type InningsData } from "@/components/ScorecardView";
 import { ManhattanGraph } from "@/components/ManhattanGraph";
 import { RecentBalls } from "@/components/RecentBalls";
-import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
+import { EventAnimationOverlay, type EventData } from "@/components/EventAnimationOverlay";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLink } from "@/components/PlayerLink";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,7 @@ import { useState } from "react";
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const [storyModalOpen, setStoryModalOpen] = useState(false);
+  const [manualEvent, setManualEvent] = useState<EventData | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["match", id],
     queryFn: () => getMatchById(id!),
@@ -120,7 +121,10 @@ export default function MatchDetail() {
     <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
       {/* Match Header Hero Card */}
       {/* Live Event Celebratory Overlay */}
-      <EventAnimationOverlay event={match.recentEvent} />
+      <EventAnimationOverlay
+        event={manualEvent ?? match.recentEvent}
+        onDismiss={() => setManualEvent(null)}
+      />
 
       {/* Hero Match Card */}
       <Card className="border shadow-lg bg-card overflow-hidden">
@@ -648,13 +652,31 @@ export default function MatchDetail() {
                   {match.venue ?? "Askari XI, Lahore"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 items-center">
                 <span className="text-muted-foreground">Toss Result:</span>
-                <span className="font-semibold text-foreground">
-                  {match.tossWinner
-                    ? `${match.tossWinner.name} won the toss and elected to ${match.tossDecision?.toLowerCase()}`
-                    : "Toss not conducted yet"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-foreground">
+                    {match.tossWinner
+                      ? `${match.tossWinner.name} won the toss and elected to ${match.tossDecision?.toLowerCase()}`
+                      : "Toss not conducted yet"}
+                  </span>
+                  {match.tossWinner && match.tossDecision && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setManualEvent({
+                          type: "TOSS",
+                          text: `${match.tossWinner?.name} won the toss and elected to ${match.tossDecision === "BAT" ? "BAT" : "BOWL"} first!`,
+                          timestamp: Date.now(),
+                        })
+                      }
+                      className="h-6 text-[10px] font-bold gap-1 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded-lg px-2 shrink-0 ml-auto"
+                    >
+                      <span>🪙 Toss Animation</span>
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

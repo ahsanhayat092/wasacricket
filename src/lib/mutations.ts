@@ -414,10 +414,22 @@ export async function startMatch(input: {
   const bowlingFirstId =
     battingFirstId === match.teamAId ? match.teamBId : match.teamAId;
 
+  const tossWinnerSnap = await getDoc(teamDoc(input.tossWinnerId));
+  const tossWinnerName = tossWinnerSnap.exists() && tossWinnerSnap.data()?.name
+    ? tossWinnerSnap.data().name
+    : "Toss Winner";
+  const actionText = input.tossDecision === "BAT" ? "elected to BAT first" : "elected to BOWL first";
+  const tossEventText = `${tossWinnerName} won the toss and ${actionText}!`;
+
   await updateDoc(matchDoc(input.matchId), {
     status: "LIVE",
     tossWinnerId: input.tossWinnerId,
     tossDecision: input.tossDecision,
+    recentEvent: {
+      type: "TOSS",
+      text: tossEventText,
+      timestamp: Date.now(),
+    },
     ...(input.teamAPlayingVI !== undefined ? { teamAPlayingVI: input.teamAPlayingVI } : {}),
     ...(input.teamAReserveId !== undefined ? { teamAReserveId: input.teamAReserveId } : {}),
     ...(input.teamBPlayingVI !== undefined ? { teamBPlayingVI: input.teamBPlayingVI } : {}),

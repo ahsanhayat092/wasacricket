@@ -11,7 +11,7 @@ import {
 } from "@/components/ScorecardView";
 import { ManhattanGraph } from "@/components/ManhattanGraph";
 import { RecentBalls } from "@/components/RecentBalls";
-import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
+import { EventAnimationOverlay, type EventData } from "@/components/EventAnimationOverlay";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLink } from "@/components/PlayerLink";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,6 +51,7 @@ export default function LiveMatch() {
   const { id } = useParams<{ id: string }>();
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [storyModalOpen, setStoryModalOpen] = useState(false);
+  const [manualEvent, setManualEvent] = useState<EventData | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -193,7 +194,10 @@ export default function LiveMatch() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
-      <EventAnimationOverlay event={match.recentEvent} />
+      <EventAnimationOverlay
+        event={manualEvent ?? match.recentEvent}
+        onDismiss={() => setManualEvent(null)}
+      />
 
       <Card className="border shadow-lg bg-card">
         <CardContent className="p-6">
@@ -345,6 +349,32 @@ export default function LiveMatch() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Toss Result Info Banner */}
+          {match.tossWinnerId && match.tossDecision && (
+            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-base animate-bounce">🪙</span>
+                <p className="font-semibold text-foreground">
+                  <strong className="text-amber-400 font-extrabold">{teamOf(match.tossWinnerId)?.name ?? "Toss Winner"}</strong> won the toss and elected to <strong className="uppercase text-amber-400 font-extrabold">{match.tossDecision}</strong> first.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setManualEvent({
+                    type: "TOSS",
+                    text: `${teamOf(match.tossWinnerId)?.name ?? "Toss Winner"} won the toss and elected to ${match.tossDecision === "BAT" ? "BAT" : "BOWL"} first!`,
+                    timestamp: Date.now(),
+                  })
+                }
+                className="h-6 text-[10px] font-bold gap-1 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded-lg px-2"
+              >
+                <span>🪙 Replay Toss Animation</span>
+              </Button>
             </div>
           )}
 

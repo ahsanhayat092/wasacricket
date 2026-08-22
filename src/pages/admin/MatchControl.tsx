@@ -45,6 +45,7 @@ import {
 import { TeamBadge } from "@/components/TeamBadge";
 import { RecentBalls } from "@/components/RecentBalls";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { EventAnimationOverlay } from "@/components/EventAnimationOverlay";
 import {
   statusBadgeClass,
   oversToBalls,
@@ -200,6 +201,8 @@ export default function AdminMatchControl() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
+      <EventAnimationOverlay event={match.recentEvent} />
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-3">
