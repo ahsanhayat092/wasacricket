@@ -394,9 +394,9 @@ export async function syncInningsTotals(inningsId: string) {
   const extras =
     inn.wides + inn.noBalls + inn.byes + inn.legByes + inn.penaltyRuns;
   const runs = batRuns + extras;
-  const wickets = Math.min(5, batting.filter((b) => b.isOut).length);
+  const wickets = Math.min(6, batting.filter((b) => b.isOut).length);
   const balls = bowling.reduce((s, b) => s + b.balls, 0);
-  const allOut = wickets >= 5;
+  const allOut = wickets >= 6;
 
   await updateDoc(inningsDoc(inningsId), { runs, wickets, balls, allOut, updatedAt: now() });
   return { runs, wickets, balls, allOut };

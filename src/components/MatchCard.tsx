@@ -112,7 +112,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
               {teamAScore ? (
                 <div className="text-right shrink-0 font-mono">
                   <span className="font-black text-base sm:text-lg text-foreground">
-                    {teamAScore.runs}/{Math.min(5, teamAScore.wickets)}
+                    {teamAScore.runs}/{Math.min(6, teamAScore.wickets)}
                   </span>
                   <span className="text-xs text-muted-foreground ml-1.5 font-medium">
                     ({ballsToOversText(teamAScore.balls)}/{matchOvers} ov)
@@ -152,7 +152,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
               {teamBScore ? (
                 <div className="text-right shrink-0 font-mono">
                   <span className="font-black text-base sm:text-lg text-foreground">
-                    {teamBScore.runs}/{Math.min(5, teamBScore.wickets)}
+                    {teamBScore.runs}/{Math.min(6, teamBScore.wickets)}
                   </span>
                   <span className="text-xs text-muted-foreground ml-1.5 font-medium">
                     ({ballsToOversText(teamBScore.balls)}/{matchOvers} ov)

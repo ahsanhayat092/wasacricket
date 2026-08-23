@@ -882,7 +882,7 @@ function InningsLiveConsole({
   const isFinal = match.stage === "FINAL";
   const maxMatchOvers = isFinal ? 5 : 4;
   const maxLegalBallsInnings = maxMatchOvers * 6; // strictly 24 balls for League, 30 for Final
-  const maxWickets = 5; // 6 players per team: 5 dismissals = ALL OUT
+  const maxWickets = 6; // 6 players per team: Last Man Standing allowed (6 dismissals = ALL OUT)
   const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
 
   const totalBatterRuns = useMemo(
@@ -1146,7 +1146,7 @@ function InningsLiveConsole({
             }, 400);
           })
           .catch(() => {});
-        const reason = isAllOut ? "All Out (5 wickets fallen)" : `${maxMatchOvers} Overs Completed`;
+        const reason = isAllOut ? "All Out (6 wickets fallen)" : `${maxMatchOvers} Overs Completed`;
         toast.success(
           `🏁 1st Innings Complete (${reason})! Target for 2nd Innings is ${newTotalRuns + 1} runs.`,
           { duration: 6000 },
@@ -1165,14 +1165,14 @@ function InningsLiveConsole({
           })
           .catch(() => {});
         if (targetReached) {
-          const wicketsRemaining = Math.max(1, 5 - newTotalWickets);
+          const wicketsRemaining = Math.max(1, 6 - newTotalWickets);
           toast.success(
             `🏆 Target Reached! ${battingTeam?.name ?? "Chasing Team"} won by ${wicketsRemaining} wicket${wicketsRemaining === 1 ? "" : "s"}!`,
             { duration: 8000 },
           );
         } else {
           const runsMargin = Math.max(1, (target - 1) - newTotalRuns);
-          const reason = isAllOut ? "Chasing Team All Out (5 wickets fallen)" : `${maxMatchOvers} Overs Completed`;
+          const reason = isAllOut ? "Chasing Team All Out (6 wickets fallen)" : `${maxMatchOvers} Overs Completed`;
           toast.success(
             `🏆 Match Concluded (${reason})! ${bowlingTeam?.name ?? "Defending Team"} WON by ${runsMargin} runs!`,
             { duration: 8000 },
@@ -1819,6 +1819,11 @@ function InningsLiveConsole({
       setIsFreeHit(false);
     }
 
+    const newOutCount = newBat.filter((b) => b.isOut).length;
+    if (newOutCount === 5) {
+      toast.info("⚡ Last Man Standing! The 6th player is now batting alone.", { duration: 6000 });
+    }
+
     setStrikerId(nextStriker);
     setNonStrikerId(nextNonStriker);
     setBatRows(newBat);
@@ -2137,11 +2142,11 @@ function InningsLiveConsole({
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {isTargetReached
-                          ? `🏆 Target Reached (${totalRuns}/${totalWickets} in ${ballsToOversText(totalLegalBalls)} ov) — ${battingTeam?.name ?? (battingTeamId === match.teamAId ? match.teamA?.name : match.teamB?.name) ?? "Chasing Team"} won by ${Math.max(1, 5 - totalWickets)} wicket${5 - totalWickets === 1 ? "" : "s"}!`
+                          ? `🏆 Target Reached (${totalRuns}/${totalWickets} in ${ballsToOversText(totalLegalBalls)} ov) — ${battingTeam?.name ?? (battingTeamId === match.teamAId ? match.teamA?.name : match.teamB?.name) ?? "Chasing Team"} won by ${Math.max(1, 6 - totalWickets)} wicket${6 - totalWickets === 1 ? "" : "s"}!`
                           : inningsNumber === 2 && (isAllOut || isOversQuotaDone)
                             ? `🏆 ${bowlingTeam?.name ?? (bowlingTeamId === match.teamAId ? match.teamA?.name : match.teamB?.name) ?? "Defending Team"} WON by ${Math.max(1, (target ? target - 1 : 0) - totalRuns)} runs! (${isAllOut ? "Chasing Team All Out" : `${maxMatchOvers}.0 Overs Completed`})`
                             : isAllOut
-                              ? `🏁 Team All Out (5 wickets fallen in ${ballsToOversText(totalLegalBalls)} ov)`
+                              ? `🏁 Team All Out (6 wickets fallen in ${ballsToOversText(totalLegalBalls)} ov)`
                               : `🏁 Quota Reached (${maxMatchOvers}.0 Overs Completed)`}
                       </p>
                     </div>
@@ -2410,7 +2415,7 @@ function InningsLiveConsole({
                         onCheckedChange={(v) => {
                           const currentOutCount = batRows.filter((b, idx) => idx !== i && b.isOut).length;
                           if (v && currentOutCount >= maxWickets) {
-                            toast.error("Maximum 5 wickets fallen (All Out in 6-player format).");
+                            toast.error("Maximum 6 wickets fallen (All Out in 6-player format).");
                             return;
                           }
                           const updated = [...batRows];

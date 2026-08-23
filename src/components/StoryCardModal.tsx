@@ -411,7 +411,7 @@ export function StoryCardModal({
                     {inn1 && (
                       <div className="font-mono">
                         <span className="text-xl sm:text-2xl font-black text-amber-400">
-                          {inn1.runs}/{Math.min(5, inn1.wickets)}
+                          {inn1.runs}/{Math.min(6, inn1.wickets)}
                         </span>
                         <span className="text-[11px] text-slate-400 block">
                           ({ballsToOversText(inn1.balls)} ov)
@@ -434,7 +434,7 @@ export function StoryCardModal({
                     {inn2 && (
                       <div className="font-mono">
                         <span className="text-xl sm:text-2xl font-black text-sky-400">
-                          {inn2.runs}/{Math.min(5, inn2.wickets)}
+                          {inn2.runs}/{Math.min(6, inn2.wickets)}
                         </span>
                         <span className="text-[11px] text-slate-400 block">
                           ({ballsToOversText(inn2.balls)} ov)

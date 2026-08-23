@@ -249,7 +249,7 @@ export default function LiveMatch() {
                   {inn1?.battingTeamId === teamA?.id && (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {inn1.runs}/{Math.min(5, inn1.wickets)}
+                        {inn1.runs}/{Math.min(6, inn1.wickets)}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal ml-1.5">
                         ({ballsToOversText(inn1.balls)} ov)
@@ -259,7 +259,7 @@ export default function LiveMatch() {
                   {inn2?.battingTeamId === teamA?.id && (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {inn2.runs}/{Math.min(5, inn2.wickets)}
+                        {inn2.runs}/{Math.min(6, inn2.wickets)}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal ml-1.5">
                         ({ballsToOversText(inn2.balls)} ov)
@@ -277,7 +277,7 @@ export default function LiveMatch() {
                   {inn1?.battingTeamId === teamB?.id && (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {inn1.runs}/{Math.min(5, inn1.wickets)}
+                        {inn1.runs}/{Math.min(6, inn1.wickets)}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal ml-1.5">
                         ({ballsToOversText(inn1.balls)} ov)
@@ -287,7 +287,7 @@ export default function LiveMatch() {
                   {inn2?.battingTeamId === teamB?.id && (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {inn2.runs}/{Math.min(5, inn2.wickets)}
+                        {inn2.runs}/{Math.min(6, inn2.wickets)}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal ml-1.5">
                         ({ballsToOversText(inn2.balls)} ov)
@@ -730,7 +730,7 @@ export default function LiveMatch() {
             <Card className="border shadow-md bg-card">
               <CardHeader className="p-4 pb-2 border-b bg-muted/20">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-2">
-                  <Flame className="h-3.5 w-3.5 text-rose-500" /> Fall of Wickets ({fallOfWickets.length}/5)
+                  <Flame className="h-3.5 w-3.5 text-rose-500" /> Fall of Wickets ({fallOfWickets.length}/6)
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-2 text-xs">

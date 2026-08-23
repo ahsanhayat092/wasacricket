@@ -556,9 +556,9 @@ export async function saveInnings(input: {
   // Strict Tournament Rules Guardrails
   const maxOvers = match.stage === "FINAL" ? 5 : 4;
   const maxBalls = maxOvers * 6; // 24 balls for League, 30 for Final
-  const maxWickets = 5; // 6 players per team = 5 outs max
+  const maxWickets = 6; // 6 players per team: Last Man Standing allowed (6 dismissals = all out)
 
-  // Clamp batting to max 6 players and max 5 dismissals
+  // Clamp batting to max 6 players and max 6 dismissals
   let outCount = 0;
   const clampedBatting = input.batting.slice(0, 6).map((b) => {
     let isOut = b.isOut;
@@ -566,7 +566,7 @@ export async function saveInnings(input: {
       if (outCount < maxWickets) {
         outCount += 1;
       } else {
-        isOut = false; // Cap at strictly 5 dismissals
+        isOut = false; // Cap at strictly 6 dismissals
       }
     }
     return { ...b, isOut };

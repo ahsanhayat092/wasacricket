@@ -105,7 +105,7 @@ export function determineOutcome(score: MatchScoreInput): MatchOutcome {
   const innings2Wickets = score.innings2Wickets ?? 0;
 
   if (innings2Runs > innings1Runs) {
-    const wicketsRemaining = Math.max(1, 5 - innings2Wickets);
+    const wicketsRemaining = Math.max(1, 6 - innings2Wickets);
     return {
       kind: "WIN",
       winner: "TEAM_B",

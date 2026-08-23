@@ -106,7 +106,7 @@ describe("determineOutcome", () => {
         innings2AllOut: false,
         innings2Wickets: 3,
       }),
-    ).toEqual({ kind: "WIN", winner: "TEAM_B", margin: "2 wickets" });
+    ).toEqual({ kind: "WIN", winner: "TEAM_B", margin: "3 wickets" });
   });
 
   it("tie", () => {
