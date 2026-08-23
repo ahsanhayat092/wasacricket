@@ -24,8 +24,7 @@ import {
 import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLink } from "@/components/PlayerLink";
-import { ballsToOversText } from "@/lib/cricket";
-import { Trophy, Zap, Target, Award, Flame, Shield, Users } from "lucide-react";
+import { Trophy, Zap, Target, Award, Flame, Shield, Users, Rocket } from "lucide-react";
 
 export default function Statistics() {
   const { data, isLoading } = useQuery({
@@ -58,6 +57,23 @@ export default function Statistics() {
   // Top performers for current filter
   const bestBatsman = filteredBatting[0] ?? null;
   const bestBowler = filteredBowling[0] ?? null;
+
+  // Total Tournament Boundaries (Sixes & Fours)
+  const totalSixes = useMemo(() => {
+    return battingList.reduce((acc, p) => acc + (p.sixes || 0), 0);
+  }, [battingList]);
+
+  const totalFours = useMemo(() => {
+    return battingList.reduce((acc, p) => acc + (p.fours || 0), 0);
+  }, [battingList]);
+
+  // Sixes Leader (Most Sixes in tournament or filtered team)
+  const mostSixesPlayer = useMemo(() => {
+    if (filteredBatting.length === 0) return null;
+    return [...filteredBatting].sort(
+      (a, b) => b.sixes - a.sixes || b.runs - a.runs,
+    )[0];
+  }, [filteredBatting]);
 
   // Most boundaries (4s + 6s)
   const mostBoundaries = useMemo(() => {
@@ -120,23 +136,35 @@ export default function Statistics() {
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
+      {/* Summary KPI Cards with Total Sixes */}
       {summary && (
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           <Stat
-            label="Total Tournament Runs"
+            label="Total Runs"
             value={summary.totalRuns}
             icon={Target}
             color="text-amber-500"
           />
           <Stat
-            label="Total Wickets Taken"
+            label="Total Sixes"
+            value={totalSixes}
+            icon={Rocket}
+            color="text-rose-500"
+          />
+          <Stat
+            label="Total Fours"
+            value={totalFours}
+            icon={Zap}
+            color="text-indigo-400"
+          />
+          <Stat
+            label="Total Wickets"
             value={summary.totalWickets}
             icon={Trophy}
             color="text-sky-500"
           />
           <Stat
-            label="Highest Team Score"
+            label="Highest Score"
             value={
               summary.highestTeamScore
                 ? `${summary.highestTeamScore.runs}/${summary.highestTeamScore.wickets}`
@@ -149,7 +177,7 @@ export default function Statistics() {
             label="Completed Matches"
             value={`${summary.completedMatches} / ${summary.totalMatches}`}
             icon={Award}
-            color="text-indigo-400"
+            color="text-teal-400"
           />
         </div>
       )}
@@ -236,41 +264,41 @@ export default function Statistics() {
           </CardContent>
         </Card>
 
-        {/* Boundary King */}
-        <Card className="border-emerald-500/20 bg-emerald-500/5">
+        {/* Sixes King */}
+        <Card className="border-rose-500/20 bg-rose-500/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Flame className="h-4 w-4" /> Most Boundaries (4s & 6s)
+            <CardTitle className="text-xs font-bold text-rose-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Rocket className="h-4 w-4" /> Sixes King 🚀
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {mostBoundaries ? (
+            {mostSixesPlayer && mostSixesPlayer.sixes > 0 ? (
               <div>
                 <div className="flex items-center gap-2.5 mb-1.5">
                   <PlayerAvatar
-                    name={mostBoundaries.name}
-                    photoUrl={mostBoundaries.photoUrl}
+                    name={mostSixesPlayer.name}
+                    photoUrl={mostSixesPlayer.photoUrl}
                     size="sm"
-                    className="ring-1 ring-emerald-400/50"
+                    className="ring-1 ring-rose-400/50"
                   />
                   <div className="min-w-0">
                     <p className="text-base font-bold truncate">
-                      <PlayerLink playerId={mostBoundaries.playerId} name={mostBoundaries.name} />
+                      <PlayerLink playerId={mostSixesPlayer.playerId} name={mostSixesPlayer.name} />
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">{mostBoundaries.teamName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{mostSixesPlayer.teamName}</p>
                   </div>
                 </div>
-                <div className="mt-3 flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
-                  <span className="text-2xl font-black text-emerald-500 font-mono">
-                    {mostBoundaries.fours + mostBoundaries.sixes}
+                <div className="mt-3 flex items-baseline justify-between border-t border-rose-500/20 pt-2">
+                  <span className="text-2xl font-black text-rose-500 font-mono">
+                    {mostSixesPlayer.sixes} <span className="text-xs font-normal text-muted-foreground">sixes</span>
                   </span>
                   <span className="text-xs text-muted-foreground font-mono">
-                    {mostBoundaries.fours} fours · {mostBoundaries.sixes} sixes
+                    {mostSixesPlayer.runs} runs · SR {mostSixesPlayer.strikeRate.toFixed(1)}
                   </span>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground py-4">No boundary data.</p>
+              <p className="text-xs text-muted-foreground py-4">No sixes recorded yet.</p>
             )}
           </CardContent>
         </Card>
