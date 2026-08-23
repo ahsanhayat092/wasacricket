@@ -968,6 +968,7 @@ function InningsLiveConsole({
   // Wicket Dialog State
   const [wicketModalOpen, setWicketModalOpen] = useState(false);
   const [dismissalType, setDismissalType] = useState<string>("Caught");
+  const [catcherId, setCatcherId] = useState<string>("");
   const [outPlayerId, setOutPlayerId] = useState<string>("");
   const [incomingPlayerId, setIncomingPlayerId] = useState<string>("");
 
@@ -1660,6 +1661,8 @@ function InningsLiveConsole({
       return;
     }
     setOutPlayerId(strikerId);
+    setCatcherId("");
+    setDismissalType("Caught");
     const unbatted = batRows.filter((b) => !b.batted && !b.isOut);
     setIncomingPlayerId(unbatted[0]?.playerId ?? "");
     setWicketModalOpen(true);
@@ -1669,6 +1672,39 @@ function InningsLiveConsole({
   const confirmWicket = () => {
     pushHistory();
 
+    const outPlayer = battingPlayers.find((p) => p.id === outPlayerId);
+    const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
+    const catcherPlayer = bowlingPlayers.find((p) => p.id === catcherId);
+
+    let formattedDismissal = dismissalType;
+    if (dismissalType === "Caught") {
+      if (catcherId && catcherId === currentBowlerId) {
+        formattedDismissal = `c & b ${bowlerPlayer?.name ?? "Bowler"}`;
+      } else if (catcherPlayer?.name) {
+        formattedDismissal = `c ${catcherPlayer.name} b ${bowlerPlayer?.name ?? "Bowler"}`;
+      } else {
+        formattedDismissal = `c b ${bowlerPlayer?.name ?? "Bowler"}`;
+      }
+    } else if (dismissalType === "Bowled") {
+      formattedDismissal = `b ${bowlerPlayer?.name ?? "Bowler"}`;
+    } else if (dismissalType === "LBW") {
+      formattedDismissal = `lbw b ${bowlerPlayer?.name ?? "Bowler"}`;
+    } else if (dismissalType === "Stumped") {
+      if (catcherPlayer?.name) {
+        formattedDismissal = `st ${catcherPlayer.name} b ${bowlerPlayer?.name ?? "Bowler"}`;
+      } else {
+        formattedDismissal = `st b ${bowlerPlayer?.name ?? "Bowler"}`;
+      }
+    } else if (dismissalType === "Run Out") {
+      if (catcherPlayer?.name) {
+        formattedDismissal = `run out (${catcherPlayer.name})`;
+      } else {
+        formattedDismissal = `run out`;
+      }
+    } else if (dismissalType === "Hit Wicket") {
+      formattedDismissal = `hit wicket b ${bowlerPlayer?.name ?? "Bowler"}`;
+    }
+
     const newBat = batRows.map((b) => {
       if (b.playerId === outPlayerId) {
         return {
@@ -1676,7 +1712,7 @@ function InningsLiveConsole({
           batted: true,
           balls: b.balls + 1,
           isOut: true,
-          dismissal: dismissalType,
+          dismissal: formattedDismissal,
         };
       }
       return b;
@@ -1723,21 +1759,19 @@ function InningsLiveConsole({
     setRecentBalls(newRecentBalls);
     setWicketModalOpen(false);
 
-    const outPlayer = battingPlayers.find((p) => p.id === outPlayerId);
-    const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
     const celebrationEvent = {
       type: "WICKET" as const,
-      text: `${outPlayer?.name ?? "Batsman"} is OUT (${dismissalType}) off ${bowlerPlayer?.name ?? "Bowler"}! 🔴`,
+      text: `${outPlayer?.name ?? "Batsman"} is OUT (${formattedDismissal})! 🔴`,
       timestamp: Date.now(),
       batterName: outPlayer?.name,
       bowlerName: bowlerPlayer?.name,
-      dismissal: dismissalType,
+      dismissal: formattedDismissal,
     };
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, extras, newTotalBalls);
     if (!isFinished) {
       triggerSave(newBat, newBowl, extras, false, newRecentBalls, celebrationEvent);
-      toast.success(`Wicket recorded (${dismissalType})!`);
+      toast.success(`Wicket recorded: ${formattedDismissal}!`);
       if (isOverEnd) {
         const finishedBowler = currentBowlerId;
         setLastOverBowlerId(finishedBowler);
@@ -2518,21 +2552,95 @@ function InningsLiveConsole({
 
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Dismissal Type</Label>
-              <Select value={dismissalType} onValueChange={setDismissalType}>
+              <Select value={dismissalType} onValueChange={(val) => {
+                setDismissalType(val);
+                if (val !== "Caught" && val !== "Run Out" && val !== "Stumped") {
+                  setCatcherId("");
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Bowled">Bowled</SelectItem>
                   <SelectItem value="Caught">Caught</SelectItem>
-                  <SelectItem value="Run Out">Run Out</SelectItem>
+                  <SelectItem value="Bowled">Bowled</SelectItem>
                   <SelectItem value="LBW">LBW</SelectItem>
+                  <SelectItem value="Run Out">Run Out</SelectItem>
                   <SelectItem value="Stumped">Stumped</SelectItem>
                   <SelectItem value="Hit Wicket">Hit Wicket</SelectItem>
                   <SelectItem value="Retired Hurt">Retired Hurt</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Catcher Selection (for Caught out) */}
+            {dismissalType === "Caught" && (
+              <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 animate-in fade-in-50 duration-200">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-amber-400">
+                    🧤 Caught By (Catcher / Fielder)
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground">Select catcher</span>
+                </div>
+                <Select value={catcherId || undefined} onValueChange={setCatcherId}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select fielder who took the catch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bowlingPlayers.map((p) => {
+                      const isBowler = p.id === currentBowlerId;
+                      return (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} {isBowler ? "🎯 (Bowler — Caught & Bowled)" : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Fielder Selection (for Run Out) */}
+            {dismissalType === "Run Out" && (
+              <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 animate-in fade-in-50 duration-200">
+                <Label className="text-xs font-bold text-amber-400">
+                  ⚡ Run Out By (Fielder)
+                </Label>
+                <Select value={catcherId || undefined} onValueChange={setCatcherId}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select fielder who effected run out (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bowlingPlayers.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Wicketkeeper Selection (for Stumped) */}
+            {dismissalType === "Stumped" && (
+              <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 animate-in fade-in-50 duration-200">
+                <Label className="text-xs font-bold text-amber-400">
+                  🧤 Stumped By (Wicketkeeper)
+                </Label>
+                <Select value={catcherId || undefined} onValueChange={setCatcherId}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select wicketkeeper" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bowlingPlayers.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Next Incoming Batsman</Label>
