@@ -15,6 +15,7 @@ import Results from "./pages/Results";
 import Statistics from "./pages/Statistics";
 import MatchDetail from "./pages/MatchDetail";
 import LiveMatch from "./pages/LiveMatch";
+import TournamentRules from "./pages/TournamentRules";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminTeams from "./pages/admin/Teams";
 import AdminPlayers from "./pages/admin/Players";
@@ -22,6 +23,7 @@ import AdminSchedule from "./pages/admin/Schedule";
 import AdminMatches from "./pages/admin/Matches";
 import AdminMatchControl from "./pages/admin/MatchControl";
 import AdminPointsTable from "./pages/admin/PointsTable";
+import AdminRules from "./pages/admin/Rules";
 import AdminUsers from "./pages/admin/Users";
 import AdminSettings from "./pages/admin/Settings";
 
@@ -39,6 +41,7 @@ export default function App() {
             <Route path="/points-table" element={<PointsTable />} />
             <Route path="/results" element={<Results />} />
             <Route path="/statistics" element={<Statistics />} />
+            <Route path="/rules" element={<TournamentRules />} />
             <Route path="/matches/:id" element={<LiveMatch />} />
             <Route path="/live/:id" element={<LiveMatch />} />
           </Route>
@@ -59,6 +62,7 @@ export default function App() {
             <Route path="matches" element={<AdminMatches />} />
             <Route path="matches/:id" element={<AdminMatchControl />} />
             <Route path="points-table" element={<AdminPointsTable />} />
+            <Route path="rules" element={<AdminRules />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>

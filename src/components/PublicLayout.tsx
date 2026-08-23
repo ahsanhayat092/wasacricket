@@ -17,6 +17,7 @@ const NAV = [
   { to: "/points-table", label: "Points Table" },
   { to: "/results", label: "Results" },
   { to: "/statistics", label: "Statistics" },
+  { to: "/rules", label: "Rules" },
 ];
 
 export function PublicLayout() {

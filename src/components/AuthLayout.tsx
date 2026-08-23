@@ -36,6 +36,7 @@ import {
   Trophy,
   UserCheck,
   Users,
+  BookOpen,
 } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
@@ -50,6 +51,7 @@ const adminMenuItems = [
   { icon: CalendarDays, label: "Schedule", path: "/admin/schedule" },
   { icon: ClipboardList, label: "Matches & Scoring", path: "/admin/matches" },
   { icon: ListOrdered, label: "Points Table", path: "/admin/points-table" },
+  { icon: BookOpen, label: "Tournament Rules", path: "/admin/rules" },
   { icon: UserCheck, label: "User Roles & Scorers", path: "/admin/users" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
