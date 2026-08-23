@@ -168,9 +168,9 @@ export async function downloadSchedulePDF(
   // 5. Tournament Notes & Rules Footer
   const finalY = (doc as any).lastAutoTable?.finalY || 180;
   
-  if (finalY + 30 < pageHeight) {
+  if (finalY + 32 < pageHeight) {
     doc.setFillColor(241, 245, 249);
-    doc.roundedRect(14, finalY + 8, pageWidth - 28, 20, 2, 2, "F");
+    doc.roundedRect(14, finalY + 8, pageWidth - 28, 22, 2, 2, "F");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
@@ -180,8 +180,8 @@ export async function downloadSchedulePDF(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(71, 85, 105);
-    doc.text("• All matches are 10 overs per side tape ball cricket format.", 18, finalY + 19);
-    doc.text("• Top 2 teams from league stage standings qualify directly for the Grand Final.", 18, finalY + 24);
+    doc.text("• All league matches are 4 overs per side. Final Match is 5 overs per side (Tape Ball Cricket format).", 18, finalY + 19.5);
+    doc.text("• Top 2 teams from league stage standings qualify directly for the Grand Final.", 18, finalY + 24.5);
   }
 
   // 6. Page Numbers on all pages
