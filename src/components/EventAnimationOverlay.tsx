@@ -52,6 +52,32 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
 
   const { type, text } = activeEvent;
 
+  // Smart fallbacks if batterName / bowlerName / dismissal were not passed as top-level keys
+  let batterName = activeEvent.batterName?.trim();
+  let bowlerName = activeEvent.bowlerName?.trim();
+  let dismissal = activeEvent.dismissal?.trim();
+
+  if (!batterName && text) {
+    const outMatch = text.match(/^(.+?)\s+(?:is OUT|smashes|launches|hit)/i);
+    if (outMatch && outMatch[1]) {
+      batterName = outMatch[1].trim();
+    }
+  }
+
+  if (!bowlerName && text) {
+    const bowlMatch = text.match(/off\s+([^!.]+)/i) || text.match(/spell by\s+([^!.]+)/i);
+    if (bowlMatch && bowlMatch[1]) {
+      bowlerName = bowlMatch[1].trim();
+    }
+  }
+
+  if (!dismissal && text && type === "WICKET") {
+    const disMatch = text.match(/\(([^)]+)\)/);
+    if (disMatch && disMatch[1]) {
+      dismissal = disMatch[1].trim();
+    }
+  }
+
   return (
     <div
       role="dialog"
@@ -92,19 +118,19 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
               <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-left space-y-2 backdrop-blur-sm shadow-inner">
                 <div className="flex items-center justify-between gap-2 border-b border-rose-500/20 pb-1.5">
                   <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">👤 Batsman Out:</span>
-                  <span className="text-sm sm:text-base font-black text-white">{activeEvent.batterName || "Batsman"}</span>
+                  <span className="text-sm sm:text-base font-black text-white">{batterName || "Batsman"}</span>
                 </div>
-                {activeEvent.bowlerName && (
+                {bowlerName && (
                   <div className="flex items-center justify-between gap-2 border-b border-rose-500/20 pb-1.5">
                     <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">🎯 Bowler:</span>
-                    <span className="text-xs sm:text-sm font-extrabold text-rose-200">{activeEvent.bowlerName}</span>
+                    <span className="text-xs sm:text-sm font-extrabold text-rose-200">{bowlerName}</span>
                   </div>
                 )}
-                {activeEvent.dismissal && (
+                {dismissal && (
                   <div className="flex items-center justify-between gap-2 pt-0.5">
                     <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">⚡ Dismissal:</span>
                     <span className="text-xs font-black text-amber-300 uppercase tracking-wide bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      {activeEvent.dismissal}
+                      {dismissal}
                     </span>
                   </div>
                 )}
@@ -146,17 +172,17 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
               </div>
 
               {/* Batsman Who Hit Four Box */}
-              {activeEvent.batterName && (
+              {batterName && (
                 <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 backdrop-blur-sm shadow-inner text-center">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
                     🏏 SMASHED BY BATSMAN
                   </p>
                   <p className="text-lg sm:text-xl font-black text-white mt-0.5">
-                    {activeEvent.batterName}
+                    {batterName}
                   </p>
-                  {activeEvent.bowlerName && (
+                  {bowlerName && (
                     <p className="text-xs font-semibold text-emerald-200/90 mt-1">
-                      Off the bowling of {activeEvent.bowlerName}
+                      Off the bowling of {bowlerName}
                     </p>
                   )}
                 </div>
@@ -198,17 +224,17 @@ export function EventAnimationOverlay({ event, onDismiss }: EventAnimationOverla
               </div>
 
               {/* Batsman Who Hit Six Box */}
-              {activeEvent.batterName && (
+              {batterName && (
                 <div className="p-3.5 rounded-2xl bg-purple-500/15 border border-purple-500/35 backdrop-blur-sm shadow-inner text-center">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
                     🚀 LAUNCHED BY BATSMAN
                   </p>
                   <p className="text-lg sm:text-xl font-black text-white mt-0.5">
-                    {activeEvent.batterName}
+                    {batterName}
                   </p>
-                  {activeEvent.bowlerName && (
+                  {bowlerName && (
                     <p className="text-xs font-semibold text-purple-200/90 mt-1">
-                      Off the bowling of {activeEvent.bowlerName}
+                      Off the bowling of {bowlerName}
                     </p>
                   )}
                 </div>
