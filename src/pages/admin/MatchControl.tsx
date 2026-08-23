@@ -967,6 +967,7 @@ function InningsLiveConsole({
 
   // Wicket Dialog State
   const [wicketModalOpen, setWicketModalOpen] = useState(false);
+  const [ballContext, setBallContext] = useState<"NORMAL" | "NO_BALL" | "WIDE" | "BYE" | "LEG_BYE">("NORMAL");
   const [dismissalType, setDismissalType] = useState<string>("Caught");
   const [catcherId, setCatcherId] = useState<string>("");
   const [outPlayerId, setOutPlayerId] = useState<string>("");
@@ -1662,6 +1663,7 @@ function InningsLiveConsole({
     }
     setOutPlayerId(strikerId);
     setCatcherId("");
+    setBallContext("NORMAL");
     setDismissalType("Caught");
     const unbatted = batRows.filter((b) => !b.batted && !b.isOut);
     setIncomingPlayerId(unbatted[0]?.playerId ?? "");
@@ -1705,12 +1707,35 @@ function InningsLiveConsole({
       formattedDismissal = `hit wicket b ${bowlerPlayerName}`;
     }
 
+    // Determine extras & legal delivery increments
+    let newExtras = { ...extras };
+    let isLegalDelivery = true;
+    let ballCode = "W";
+
+    if (ballContext === "NO_BALL") {
+      newExtras.noBalls = extras.noBalls + 1;
+      isLegalDelivery = false;
+      ballCode = "Nb+W";
+    } else if (ballContext === "WIDE") {
+      newExtras.wides = extras.wides + 1;
+      isLegalDelivery = false;
+      ballCode = "Wd+W";
+    } else if (ballContext === "BYE") {
+      newExtras.byes = extras.byes + 1;
+      isLegalDelivery = true;
+      ballCode = "B+W";
+    } else if (ballContext === "LEG_BYE") {
+      newExtras.legByes = extras.legByes + 1;
+      isLegalDelivery = true;
+      ballCode = "Lb+W";
+    }
+
     const newBat = batRows.map((b) => {
       if (b.playerId === outPlayerId) {
         return {
           ...b,
           batted: true,
-          balls: b.balls + 1,
+          balls: ballContext === "WIDE" ? b.balls : b.balls + 1,
           isOut: true,
           dismissal: formattedDismissal,
         };
@@ -1720,19 +1745,30 @@ function InningsLiveConsole({
 
     const newBowl = bowlRows.map((b) => {
       if (b.playerId === currentBowlerId) {
-        const isBowlerWicket = dismissalType !== "Run Out";
+        const isBowlerWicket =
+          dismissalType !== "Run Out" &&
+          dismissalType !== "Retired Hurt" &&
+          ballContext !== "NO_BALL" &&
+          (ballContext !== "WIDE" || dismissalType === "Stumped");
+
         return {
           ...b,
           bowled: true,
-          balls: b.balls + 1,
+          balls: isLegalDelivery ? b.balls + 1 : b.balls,
+          runs:
+            ballContext === "NO_BALL" || ballContext === "WIDE"
+              ? b.runs + 1
+              : b.runs,
+          noBalls: ballContext === "NO_BALL" ? b.noBalls + 1 : b.noBalls,
+          wides: ballContext === "WIDE" ? b.wides + 1 : b.wides,
           wickets: isBowlerWicket ? b.wickets + 1 : b.wickets,
         };
       }
       return b;
     });
 
-    const newTotalBalls = totalLegalBalls + 1;
-    const isOverEnd = newTotalBalls % 6 === 0;
+    const newTotalBalls = isLegalDelivery ? totalLegalBalls + 1 : totalLegalBalls;
+    const isOverEnd = isLegalDelivery && newTotalBalls > 0 && newTotalBalls % 6 === 0;
 
     // Replace out batsman with incoming batsman
     let nextStriker = strikerId;
@@ -1754,8 +1790,9 @@ function InningsLiveConsole({
     setNonStrikerId(nextNonStriker);
     setBatRows(newBat);
     setBowlRows(newBowl);
+    setExtras(newExtras);
 
-    const newRecentBalls = [...recentBalls, "W"];
+    const newRecentBalls = [...recentBalls, ballCode];
     setRecentBalls(newRecentBalls);
     setWicketModalOpen(false);
 
@@ -1768,9 +1805,9 @@ function InningsLiveConsole({
       dismissal: formattedDismissal,
     };
 
-    const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, extras, newTotalBalls);
+    const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, newTotalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, extras, false, newRecentBalls, celebrationEvent);
+      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls, celebrationEvent);
       toast.success(`Wicket recorded: ${formattedDismissal}!`);
       if (isOverEnd) {
         const finishedBowler = currentBowlerId;
@@ -2529,6 +2566,53 @@ function InningsLiveConsole({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Delivery Context Selector */}
+            <div className="space-y-1.5 p-3 rounded-xl bg-muted/40 border">
+              <Label className="text-xs font-bold text-foreground">Delivery / Ball Context</Label>
+              <Select
+                value={ballContext}
+                onValueChange={(val: any) => {
+                  setBallContext(val);
+                  setCatcherId("");
+                  if (val === "NO_BALL") {
+                    setDismissalType("Run Out");
+                  } else if (val === "WIDE") {
+                    setDismissalType("Stumped");
+                  } else if (val === "BYE" || val === "LEG_BYE") {
+                    setDismissalType("Run Out");
+                  } else {
+                    setDismissalType("Caught");
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs font-semibold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NORMAL">⚪ Normal Legal Ball</SelectItem>
+                  <SelectItem value="NO_BALL">⚡ No Ball (Nb) — [Run Out only]</SelectItem>
+                  <SelectItem value="WIDE">🔵 Wide Ball (Wd) — [Stumped / Run Out]</SelectItem>
+                  <SelectItem value="BYE">⚪ Bye (B) — [Run Out only]</SelectItem>
+                  <SelectItem value="LEG_BYE">⚪ Leg Bye (Lb) — [Run Out only]</SelectItem>
+                </SelectContent>
+              </Select>
+              {ballContext === "NO_BALL" && (
+                <p className="text-[11px] text-amber-500 font-medium pt-1">
+                  ⚡ <strong>Rule:</strong> On a No-Ball, a batter can only be dismissed via <strong>Run Out</strong>.
+                </p>
+              )}
+              {ballContext === "WIDE" && (
+                <p className="text-[11px] text-sky-400 font-medium pt-1">
+                  🔵 <strong>Rule:</strong> On a Wide, a batter can be dismissed via <strong>Stumped</strong> or <strong>Run Out</strong>.
+                </p>
+              )}
+              {(ballContext === "BYE" || ballContext === "LEG_BYE") && (
+                <p className="text-[11px] text-muted-foreground font-medium pt-1">
+                  🛡️ <strong>Rule:</strong> On Byes/Leg-Byes, a batter is dismissed via <strong>Run Out</strong>.
+                </p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Dismissed Batsman</Label>
               <Select value={outPlayerId || undefined} onValueChange={setOutPlayerId}>
@@ -2552,23 +2636,42 @@ function InningsLiveConsole({
 
             <div className="space-y-2">
               <Label className="text-xs font-semibold">Dismissal Type</Label>
-              <Select value={dismissalType} onValueChange={(val) => {
-                setDismissalType(val);
-                if (val !== "Caught" && val !== "Run Out" && val !== "Stumped") {
-                  setCatcherId("");
-                }
-              }}>
+              <Select
+                value={dismissalType}
+                onValueChange={(val) => {
+                  setDismissalType(val);
+                  if (val !== "Caught" && val !== "Run Out" && val !== "Stumped") {
+                    setCatcherId("");
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Caught">Caught</SelectItem>
-                  <SelectItem value="Bowled">Bowled</SelectItem>
-                  <SelectItem value="LBW">LBW</SelectItem>
-                  <SelectItem value="Run Out">Run Out</SelectItem>
-                  <SelectItem value="Stumped">Stumped</SelectItem>
-                  <SelectItem value="Hit Wicket">Hit Wicket</SelectItem>
-                  <SelectItem value="Retired Hurt">Retired Hurt</SelectItem>
+                  {ballContext === "NORMAL" && (
+                    <>
+                      <SelectItem value="Caught">Caught</SelectItem>
+                      <SelectItem value="Bowled">Bowled</SelectItem>
+                      <SelectItem value="LBW">LBW</SelectItem>
+                      <SelectItem value="Run Out">Run Out</SelectItem>
+                      <SelectItem value="Stumped">Stumped</SelectItem>
+                      <SelectItem value="Hit Wicket">Hit Wicket</SelectItem>
+                      <SelectItem value="Retired Hurt">Retired Hurt</SelectItem>
+                    </>
+                  )}
+                  {ballContext === "NO_BALL" && (
+                    <SelectItem value="Run Out">Run Out (Only valid dismissal on No-Ball)</SelectItem>
+                  )}
+                  {ballContext === "WIDE" && (
+                    <>
+                      <SelectItem value="Stumped">Stumped</SelectItem>
+                      <SelectItem value="Run Out">Run Out</SelectItem>
+                    </>
+                  )}
+                  {(ballContext === "BYE" || ballContext === "LEG_BYE") && (
+                    <SelectItem value="Run Out">Run Out</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
