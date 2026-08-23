@@ -1,12 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSchedule } from "@/lib/queries";
 import { MatchCard, type HydratedMatch } from "@/components/MatchCard";
+import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatMatchDay } from "@/lib/cricket";
-import { Calendar, MapPin, Clock, Trophy } from "lucide-react";
+import { downloadSchedulePDF } from "@/lib/pdf-export";
+import { toast } from "sonner";
+import { Calendar, MapPin, Clock, Trophy, FileDown, Loader2 } from "lucide-react";
 
 export default function Schedule() {
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const { data: matches, isLoading } = useQuery({
     queryKey: ["schedule"],
     queryFn: getSchedule,
@@ -76,6 +81,33 @@ export default function Schedule() {
             )}
           </div>
         </div>
+
+        {matches.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                setIsDownloadingPdf(true);
+                await downloadSchedulePDF(matches as HydratedMatch[]);
+                toast.success("Schedule PDF downloaded successfully!");
+              } catch (err) {
+                console.error("PDF Download error:", err);
+                toast.error("Failed to generate Schedule PDF.");
+              } finally {
+                setIsDownloadingPdf(false);
+              }
+            }}
+            disabled={isDownloadingPdf}
+            className="gap-2 font-bold text-xs sm:text-sm border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 rounded-xl shadow-sm h-9 px-4"
+          >
+            {isDownloadingPdf ? (
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+            ) : (
+              <FileDown className="h-4 w-4 text-emerald-400" />
+            )}
+            <span>Download Schedule PDF</span>
+          </Button>
+        )}
       </div>
 
       {matches.length === 0 ? (

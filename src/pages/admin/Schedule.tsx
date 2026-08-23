@@ -36,7 +36,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { statusBadgeClass, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, Calendar, Clock, MapPin } from "lucide-react";
+import { Plus, Sparkles, Trash2, Calendar, Clock, MapPin, FileDown, Loader2 } from "lucide-react";
+import { downloadSchedulePDF } from "@/lib/pdf-export";
 import { DatePicker } from "@/components/DatePicker";
 import { TimePicker } from "@/components/TimePicker";
 import type { HydratedMatch, Team } from "@/lib/firestore";
@@ -75,6 +76,7 @@ export default function AdminSchedule() {
 
   const [openCreate, setOpenCreate] = useState(false);
   const [form, setForm] = useState<MatchForm>(defaultForm);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["schedule"] });
@@ -147,6 +149,32 @@ export default function AdminSchedule() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {matches && matches.length > 0 && (
+            <Button
+              variant="outline"
+              disabled={isDownloadingPdf}
+              onClick={async () => {
+                try {
+                  setIsDownloadingPdf(true);
+                  await downloadSchedulePDF(matches as HydratedMatch[]);
+                  toast.success("Schedule PDF downloaded successfully!");
+                } catch (err) {
+                  console.error("PDF Download error:", err);
+                  toast.error("Failed to generate Schedule PDF.");
+                } finally {
+                  setIsDownloadingPdf(false);
+                }
+              }}
+              className="gap-1.5 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold"
+            >
+              {isDownloadingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+              ) : (
+                <FileDown className="h-4 w-4 text-emerald-400" />
+              )}
+              Download PDF
+            </Button>
+          )}
           {(!matches || matches.length === 0) && (teams?.length ?? 0) >= 2 && (
             <Button
               variant="outline"
