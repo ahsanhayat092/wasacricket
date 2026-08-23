@@ -143,17 +143,28 @@ export async function getSchedule(): Promise<HydratedMatch[]> {
       getDocs(inningsCol()),
       getDocs(query(standingsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
     ]);
-    const allInnings = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
-    const standings = standingsSnap.docs
-      .map((d) => ({ id: d.id, ...d.data() }) as Standing)
-      .sort((a, b) => (a.position || 0) - (b.position || 0));
-
-    const top1Team = standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
-    const top2Team = standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
-
     const matches = matchSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Match)
       .sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0));
+
+    const finalMatchRaw = matches.find(
+      (m) => m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL" || (m.matchNumber && m.matchNumber >= 10),
+    );
+    const leagueMatchesRaw = matches.filter(
+      (m) => m.id !== finalMatchRaw?.id && m.stage?.toUpperCase() !== "FINAL",
+    );
+    const allLeagueDone =
+      leagueMatchesRaw.length > 0 &&
+      leagueMatchesRaw.every(
+        (m) =>
+          m.status === "COMPLETED" ||
+          m.status === "NO_RESULT" ||
+          m.status === "ABANDONED",
+      );
+
+    const top1Team = allLeagueDone && standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
+    const top2Team = allLeagueDone && standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
+
     return matches.map((m) => hydrateMatch(m, teams, allInnings, top1Team, top2Team));
   } catch (err) {
     console.error("Error loading schedule:", err);
@@ -181,19 +192,36 @@ export async function getMatchById(matchId: string): Promise<{
   if (!snap.exists()) return null;
   const match = { id: snap.id, ...snap.data() } as Match;
 
-  const [teams, players, inningsSnap, standingsSnap] = await Promise.all([
+  const [teams, players, inningsSnap, standingsSnap, matchesSnap] = await Promise.all([
     getTeams(),
     getPlayers(),
     getDocs(query(inningsCol(), where("matchId", "==", matchId))),
     getDocs(query(standingsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
+    getDocs(query(matchesCol(), where("tournamentId", "==", TOURNAMENT_ID))),
   ]);
 
   const standings = standingsSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as Standing)
     .sort((a, b) => (a.position || 0) - (b.position || 0));
 
-  const top1Team = standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
-  const top2Team = standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
+  const allMatchesList = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
+  const finalMatchRaw = allMatchesList.find(
+    (m) => m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL" || (m.matchNumber && m.matchNumber >= 10),
+  );
+  const leagueMatchesRaw = allMatchesList.filter(
+    (m) => m.id !== finalMatchRaw?.id && m.stage?.toUpperCase() !== "FINAL",
+  );
+  const allLeagueDone =
+    leagueMatchesRaw.length > 0 &&
+    leagueMatchesRaw.every(
+      (m) =>
+        m.status === "COMPLETED" ||
+        m.status === "NO_RESULT" ||
+        m.status === "ABANDONED",
+    );
+
+  const top1Team = allLeagueDone && standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
+  const top2Team = allLeagueDone && standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
 
   const hydrated = await hydrateMatch(match, teams, [], top1Team, top2Team);
   const inningsList = inningsSnap.docs

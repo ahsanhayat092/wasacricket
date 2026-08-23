@@ -252,14 +252,6 @@ export async function recalculateStandings(tournamentId: number) {
  */
 export async function maybeGenerateFinalFixture(tournamentId: number) {
   const db = getDb();
-  const topTwo = await db
-    .select()
-    .from(standings)
-    .where(eq(standings.tournamentId, tournamentId))
-    .orderBy(asc(standings.position))
-    .limit(2);
-  if (topTwo.length < 2) return;
-
   const allMatchesList = await db
     .select()
     .from(matches)
@@ -274,6 +266,31 @@ export async function maybeGenerateFinalFixture(tournamentId: number) {
   );
   if (!final) return;
   if (final.status === "COMPLETED" || final.status === "LIVE") return;
+
+  const leagueMatches = allMatchesList.filter(
+    (m) => m.id !== final!.id && m.stage?.toUpperCase() !== "FINAL",
+  );
+
+  const allDone =
+    leagueMatches.length > 0 &&
+    leagueMatches.every(
+      (m) =>
+        m.status === "COMPLETED" ||
+        m.status === "NO_RESULT" ||
+        m.status === "ABANDONED",
+    );
+
+  // STRICT REQUIREMENT: Do NOT select finalists until ALL league matches are completed
+  if (!allDone) return;
+
+  const topTwo = await db
+    .select()
+    .from(standings)
+    .where(eq(standings.tournamentId, tournamentId))
+    .orderBy(asc(standings.position))
+    .limit(2);
+  if (topTwo.length < 2) return;
+
   if (final.teamAId === topTwo[0].teamId && final.teamBId === topTwo[1].teamId)
     return;
 

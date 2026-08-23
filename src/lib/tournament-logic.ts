@@ -337,19 +337,9 @@ export async function maybeGenerateFinalFixture(
   // If Final is already completed or currently live, do not overwrite
   if (finalMatch.status === "COMPLETED" || finalMatch.status === "LIVE") return;
 
-  const top1Id = sortedRows[0].teamId;
-  const top2Id = sortedRows[1].teamId;
-
   // 2. Identify all league matches
   const leagueMatches = allMatches.filter(
     (m) => m.id !== finalMatch!.id && m.stage?.toUpperCase() !== "FINAL",
-  );
-
-  const completedLeagueMatches = leagueMatches.filter(
-    (m) =>
-      m.status === "COMPLETED" ||
-      m.status === "NO_RESULT" ||
-      m.status === "ABANDONED",
   );
 
   const allLeagueDone =
@@ -361,26 +351,25 @@ export async function maybeGenerateFinalFixture(
         m.status === "ABANDONED",
     );
 
-  // Automatically update Final when all league matches are done, OR if the final has missing teams, OR whenever standings determine the top 2 teams
-  const shouldUpdate =
-    allLeagueDone ||
-    !finalMatch.teamAId ||
-    !finalMatch.teamBId ||
-    completedLeagueMatches.length > 0;
+  // STRICT REQUIREMENT: Do NOT select finalists until ALL league matches are completed
+  if (!allLeagueDone) {
+    return;
+  }
 
-  if (shouldUpdate) {
-    if (
-      finalMatch.teamAId !== top1Id ||
-      finalMatch.teamBId !== top2Id ||
-      finalMatch.stage !== "FINAL"
-    ) {
-      await updateDoc(matchDoc(finalMatch.id), {
-        teamAId: top1Id,
-        teamBId: top2Id,
-        stage: "FINAL",
-        updatedAt: now(),
-      });
-    }
+  const top1Id = sortedRows[0].teamId;
+  const top2Id = sortedRows[1].teamId;
+
+  if (
+    finalMatch.teamAId !== top1Id ||
+    finalMatch.teamBId !== top2Id ||
+    finalMatch.stage !== "FINAL"
+  ) {
+    await updateDoc(matchDoc(finalMatch.id), {
+      teamAId: top1Id,
+      teamBId: top2Id,
+      stage: "FINAL",
+      updatedAt: now(),
+    });
   }
 }
 
