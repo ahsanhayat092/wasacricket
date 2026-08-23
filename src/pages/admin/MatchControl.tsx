@@ -967,11 +967,14 @@ function InningsLiveConsole({
 
   // Wicket Dialog State
   const [wicketModalOpen, setWicketModalOpen] = useState(false);
-  const [ballContext, setBallContext] = useState<"NORMAL" | "NO_BALL" | "WIDE" | "BYE" | "LEG_BYE">("NORMAL");
+  const [ballContext, setBallContext] = useState<"NORMAL" | "FREE_HIT" | "NO_BALL" | "WIDE" | "BYE" | "LEG_BYE">("NORMAL");
   const [dismissalType, setDismissalType] = useState<string>("Caught");
   const [catcherId, setCatcherId] = useState<string>("");
   const [outPlayerId, setOutPlayerId] = useState<string>("");
   const [incomingPlayerId, setIncomingPlayerId] = useState<string>("");
+
+  // Free Hit State (Active after No-Ball)
+  const [isFreeHit, setIsFreeHit] = useState<boolean>(false);
 
   // No Ball Dialog State (for scoring runs off No Ball)
   const [noBallModalOpen, setNoBallModalOpen] = useState(false);
@@ -1193,6 +1196,7 @@ function InningsLiveConsole({
         nonStrikerId,
         currentBowlerId,
         recentBalls,
+        isFreeHit,
       },
     ]);
   };
@@ -1212,6 +1216,7 @@ function InningsLiveConsole({
     setNonStrikerId(last.nonStrikerId);
     setCurrentBowlerId(last.currentBowlerId);
     setRecentBalls(last.recentBalls);
+    setIsFreeHit((last as any).isFreeHit ?? false);
     triggerSave(last.batRows, last.bowlRows, last.extras);
     toast.success("Previous ball undone");
   };
@@ -1264,6 +1269,11 @@ function InningsLiveConsole({
       toast.info("This bowler has reached their maximum quota limit.");
       triggerNextBowlerDialog(totalLegalBalls, currentBowlerId);
       return;
+    }
+
+    // Consume Free Hit on legal delivery
+    if (isFreeHit) {
+      setIsFreeHit(false);
     }
 
     pushHistory();
@@ -1448,7 +1458,8 @@ function InningsLiveConsole({
     let newBat = [...batRows];
     let isOverEnd = false;
     let newTotalBalls = totalLegalBalls;
-    let extraBallTag = "Wd";
+    let isLegal = false;
+    let ballCode = "Wd";
 
     if (type === "WIDE") {
       newExtras.wides += extraRuns;
@@ -1457,7 +1468,8 @@ function InningsLiveConsole({
           ? { ...b, bowled: true, runs: b.runs + extraRuns, wides: b.wides + extraRuns }
           : b,
       );
-      extraBallTag = extraRuns > 1 ? `${extraRuns}Wd` : "Wd";
+      ballCode = extraRuns === 1 ? "Wd" : `${extraRuns}Wd`;
+      // Under ICC rules, a Wide bowled on a Free Hit remains a Free Hit!
     } else if (type === "NO_BALL") {
       newExtras.noBalls += extraRuns;
       newBowl = newBowl.map((b) =>
@@ -1465,7 +1477,9 @@ function InningsLiveConsole({
           ? { ...b, bowled: true, runs: b.runs + extraRuns, noBalls: b.noBalls + 1 }
           : b,
       );
-      extraBallTag = extraRuns > 1 ? `${extraRuns}Nb` : "Nb";
+      ballCode = extraRuns === 1 ? "Nb" : `${extraRuns}Nb`;
+      setIsFreeHit(true);
+      toast.info("⚡ FREE HIT ACTIVE on the next ball!");
     } else if (type === "BYE") {
       newTotalBalls = totalLegalBalls + 1;
       isOverEnd = newTotalBalls % 6 === 0;
@@ -1476,7 +1490,9 @@ function InningsLiveConsole({
       newBat = newBat.map((b) =>
         b.playerId === strikerId ? { ...b, batted: true, balls: b.balls + 1 } : b,
       );
-      extraBallTag = `${extraRuns}B`;
+      isLegal = true;
+      ballCode = extraRuns === 1 ? "B" : `${extraRuns}B`;
+      if (isFreeHit) setIsFreeHit(false);
     } else if (type === "LEG_BYE") {
       newTotalBalls = totalLegalBalls + 1;
       isOverEnd = newTotalBalls % 6 === 0;
@@ -1487,7 +1503,9 @@ function InningsLiveConsole({
       newBat = newBat.map((b) =>
         b.playerId === strikerId ? { ...b, batted: true, balls: b.balls + 1 } : b,
       );
-      extraBallTag = `${extraRuns}Lb`;
+      isLegal = true;
+      ballCode = extraRuns === 1 ? "Lb" : `${extraRuns}Lb`;
+      if (isFreeHit) setIsFreeHit(false);
     }
 
     if (isOverEnd) {
@@ -1496,7 +1514,7 @@ function InningsLiveConsole({
       setNonStrikerId(temp);
     }
 
-    const newRecentBalls = [...recentBalls, extraBallTag];
+    const newRecentBalls = [...recentBalls, ballCode];
     setRecentBalls(newRecentBalls);
 
     setExtras(newExtras);
@@ -1632,6 +1650,9 @@ function InningsLiveConsole({
     setBowlRows(newBowl);
     setBatRows(newBat);
     setNoBallModalOpen(false);
+    setNoBallCustomRuns("0");
+    setIsFreeHit(true);
+    toast.info("⚡ FREE HIT ACTIVE on the next ball! (Batter can only be out via Run Out)");
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, totalLegalBalls);
     if (!isFinished) {
@@ -1663,8 +1684,13 @@ function InningsLiveConsole({
     }
     setOutPlayerId(strikerId);
     setCatcherId("");
-    setBallContext("NORMAL");
-    setDismissalType("Caught");
+    if (isFreeHit) {
+      setBallContext("FREE_HIT");
+      setDismissalType("Run Out");
+    } else {
+      setBallContext("NORMAL");
+      setDismissalType("Caught");
+    }
     const unbatted = batRows.filter((b) => !b.batted && !b.isOut);
     setIncomingPlayerId(unbatted[0]?.playerId ?? "");
     setWicketModalOpen(true);
@@ -1784,6 +1810,13 @@ function InningsLiveConsole({
       const temp = nextStriker;
       nextStriker = nextNonStriker;
       nextNonStriker = temp;
+    }
+
+    if (ballContext === "NO_BALL") {
+      setIsFreeHit(true);
+      toast.info("⚡ FREE HIT ACTIVE on the next ball!");
+    } else if (ballContext !== "WIDE") {
+      setIsFreeHit(false);
     }
 
     setStrikerId(nextStriker);
@@ -2122,6 +2155,26 @@ function InningsLiveConsole({
                       Go to 2nd Innings Scorecard <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   )}
+                </div>
+              )}
+
+              {/* Free Hit Active Banner */}
+              {isFreeHit && !isInningsFinished && (
+                <div className="p-3 rounded-xl bg-amber-500/20 border-2 border-amber-500 text-amber-300 flex items-center justify-between animate-pulse shadow-md">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-amber-400 fill-amber-400 shrink-0" />
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-amber-300">
+                        ⚡ FREE HIT ACTIVE (Next Delivery)
+                      </p>
+                      <p className="text-[11px] text-amber-200/90 font-medium">
+                        Under ICC rules, a batter cannot be out except for <strong>Run Out</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="bg-amber-500 text-slate-950 font-black text-xs px-2.5 py-1 shrink-0">
+                    FREE HIT ⚡
+                  </Badge>
                 </div>
               )}
 
@@ -2574,7 +2627,7 @@ function InningsLiveConsole({
                 onValueChange={(val: any) => {
                   setBallContext(val);
                   setCatcherId("");
-                  if (val === "NO_BALL") {
+                  if (val === "NO_BALL" || val === "FREE_HIT") {
                     setDismissalType("Run Out");
                   } else if (val === "WIDE") {
                     setDismissalType("Stumped");
@@ -2590,12 +2643,18 @@ function InningsLiveConsole({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="NORMAL">⚪ Normal Legal Ball</SelectItem>
+                  <SelectItem value="FREE_HIT">⚡ Free Hit Delivery — [Run Out only]</SelectItem>
                   <SelectItem value="NO_BALL">⚡ No Ball (Nb) — [Run Out only]</SelectItem>
                   <SelectItem value="WIDE">🔵 Wide Ball (Wd) — [Stumped / Run Out]</SelectItem>
                   <SelectItem value="BYE">⚪ Bye (B) — [Run Out only]</SelectItem>
                   <SelectItem value="LEG_BYE">⚪ Leg Bye (Lb) — [Run Out only]</SelectItem>
                 </SelectContent>
               </Select>
+              {ballContext === "FREE_HIT" && (
+                <p className="text-[11px] text-amber-400 font-medium pt-1">
+                  ⚡ <strong>Rule:</strong> On a Free Hit, a batter cannot be dismissed except via <strong>Run Out</strong>.
+                </p>
+              )}
               {ballContext === "NO_BALL" && (
                 <p className="text-[11px] text-amber-500 font-medium pt-1">
                   ⚡ <strong>Rule:</strong> On a No-Ball, a batter can only be dismissed via <strong>Run Out</strong>.
@@ -2659,6 +2718,9 @@ function InningsLiveConsole({
                       <SelectItem value="Hit Wicket">Hit Wicket</SelectItem>
                       <SelectItem value="Retired Hurt">Retired Hurt</SelectItem>
                     </>
+                  )}
+                  {ballContext === "FREE_HIT" && (
+                    <SelectItem value="Run Out">Run Out (Only valid dismissal on Free Hit)</SelectItem>
                   )}
                   {ballContext === "NO_BALL" && (
                     <SelectItem value="Run Out">Run Out (Only valid dismissal on No-Ball)</SelectItem>
