@@ -654,29 +654,11 @@ export default function MatchDetail() {
               </div>
               <div className="grid grid-cols-2 gap-4 items-center">
                 <span className="text-muted-foreground">Toss Result:</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground">
-                    {match.tossWinner
-                      ? `${match.tossWinner.name} won the toss and elected to ${match.tossDecision?.toLowerCase()}`
-                      : "Toss not conducted yet"}
-                  </span>
-                  {match.tossWinner && match.tossDecision && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setManualEvent({
-                          type: "TOSS",
-                          text: `${match.tossWinner?.name} won the toss and elected to ${match.tossDecision === "BAT" ? "BAT" : "BOWL"} first!`,
-                          timestamp: Date.now(),
-                        })
-                      }
-                      className="h-6 text-[10px] font-bold gap-1 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded-lg px-2 shrink-0 ml-auto"
-                    >
-                      <span>🪙 Toss Animation</span>
-                    </Button>
-                  )}
-                </div>
+                <span className="font-semibold text-foreground">
+                  {match.tossWinner
+                    ? `${match.tossWinner.name} won the toss and elected to ${match.tossDecision?.toLowerCase()}`
+                    : "Toss not conducted yet"}
+                </span>
               </div>
             </CardContent>
           </Card>

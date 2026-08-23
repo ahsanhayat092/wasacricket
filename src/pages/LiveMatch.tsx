@@ -354,27 +354,11 @@ export default function LiveMatch() {
 
           {/* Toss Result Info Banner */}
           {match.tossWinnerId && match.tossDecision && (
-            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-base animate-bounce">🪙</span>
-                <p className="font-semibold text-foreground">
-                  <strong className="text-amber-400 font-extrabold">{teamOf(match.tossWinnerId)?.name ?? "Toss Winner"}</strong> won the toss and elected to <strong className="uppercase text-amber-400 font-extrabold">{match.tossDecision}</strong> first.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setManualEvent({
-                    type: "TOSS",
-                    text: `${teamOf(match.tossWinnerId)?.name ?? "Toss Winner"} won the toss and elected to ${match.tossDecision === "BAT" ? "BAT" : "BOWL"} first!`,
-                    timestamp: Date.now(),
-                  })
-                }
-                className="h-6 text-[10px] font-bold gap-1 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded-lg px-2"
-              >
-                <span>🪙 Replay Toss Animation</span>
-              </Button>
+            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center gap-2 text-xs">
+              <span className="text-base">🪙</span>
+              <p className="font-semibold text-foreground">
+                <strong className="text-amber-400 font-extrabold">{teamOf(match.tossWinnerId)?.name ?? "Toss Winner"}</strong> won the toss and elected to <strong className="uppercase text-amber-400 font-extrabold">{match.tossDecision}</strong> first.
+              </p>
             </div>
           )}
 
