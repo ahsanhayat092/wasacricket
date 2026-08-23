@@ -33,7 +33,9 @@ import {
   ArrowRightLeft,
   BarChart3,
   Camera,
-  Share2,
+  Clock,
+  Flame,
+  Activity,
 } from "lucide-react";
 import type { Player } from "@/lib/firestore";
 import { useState } from "react";
@@ -51,7 +53,7 @@ export default function MatchDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
+      <div className="mx-auto max-w-7xl px-4 py-8 space-y-6">
         <Skeleton className="h-44 w-full rounded-2xl" />
         <Skeleton className="h-96 w-full rounded-2xl" />
       </div>
@@ -91,7 +93,7 @@ export default function MatchDetail() {
   const teamAPlayers = (players ?? []).filter((p) => p.teamId === match.teamAId);
   const teamBPlayers = (players ?? []).filter((p) => p.teamId === match.teamBId);
 
-  // Playing VI lineup (6 playing + 1 reserve) — ONLY when match has confirmed lineup
+  // Playing VI lineup (6 playing + 1 reserve)
   const getLineup = (
     teamSquad: Player[],
     playingVIIds?: string[],
@@ -118,563 +120,515 @@ export default function MatchDetail() {
   const lineupB = getLineup(teamBPlayers, match.teamBPlayingVI, match.teamBReserveId);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
-      {/* Match Header Hero Card */}
-      {/* Live Event Celebratory Overlay */}
+    <div className="mx-auto max-w-7xl px-3 sm:px-6 py-6 space-y-6">
       <EventAnimationOverlay
         event={manualEvent ?? match.recentEvent}
         onDismiss={() => setManualEvent(null)}
       />
 
-      {/* Hero Match Card */}
-      <Card className="border shadow-lg bg-card overflow-hidden">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className={statusBadgeClass(match.status as MatchStatus)}
-              >
-                {match.status.replace("_", " ")}
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setStoryModalOpen(true)}
-                className="h-7 text-xs font-bold gap-1.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 rounded-lg px-2.5"
-              >
-                <Camera className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Share Story</span>
-              </Button>
-            </div>
-            <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-              {match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`} ·{" "}
-              {formatMatchDateTime(match.day, match.date, match.time)}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 py-2">
-            {/* Team A */}
-            <div className="flex flex-col items-center gap-2 flex-1 text-center">
-              <TeamBadge
-                shortName={match.teamA?.shortName ?? "TBD"}
-                logoUrl={match.teamA?.logoUrl}
-                size="lg"
-              />
-              <span className="font-extrabold text-base sm:text-lg">
-                {match.teamA?.name ?? "Rank 1"}
-              </span>
-              {innings.find((i) => i.battingTeamId === match.teamA?.id) ? (
-                <span className="font-mono text-xl sm:text-2xl font-black text-foreground">
-                  {innings.find((i) => i.battingTeamId === match.teamA?.id)!.runs}/
-                  {Math.min(5, innings.find((i) => i.battingTeamId === match.teamA?.id)!.wickets)}
-                  <span className="text-xs text-muted-foreground ml-1.5 font-normal">
-                    (
-                    {ballsToOversText(
-                      innings.find((i) => i.battingTeamId === match.teamA?.id)!.balls,
-                    )}
-                    ov)
-                  </span>
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">Yet to bat</span>
-              )}
-            </div>
-
-            <div className="text-muted-foreground font-black text-sm px-2">VS</div>
-
-            {/* Team B */}
-            <div className="flex flex-col items-center gap-2 flex-1 text-center">
-              <TeamBadge
-                shortName={match.teamB?.shortName ?? "TBD"}
-                logoUrl={match.teamB?.logoUrl}
-                size="lg"
-              />
-              <span className="font-extrabold text-base sm:text-lg">
-                {match.teamB?.name ?? "Rank 2"}
-              </span>
-              {innings.find((i) => i.battingTeamId === match.teamB?.id) ? (
-                <span className="font-mono text-xl sm:text-2xl font-black text-foreground">
-                  {innings.find((i) => i.battingTeamId === match.teamB?.id)!.runs}/
-                  {Math.min(5, innings.find((i) => i.battingTeamId === match.teamB?.id)!.wickets)}
-                  <span className="text-xs text-muted-foreground ml-1.5 font-normal">
-                    (
-                    {ballsToOversText(
-                      innings.find((i) => i.battingTeamId === match.teamB?.id)!.balls,
-                    )}
-                    ov)
-                  </span>
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">Yet to bat</span>
-              )}
-            </div>
-          </div>
-
-          {/* Grand Match Result Banner for Completed Matches */}
-          {match.resultText && (
-            <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-2 border-emerald-500/40 text-center shadow-lg shadow-emerald-950/30 space-y-3">
-              <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs tracking-wider uppercase">
-                <Trophy className="h-3.5 w-3.5" /> Official Match Result
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column (8 Cols): Hero Card + Scorecard & Match Tabs */}
+        <div className="lg:col-span-8 space-y-6">
+          <Card className="border shadow-xl bg-card overflow-hidden">
+            <CardContent className="p-5 sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5 border-b pb-3">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={statusBadgeClass(match.status as MatchStatus)}
+                  >
+                    {match.status.replace("_", " ")}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStoryModalOpen(true)}
+                    className="h-7 text-xs font-bold gap-1.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 rounded-lg px-2.5"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    <span>Share Story</span>
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-2">
+                  <span className="text-amber-500 font-extrabold">{match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`}</span>
+                  <span>•</span>
+                  <span>{formatMatchDateTime(match.day, match.date, match.time)}</span>
+                </div>
               </div>
-              <h3 className="text-lg sm:text-2xl font-black text-emerald-400 uppercase tracking-tight">
-                {match.resultText}
-              </h3>
-              {playerOfMatch && (
-                <div className="pt-3 border-t border-emerald-500/20 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <PlayerAvatar
-                    name={playerOfMatch.name}
-                    photoUrl={playerOfMatch.photoUrl}
+
+              {/* Team Showdown */}
+              <div className="flex items-center justify-between gap-4 py-2">
+                {/* Team A */}
+                <div className="flex flex-col items-center gap-2 flex-1 text-center">
+                  <TeamBadge
+                    shortName={match.teamA?.shortName ?? "TBD"}
+                    logoUrl={match.teamA?.logoUrl}
                     size="lg"
-                    className="ring-2 ring-amber-400 shadow-md"
                   />
-                  <div className="text-center sm:text-left">
-                    <Badge className="bg-amber-500 text-slate-950 font-black gap-1.5 py-1 px-3 shadow-sm text-xs">
-                      <Award className="h-3.5 w-3.5" /> Player of the Match
-                    </Badge>
-                    <p className="text-base sm:text-lg font-black text-foreground mt-0.5">
-                      <PlayerLink playerId={playerOfMatch.id} name={playerOfMatch.name} />
+                  <span className="font-black text-base sm:text-xl tracking-tight">
+                    {match.teamA?.name ?? "Rank 1"}
+                  </span>
+                  {innings.find((i) => i.battingTeamId === match.teamA?.id) ? (
+                    <div className="font-mono">
+                      <span className="text-2xl sm:text-3xl font-black text-foreground">
+                        {innings.find((i) => i.battingTeamId === match.teamA?.id)!.runs}/
+                        {Math.min(5, innings.find((i) => i.battingTeamId === match.teamA?.id)!.wickets)}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1.5 font-normal">
+                        ({ballsToOversText(innings.find((i) => i.battingTeamId === match.teamA?.id)!.balls)} ov)
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Yet to bat</span>
+                  )}
+                </div>
+
+                <div className="text-muted-foreground/60 font-black text-base sm:text-lg px-2">VS</div>
+
+                {/* Team B */}
+                <div className="flex flex-col items-center gap-2 flex-1 text-center">
+                  <TeamBadge
+                    shortName={match.teamB?.shortName ?? "TBD"}
+                    logoUrl={match.teamB?.logoUrl}
+                    size="lg"
+                  />
+                  <span className="font-black text-base sm:text-xl tracking-tight">
+                    {match.teamB?.name ?? "Rank 2"}
+                  </span>
+                  {innings.find((i) => i.battingTeamId === match.teamB?.id) ? (
+                    <div className="font-mono">
+                      <span className="text-2xl sm:text-3xl font-black text-foreground">
+                        {innings.find((i) => i.battingTeamId === match.teamB?.id)!.runs}/
+                        {Math.min(5, innings.find((i) => i.battingTeamId === match.teamB?.id)!.wickets)}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1.5 font-normal">
+                        ({ballsToOversText(innings.find((i) => i.battingTeamId === match.teamB?.id)!.balls)} ov)
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Yet to bat</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Grand Match Result Banner for Completed Matches */}
+              {match.resultText && (
+                <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-2 border-emerald-500/40 text-center shadow-lg shadow-emerald-950/30 space-y-3">
+                  <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs tracking-wider uppercase">
+                    <Trophy className="h-3.5 w-3.5" /> Official Match Result
+                  </div>
+                  <h3 className="text-lg sm:text-2xl font-black text-emerald-400 uppercase tracking-tight">
+                    {match.resultText}
+                  </h3>
+                  {playerOfMatch && (
+                    <div className="pt-3 border-t border-emerald-500/20 flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <PlayerAvatar
+                        name={playerOfMatch.name}
+                        photoUrl={playerOfMatch.photoUrl}
+                        size="lg"
+                        className="ring-2 ring-amber-400 shadow-md"
+                      />
+                      <div className="text-center sm:text-left">
+                        <Badge className="bg-amber-500 text-slate-950 font-black gap-1.5 py-1 px-3 shadow-sm text-xs">
+                          <Award className="h-3.5 w-3.5" /> Player of the Match
+                        </Badge>
+                        <p className="text-base sm:text-lg font-black text-foreground mt-0.5">
+                          <PlayerLink playerId={playerOfMatch.id} name={playerOfMatch.name} />
+                        </p>
+                        <p className="text-xs text-muted-foreground font-medium">
+                          {playerOfMatch.role}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Recent Deliveries */}
+              {currentInnings?.recentBalls && currentInnings.recentBalls.length > 0 && (
+                <div className="mt-5 pt-4 border-t space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 text-amber-500" /> Recent Deliveries (Over by Over)
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      Innings {currentInnings.inningsNumber}
+                    </span>
+                  </div>
+                  <RecentBalls balls={currentInnings.recentBalls} maxOversToShow={match.stage === "FINAL" ? 5 : 4} />
+                </div>
+              )}
+
+              {match.status === "LIVE" && (
+                <div className="mt-4 text-center pt-3 border-t">
+                  <Link
+                    to={`/live/${match.id}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-bold text-red-500 hover:underline"
+                  >
+                    <Zap className="h-4 w-4 animate-pulse" /> Watch Real-Time Live Match Centre →
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Main Tabs: Scorecards vs Manhattan Graph vs Playing VI */}
+          <Tabs defaultValue="scorecard" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 h-11">
+              <TabsTrigger value="scorecard" className="text-xs sm:text-sm font-bold gap-1.5">
+                <Trophy className="h-4 w-4 text-amber-500" /> Scorecard
+              </TabsTrigger>
+              <TabsTrigger value="manhattan" className="text-xs sm:text-sm font-bold gap-1.5">
+                <BarChart3 className="h-4 w-4 text-indigo-400" /> Manhattan
+              </TabsTrigger>
+              <TabsTrigger value="lineup" className="text-xs sm:text-sm font-bold gap-1.5">
+                <Users className="h-4 w-4 text-emerald-500" />
+                {lineupA.hasConfirmed || lineupB.hasConfirmed ? "Playing VI" : "Squads"}
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Tab 1: Detailed Scorecards */}
+            <TabsContent value="scorecard" className="mt-4 space-y-6">
+              {inningsView.length === 0 ? (
+                <Card className="p-8 text-center text-muted-foreground text-sm">
+                  Scorecard is not available yet. It will appear once the match starts.
+                </Card>
+              ) : (
+                inningsView.map((inn) => (
+                  <ScorecardView
+                    key={inn.id}
+                    innings={inn}
+                    squadPlayers={players}
+                  />
+                ))
+              )}
+            </TabsContent>
+
+            {/* Tab 2: Manhattan Graph */}
+            <TabsContent value="manhattan" className="mt-4 space-y-6">
+              <ManhattanGraph
+                inn1={inn1}
+                inn2={inn2}
+                teamA={teamA}
+                teamB={teamB}
+                maxOvers={match.stage === "FINAL" ? 5 : 4}
+              />
+            </TabsContent>
+
+            {/* Tab 3: Team Squads OR Playing VI */}
+            <TabsContent value="lineup" className="mt-4 space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Team A */}
+                <Card className="border shadow-sm">
+                  <CardHeader className="p-4 pb-3 border-b bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <TeamBadge
+                          shortName={teamA?.shortName ?? "TBD"}
+                          logoUrl={teamA?.logoUrl}
+                          size="sm"
+                        />
+                        <CardTitle className="text-sm font-bold">
+                          {teamA?.name ?? "Team A"} {lineupA.hasConfirmed ? "Lineup" : "Squad"}
+                        </CardTitle>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-bold">
+                        {lineupA.hasConfirmed ? "6 Playing + 1 Reserve" : `${lineupA.fullSquad.length} Squad Players`}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-3">
+                    {lineupA.hasConfirmed ? (
+                      <>
+                        <div className="space-y-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5 text-emerald-500" /> Starting Playing VI (6)
+                          </span>
+                          <div className="space-y-1.5">
+                            {lineupA.playingList.map((p, idx) => (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">
+                                    {idx + 1}
+                                  </span>
+                                  <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
+                                  <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
+                                  {(p.isCaptain || p.designation === "Captain") && (
+                                    <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
+                                      (C)
+                                    </Badge>
+                                  )}
+                                  {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                                    <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
+                                      (VC)
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {p.role}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {lineupA.reservePlayer && (
+                          <div className="pt-2 border-t space-y-1.5">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Match Reserve Player (1)
+                            </span>
+                            <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
+                              <div className="flex items-center gap-2">
+                                <PlayerAvatar name={lineupA.reservePlayer.name} photoUrl={lineupA.reservePlayer.photoUrl} size="xs" />
+                                <PlayerLink playerId={lineupA.reservePlayer.id} name={lineupA.reservePlayer.name} className="font-semibold" />
+                                <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
+                                  Reserve
+                                </Badge>
+                              </div>
+                              <Badge variant="secondary" className="text-[10px]">
+                                {lineupA.reservePlayer.role}
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3.5 w-3.5 text-sky-500" /> Full Team Squad ({lineupA.fullSquad.length})
+                        </span>
+                        {lineupA.fullSquad.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2 italic">Squad not announced yet.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {lineupA.fullSquad.map((p) => (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
+                                  <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
+                                  {(p.isCaptain || p.designation === "Captain") && (
+                                    <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
+                                      (C)
+                                    </Badge>
+                                  )}
+                                  {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                                    <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
+                                      (VC)
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {p.role}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Team B */}
+                <Card className="border shadow-sm">
+                  <CardHeader className="p-4 pb-3 border-b bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <TeamBadge
+                          shortName={teamB?.shortName ?? "TBD"}
+                          logoUrl={teamB?.logoUrl}
+                          size="sm"
+                        />
+                        <CardTitle className="text-sm font-bold">
+                          {teamB?.name ?? "Team B"} {lineupB.hasConfirmed ? "Lineup" : "Squad"}
+                        </CardTitle>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-bold">
+                        {lineupB.hasConfirmed ? "6 Playing + 1 Reserve" : `${lineupB.fullSquad.length} Squad Players`}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-3">
+                    {lineupB.hasConfirmed ? (
+                      <>
+                        <div className="space-y-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5 text-emerald-500" /> Starting Playing VI (6)
+                          </span>
+                          <div className="space-y-1.5">
+                            {lineupB.playingList.map((p, idx) => (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">
+                                    {idx + 1}
+                                  </span>
+                                  <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
+                                  <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
+                                  {(p.isCaptain || p.designation === "Captain") && (
+                                    <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
+                                      (C)
+                                    </Badge>
+                                  )}
+                                  {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                                    <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
+                                      (VC)
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {p.role}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {lineupB.reservePlayer && (
+                          <div className="pt-2 border-t space-y-1.5">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Match Reserve Player (1)
+                            </span>
+                            <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
+                              <div className="flex items-center gap-2">
+                                <PlayerAvatar name={lineupB.reservePlayer.name} photoUrl={lineupB.reservePlayer.photoUrl} size="xs" />
+                                <PlayerLink playerId={lineupB.reservePlayer.id} name={lineupB.reservePlayer.name} className="font-semibold" />
+                                <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
+                                  Reserve
+                                </Badge>
+                              </div>
+                              <Badge variant="secondary" className="text-[10px]">
+                                {lineupB.reservePlayer.role}
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3.5 w-3.5 text-sky-500" /> Full Team Squad ({lineupB.fullSquad.length})
+                        </span>
+                        {lineupB.fullSquad.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2 italic">Squad not announced yet.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {lineupB.fullSquad.map((p) => (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
+                                  <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
+                                  {(p.isCaptain || p.designation === "Captain") && (
+                                    <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
+                                      (C)
+                                    </Badge>
+                                  )}
+                                  {(p.isViceCaptain || p.designation === "Vice Captain") && (
+                                    <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
+                                      (VC)
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {p.role}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Right Column (4 Cols): Match Hub Side Panel */}
+        <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-20">
+          {/* Match Venue & Meta Info Card */}
+          <Card className="border shadow-md bg-card">
+            <CardHeader className="p-4 pb-2 border-b bg-muted/20">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Trophy className="h-3.5 w-3.5 text-amber-500" /> Match Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3 text-xs">
+              {match.tossWinner && (
+                <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <span className="text-base">🪙</span>
+                  <div>
+                    <p className="font-bold text-foreground">
+                      {match.tossWinner.name}
                     </p>
-                    <p className="text-xs text-muted-foreground font-medium">
-                      {playerOfMatch.role}
+                    <p className="text-[11px] text-muted-foreground">
+                      Won the toss and elected to <strong className="text-amber-400 uppercase">{match.tossDecision?.toLowerCase()}</strong> first.
                     </p>
                   </div>
                 </div>
               )}
 
-              <div className="pt-2 flex items-center justify-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => setStoryModalOpen(true)}
-                  className="gap-2 text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md hover:from-amber-400 hover:to-amber-500 rounded-xl"
-                >
-                  <Camera className="h-4 w-4" />
-                  <span>Generate Match Story Card</span>
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Recent Deliveries with Over-by-Over Separation */}
-          {currentInnings?.recentBalls && currentInnings.recentBalls.length > 0 && (
-            <div className="mt-4 pt-4 border-t space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-amber-500" /> Recent Deliveries (Over by Over)
-                </span>
-                <span className="text-[10px] text-muted-foreground font-semibold">
-                  Innings {currentInnings.inningsNumber}
-                </span>
-              </div>
-              <RecentBalls balls={currentInnings.recentBalls} maxOversToShow={match.stage === "FINAL" ? 5 : 4} />
-            </div>
-          )}
-
-          {/* Toss & Venue Details */}
-          <div className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground border-t pt-3">
-            {match.tossWinner && (
-              <span className="font-medium text-foreground">
-                🪙 Toss: {match.tossWinner.name} won and elected to{" "}
-                {match.tossDecision === "BAT" ? "bat" : "bowl"}
-              </span>
-            )}
-            {match.date && (
-              <span className="inline-flex items-center gap-1">
-                <CalendarDays className="h-3 w-3" />
-                {match.date}
-                {match.time ? ` · ${match.time}` : ""}
-              </span>
-            )}
-            {match.venue && (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {match.venue}
-              </span>
-            )}
-          </div>
-
-          {playerOfMatch && (
-            <div className="mt-3 flex justify-center">
-              <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30 gap-1.5 py-1 px-3">
-                <Award className="h-4 w-4" /> Player of the Match: {playerOfMatch.name}
-              </Badge>
-            </div>
-          )}
-
-          {match.status === "LIVE" && (
-            <div className="mt-4 text-center">
-              <Link
-                to={`/live/${match.id}`}
-                className="inline-flex items-center gap-1.5 text-sm font-bold text-red-500 hover:underline"
-              >
-                <Zap className="h-4 w-4 animate-pulse" /> Watch Real-Time Live Match Centre →
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Main Tabs: Scorecards vs Manhattan Graph vs Playing VI vs Match Info */}
-      <Tabs defaultValue="scorecard" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-0">
-          <TabsTrigger value="scorecard" className="text-xs sm:text-sm font-bold gap-1.5">
-            <Trophy className="h-4 w-4 text-amber-500" /> Scorecard
-          </TabsTrigger>
-          <TabsTrigger value="manhattan" className="text-xs sm:text-sm font-bold gap-1.5">
-            <BarChart3 className="h-4 w-4 text-indigo-400" /> Manhattan
-          </TabsTrigger>
-          <TabsTrigger value="lineup" className="text-xs sm:text-sm font-bold gap-1.5">
-            <Users className="h-4 w-4 text-emerald-500" />
-            {lineupA.hasConfirmed || lineupB.hasConfirmed ? "Playing VI" : "Squads"}
-          </TabsTrigger>
-          <TabsTrigger value="info" className="text-xs sm:text-sm font-bold gap-1.5">
-            <MapPin className="h-4 w-4 text-sky-500" /> Match Info
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Tab 1: Detailed Scorecards */}
-        <TabsContent value="scorecard" className="mt-4 space-y-6">
-          {inningsView.length === 0 ? (
-            <Card className="p-8 text-center text-muted-foreground text-sm">
-              Scorecard is not available yet. It will appear once the match starts.
-            </Card>
-          ) : (
-            inningsView.map((inn) => (
-              <ScorecardView
-                key={inn.id}
-                innings={inn}
-                squadPlayers={players}
-              />
-            ))
-          )}
-        </TabsContent>
-
-        {/* Tab: Manhattan Graph */}
-        <TabsContent value="manhattan" className="mt-4 space-y-6">
-          <ManhattanGraph
-            inn1={inn1}
-            inn2={inn2}
-            teamA={teamA}
-            teamB={teamB}
-            maxOvers={match.stage === "FINAL" ? 5 : 4}
-          />
-        </TabsContent>
-
-        {/* Tab 2: Team Squads (Pre-match) OR Match Playing VI (Post-toss/Live) */}
-        <TabsContent value="lineup" className="mt-4 space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Team A */}
-            <Card className="border shadow-sm">
-              <CardHeader className="p-4 pb-3 border-b bg-muted/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TeamBadge
-                      shortName={teamA?.shortName ?? "TBD"}
-                      logoUrl={teamA?.logoUrl}
-                      size="sm"
-                    />
-                    <CardTitle className="text-sm font-bold">
-                      {teamA?.name ?? "Team A"} {lineupA.hasConfirmed ? "Lineup" : "Squad"}
-                    </CardTitle>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] font-bold">
-                    {lineupA.hasConfirmed ? "6 Playing + 1 Reserve" : `${lineupA.fullSquad.length} Squad Players`}
-                  </Badge>
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-rose-500" /> Ground</span>
+                  <span className="font-semibold text-foreground">{match.venue || "Askari XI Cricket Ground, Lahore"}</span>
                 </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                {lineupA.hasConfirmed ? (
-                  <>
-                    <div className="space-y-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5 text-emerald-500" /> Starting Playing VI (6)
-                      </span>
-                      <div className="space-y-1.5">
-                        {lineupA.playingList.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">
-                                {idx + 1}
-                              </span>
-                              <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                              <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
-                              {(p.isCaptain || p.designation === "Captain") && (
-                                <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
-                                  (C)
-                                </Badge>
-                              )}
-                              {(p.isViceCaptain || p.designation === "Vice Captain") && (
-                                <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
-                                  (VC)
-                                </Badge>
-                              )}
-                            </div>
-                            <Badge variant="secondary" className="text-[10px]">
-                              {p.role}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {lineupA.reservePlayer && (
-                      <div className="pt-2 border-t space-y-1.5">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                          <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Match Reserve Player (1)
-                        </span>
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
-                          <div className="flex items-center gap-2">
-                            <PlayerAvatar name={lineupA.reservePlayer.name} photoUrl={lineupA.reservePlayer.photoUrl} size="xs" />
-                            <PlayerLink playerId={lineupA.reservePlayer.id} name={lineupA.reservePlayer.name} className="font-semibold" />
-                            <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
-                              Reserve
-                            </Badge>
-                          </div>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {lineupA.reservePlayer.role}
-                          </Badge>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5 text-sky-500" /> Full Team Squad ({lineupA.fullSquad.length})
-                    </span>
-                    {lineupA.fullSquad.length === 0 ? (
-                      <p className="text-xs text-muted-foreground py-2 italic">Squad not announced yet.</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {lineupA.fullSquad.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">
-                                {idx + 1}
-                              </span>
-                              <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                              <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
-                              {(p.isCaptain || p.designation === "Captain") && (
-                                <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
-                                  (C)
-                                </Badge>
-                              )}
-                              {(p.isViceCaptain || p.designation === "Vice Captain") && (
-                                <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
-                                  (VC)
-                                </Badge>
-                              )}
-                            </div>
-                            <Badge variant="secondary" className="text-[10px]">
-                              {p.role}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-[11px] text-muted-foreground pt-1 italic">
-                      * Starting Playing VI (6) and Reserve (1) are decided at match toss.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Team B */}
-            <Card className="border shadow-sm">
-              <CardHeader className="p-4 pb-3 border-b bg-muted/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TeamBadge
-                      shortName={teamB?.shortName ?? "TBD"}
-                      logoUrl={teamB?.logoUrl}
-                      size="sm"
-                    />
-                    <CardTitle className="text-sm font-bold">
-                      {teamB?.name ?? "Team B"} {lineupB.hasConfirmed ? "Lineup" : "Squad"}
-                    </CardTitle>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] font-bold">
-                    {lineupB.hasConfirmed ? "6 Playing + 1 Reserve" : `${lineupB.fullSquad.length} Squad Players`}
-                  </Badge>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-emerald-500" /> Date</span>
+                  <span className="font-semibold text-foreground">{match.date || formatMatchDay(match.day, match.date)}</span>
                 </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                {lineupB.hasConfirmed ? (
-                  <>
-                    <div className="space-y-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5 text-emerald-500" /> Starting Playing VI (6)
-                      </span>
-                      <div className="space-y-1.5">
-                        {lineupB.playingList.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">
-                                {idx + 1}
-                              </span>
-                              <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                              <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
-                              {(p.isCaptain || p.designation === "Captain") && (
-                                <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
-                                  (C)
-                                </Badge>
-                              )}
-                              {(p.isViceCaptain || p.designation === "Vice Captain") && (
-                                <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
-                                  (VC)
-                                </Badge>
-                              )}
-                            </div>
-                            <Badge variant="secondary" className="text-[10px]">
-                              {p.role}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {lineupB.reservePlayer && (
-                      <div className="pt-2 border-t space-y-1.5">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                          <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" /> Match Reserve Player (1)
-                        </span>
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
-                          <div className="flex items-center gap-2">
-                            <PlayerAvatar name={lineupB.reservePlayer.name} photoUrl={lineupB.reservePlayer.photoUrl} size="xs" />
-                            <PlayerLink playerId={lineupB.reservePlayer.id} name={lineupB.reservePlayer.name} className="font-semibold" />
-                            <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-500">
-                              Reserve
-                            </Badge>
-                          </div>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {lineupB.reservePlayer.role}
-                          </Badge>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5 text-sky-500" /> Full Team Squad ({lineupB.fullSquad.length})
-                    </span>
-                    {lineupB.fullSquad.length === 0 ? (
-                      <p className="text-xs text-muted-foreground py-2 italic">Squad not announced yet.</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {lineupB.fullSquad.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-muted-foreground w-3 text-center text-[10px]">
-                                {idx + 1}
-                              </span>
-                              <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
-                              <PlayerLink playerId={p.id} name={p.name} className="font-semibold" />
-                              {(p.isCaptain || p.designation === "Captain") && (
-                                <Badge className="bg-amber-600 text-white text-[9px] py-0 px-1 font-bold">
-                                  (C)
-                                </Badge>
-                              )}
-                              {(p.isViceCaptain || p.designation === "Vice Captain") && (
-                                <Badge className="bg-sky-600 text-white text-[9px] py-0 px-1 font-bold">
-                                  (VC)
-                                </Badge>
-                              )}
-                            </div>
-                            <Badge variant="secondary" className="text-[10px]">
-                              {p.role}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-[11px] text-muted-foreground pt-1 italic">
-                      * Starting Playing VI (6) and Reserve (1) are decided at match toss.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Tab 3: Match Information & Event Details */}
-        <TabsContent value="info" className="mt-4">
-          <Card className="border shadow-sm">
-            <CardHeader className="p-4 sm:p-5 border-b">
-              <CardTitle className="text-base font-bold">Match Information</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 space-y-4 text-xs sm:text-sm">
-              <div className="grid grid-cols-2 gap-4 border-b pb-3">
-                <span className="text-muted-foreground">Tournament:</span>
-                <span className="font-semibold text-foreground">
-                  WASA Premier League (WPL) — Officers Event
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 border-b pb-3">
-                <span className="text-muted-foreground">Match Format & Rules:</span>
-                <span className="font-semibold text-foreground">
-                  {match.stage === "FINAL"
-                    ? "6-a-side Indoor Cricket (5 Overs Per Side · 1 Bowler max 2 Overs, others max 1 Over)"
-                    : "6-a-side Indoor Cricket (4 Overs Per Side · Maximum 1 Over per Bowler)"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 border-b pb-3">
-                <span className="text-muted-foreground">Stage & Number:</span>
-                <span className="font-semibold text-foreground">
-                  {match.stage === "FINAL" ? "🏆 Final" : `League Stage — Match #${match.matchNumber}`}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 border-b pb-3">
-                <span className="text-muted-foreground">Date & Timing:</span>
-                <span className="font-semibold text-foreground">
-                  {match.date || match.time
-                    ? `${match.date ?? ""} ${match.time ? `· ${match.time}` : ""}`
-                    : "Schedule to be announced"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 border-b pb-3">
-                <span className="text-muted-foreground">Venue / Ground:</span>
-                <span className="font-semibold text-foreground">
-                  {match.venue ?? "Askari XI, Lahore"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 items-center">
-                <span className="text-muted-foreground">Toss Result:</span>
-                <span className="font-semibold text-foreground">
-                  {match.tossWinner
-                    ? `${match.tossWinner.name} won the toss and elected to ${match.tossDecision?.toLowerCase()}`
-                    : "Toss not conducted yet"}
-                </span>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-amber-500" /> Time</span>
+                  <span className="font-semibold text-foreground">{match.time || "Night Match"}</span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><Flame className="h-3.5 w-3.5 text-indigo-400" /> Format</span>
+                  <span className="font-semibold text-foreground">{match.stage === "FINAL" ? 5 : 4} Overs per side • Tape Ball</span>
+                </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+
+          {/* Quick Standings / Matchup Summary Card */}
+          <Card className="border shadow-md bg-card">
+            <CardHeader className="p-4 pb-2 border-b bg-muted/20">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5 text-emerald-500" /> Tournament Stage
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                <p className="font-extrabold text-emerald-400 text-sm">
+                  {match.stage === "FINAL" ? "GRAND FINAL FIXTURE 🏆" : `LEAGUE MATCH #${match.matchNumber}`}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  WASA Premier League 2026
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <StoryCardModal
         open={storyModalOpen}
         onOpenChange={setStoryModalOpen}
         match={match}
-        teamA={match.teamA}
-        teamB={match.teamB}
-        inn1={innings[0]}
-        inn2={innings[1]}
-        playerOfMatch={playerOfMatch}
-        allPlayers={[...teamAPlayers, ...teamBPlayers]}
+        innings={innings}
+        teams={[teamA, teamB].filter((t): t is Team => t !== null && t !== undefined)}
+        players={players}
       />
     </div>
   );
