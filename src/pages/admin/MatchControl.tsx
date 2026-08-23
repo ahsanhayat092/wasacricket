@@ -801,6 +801,12 @@ function InningsLiveConsole({
 
   const battingPlayers = getPlayingSquad(battingTeamId).slice(0, 6);
   const bowlingPlayers = getPlayingSquad(bowlingTeamId).slice(0, 6);
+  // All squad players of the fielding team (Playing VI + Reserve Fielders) eligible to catch / run out
+  const fieldingPlayers = useMemo(() => {
+    if (!bowlingTeamId) return [];
+    return players.filter((p) => p.teamId === bowlingTeamId);
+  }, [players, bowlingTeamId]);
+
   const battingTeam = teams.find((t) => t.id === battingTeamId) || (battingTeamId === match.teamAId ? match.teamA : match.teamB);
   const bowlingTeam = teams.find((t) => t.id === bowlingTeamId) || (bowlingTeamId === match.teamAId ? match.teamA : match.teamB);
 
@@ -2757,11 +2763,12 @@ function InningsLiveConsole({
                     <SelectValue placeholder="Select fielder who took the catch" />
                   </SelectTrigger>
                   <SelectContent>
-                    {bowlingPlayers.map((p) => {
+                    {fieldingPlayers.map((p) => {
                       const isBowler = p.id === currentBowlerId;
+                      const isReserve = !bowlingPlayers.some((bp) => bp.id === p.id);
                       return (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.name} {isBowler ? "🎯 (Bowler — Caught & Bowled)" : ""}
+                          {p.name} {isBowler ? "🎯 (Bowler — Caught & Bowled)" : isReserve ? "🛡️ (Reserve Fielder)" : ""}
                         </SelectItem>
                       );
                     })}
@@ -2774,18 +2781,21 @@ function InningsLiveConsole({
             {dismissalType === "Run Out" && (
               <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 animate-in fade-in-50 duration-200">
                 <Label className="text-xs font-bold text-amber-400">
-                  ⚡ Run Out By (Fielder)
+                  ⚡ Run Out By (Fielder / Thrower)
                 </Label>
                 <Select value={catcherId || undefined} onValueChange={setCatcherId}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Select fielder who effected run out (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {bowlingPlayers.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
+                    {fieldingPlayers.map((p) => {
+                      const isReserve = !bowlingPlayers.some((bp) => bp.id === p.id);
+                      return (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} {isReserve ? "🛡️ (Reserve Fielder)" : ""}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -2802,11 +2812,14 @@ function InningsLiveConsole({
                     <SelectValue placeholder="Select wicketkeeper" />
                   </SelectTrigger>
                   <SelectContent>
-                    {bowlingPlayers.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
+                    {fieldingPlayers.map((p) => {
+                      const isReserve = !bowlingPlayers.some((bp) => bp.id === p.id);
+                      return (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} {isReserve ? "🛡️ (Reserve Fielder)" : ""}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
