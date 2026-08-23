@@ -143,6 +143,11 @@ export async function getSchedule(): Promise<HydratedMatch[]> {
       getDocs(inningsCol()),
       getDocs(query(standingsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
     ]);
+    const allInnings = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+    const standings = standingsSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as Standing)
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+
     const matches = matchSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Match)
       .sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0));
