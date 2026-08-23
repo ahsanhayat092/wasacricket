@@ -1362,33 +1362,33 @@ function InningsLiveConsole({
       bowlerName?: string;
       dismissal?: string;
     } | null = null;
-    const strikerPlayer = battingPlayers.find((p) => p.id === strikerId);
-    const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
+    const strikerPlayerName = resolvePlayerName(strikerId, "Batsman");
+    const bowlerPlayerName = resolvePlayerName(currentBowlerId, "Bowler");
 
     if (runsScored === 4) {
       celebrationEvent = {
         type: "FOUR",
-        text: `${strikerPlayer?.name ?? "Batsman"} smashes a gorgeous boundary FOUR! 🏏`,
+        text: `${strikerPlayerName} smashes a gorgeous boundary FOUR! 🏏`,
         timestamp: Date.now(),
-        batterName: strikerPlayer?.name,
-        bowlerName: bowlerPlayer?.name,
+        batterName: strikerPlayerName,
+        bowlerName: bowlerPlayerName,
       };
     } else if (runsScored === 6) {
       celebrationEvent = {
         type: "SIX",
-        text: `${strikerPlayer?.name ?? "Batsman"} launches a colossal MAXIMUM SIX! 🚀`,
+        text: `${strikerPlayerName} launches a colossal MAXIMUM SIX! 🚀`,
         timestamp: Date.now(),
-        batterName: strikerPlayer?.name,
-        bowlerName: bowlerPlayer?.name,
+        batterName: strikerPlayerName,
+        bowlerName: bowlerPlayerName,
       };
     } else if (isMaiden) {
       celebrationEvent = {
         type: "MAIDEN",
-        text: `MAIDEN OVER! Outstanding 0-run spell by ${bowlerPlayer?.name ?? "Bowler"}! 🎯`,
+        text: `MAIDEN OVER! Outstanding 0-run spell by ${bowlerPlayerName}! 🎯`,
         timestamp: Date.now(),
-        bowlerName: bowlerPlayer?.name,
+        bowlerName: bowlerPlayerName,
       };
-      toast.success(`🎯 MAIDEN OVER delivered by ${bowlerPlayer?.name ?? "Bowler"}!`);
+      toast.success(`🎯 MAIDEN OVER delivered by ${bowlerPlayerName}!`);
     }
 
     const isFinished = checkInningsAndMatchCompletion(newBat, finalBowl, extras, newTotalBalls);
@@ -1606,24 +1606,24 @@ function InningsLiveConsole({
       bowlerName?: string;
       dismissal?: string;
     } | null = null;
-    const strikerPlayer = battingPlayers.find((p) => p.id === strikerId);
-    const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
+    const strikerPlayerName = resolvePlayerName(strikerId, "Batsman");
+    const bowlerPlayerName = resolvePlayerName(currentBowlerId, "Bowler");
 
     if (batsmanRuns === 4) {
       celebrationEvent = {
         type: "FOUR",
-        text: `${strikerPlayer?.name ?? "Batsman"} smashes a NO BALL BOUNDARY FOUR! 🏏`,
+        text: `${strikerPlayerName} smashes a NO BALL BOUNDARY FOUR! 🏏`,
         timestamp: Date.now(),
-        batterName: strikerPlayer?.name,
-        bowlerName: bowlerPlayer?.name,
+        batterName: strikerPlayerName,
+        bowlerName: bowlerPlayerName,
       };
     } else if (batsmanRuns === 6) {
       celebrationEvent = {
         type: "SIX",
-        text: `${strikerPlayer?.name ?? "Batsman"} launches a NO BALL MAXIMUM SIX! 🚀`,
+        text: `${strikerPlayerName} launches a NO BALL MAXIMUM SIX! 🚀`,
         timestamp: Date.now(),
-        batterName: strikerPlayer?.name,
-        bowlerName: bowlerPlayer?.name,
+        batterName: strikerPlayerName,
+        bowlerName: bowlerPlayerName,
       };
     }
 
@@ -1672,37 +1672,37 @@ function InningsLiveConsole({
   const confirmWicket = () => {
     pushHistory();
 
-    const outPlayer = battingPlayers.find((p) => p.id === outPlayerId);
-    const bowlerPlayer = bowlingPlayers.find((p) => p.id === currentBowlerId);
-    const catcherPlayer = bowlingPlayers.find((p) => p.id === catcherId);
+    const outPlayerName = resolvePlayerName(outPlayerId, "Batsman");
+    const bowlerPlayerName = resolvePlayerName(currentBowlerId, "Bowler");
+    const catcherPlayerName = resolvePlayerName(catcherId, "");
 
     let formattedDismissal = dismissalType;
     if (dismissalType === "Caught") {
       if (catcherId && catcherId === currentBowlerId) {
-        formattedDismissal = `c & b ${bowlerPlayer?.name ?? "Bowler"}`;
-      } else if (catcherPlayer?.name) {
-        formattedDismissal = `c ${catcherPlayer.name} b ${bowlerPlayer?.name ?? "Bowler"}`;
+        formattedDismissal = `c & b ${bowlerPlayerName}`;
+      } else if (catcherPlayerName) {
+        formattedDismissal = `c ${catcherPlayerName} b ${bowlerPlayerName}`;
       } else {
-        formattedDismissal = `c b ${bowlerPlayer?.name ?? "Bowler"}`;
+        formattedDismissal = `c b ${bowlerPlayerName}`;
       }
     } else if (dismissalType === "Bowled") {
-      formattedDismissal = `b ${bowlerPlayer?.name ?? "Bowler"}`;
+      formattedDismissal = `b ${bowlerPlayerName}`;
     } else if (dismissalType === "LBW") {
-      formattedDismissal = `lbw b ${bowlerPlayer?.name ?? "Bowler"}`;
+      formattedDismissal = `lbw b ${bowlerPlayerName}`;
     } else if (dismissalType === "Stumped") {
-      if (catcherPlayer?.name) {
-        formattedDismissal = `st ${catcherPlayer.name} b ${bowlerPlayer?.name ?? "Bowler"}`;
+      if (catcherPlayerName) {
+        formattedDismissal = `st ${catcherPlayerName} b ${bowlerPlayerName}`;
       } else {
-        formattedDismissal = `st b ${bowlerPlayer?.name ?? "Bowler"}`;
+        formattedDismissal = `st b ${bowlerPlayerName}`;
       }
     } else if (dismissalType === "Run Out") {
-      if (catcherPlayer?.name) {
-        formattedDismissal = `run out (${catcherPlayer.name})`;
+      if (catcherPlayerName) {
+        formattedDismissal = `run out (${catcherPlayerName})`;
       } else {
         formattedDismissal = `run out`;
       }
     } else if (dismissalType === "Hit Wicket") {
-      formattedDismissal = `hit wicket b ${bowlerPlayer?.name ?? "Bowler"}`;
+      formattedDismissal = `hit wicket b ${bowlerPlayerName}`;
     }
 
     const newBat = batRows.map((b) => {
@@ -1761,10 +1761,10 @@ function InningsLiveConsole({
 
     const celebrationEvent = {
       type: "WICKET" as const,
-      text: `${outPlayer?.name ?? "Batsman"} is OUT (${formattedDismissal})! 🔴`,
+      text: `${outPlayerName} is OUT (${formattedDismissal})! 🔴`,
       timestamp: Date.now(),
-      batterName: outPlayer?.name,
-      bowlerName: bowlerPlayer?.name,
+      batterName: outPlayerName,
+      bowlerName: bowlerPlayerName,
       dismissal: formattedDismissal,
     };
 
