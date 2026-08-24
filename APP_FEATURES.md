@@ -117,6 +117,9 @@ A dedicated **Live Android Application** is linked in real-time with the web pla
   - **Group B**: Gulberg Gladiators (GG), Iqbal Inswingers (II), Lahore Lions (LL)
 - **Team Profile Pages**:
   - Team logo, group details, points standing, tournament matches, and 7-member player rosters with playing roles, batting/bowling styles, Captain `(C)`, and Vice Captain `(VC)` indicators.
+- **Dynamic Pre-Match & Live Squad Additions**:
+  - Players can be added to any squad directly before the match (at Toss & Lineup confirmation) or during the match via the quick-add player modal in Match Control.
+  - Direct 1-click **Add Player** shortcuts on Team and Player management consoles.
 
 ---
 
@@ -127,6 +130,7 @@ A dedicated **Live Android Application** is linked in real-time with the web pla
 - **Match Management & Reset**:
   - Create, reschedule, edit venue, and set match status (Upcoming, Live, Completed, Abandoned).
   - Full match reset function to roll back test matches to fresh state.
+  - Pre-match Playing VI (6 starters) and 1 Reserve player configuration with instant squad expansion.
 - **User Account Management**:
   - Create scorer and admin accounts, assign roles, and manage credentials.
 

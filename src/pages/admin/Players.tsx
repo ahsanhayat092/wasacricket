@@ -2,7 +2,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
 import { getTeams, getPlayers } from "@/lib/queries";
 import { upsertPlayer, deletePlayer } from "@/lib/mutations";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,11 +64,25 @@ const emptyForm: PlayerForm = {
 };
 
 export default function AdminPlayers() {
+  const [searchParams] = useSearchParams();
+  const teamParam = searchParams.get("team");
+  const addParam = searchParams.get("add");
+
   const { data: teams } = useQuery({ queryKey: ["teams"], queryFn: getTeams });
   const { data: allPlayers } = useQuery({ queryKey: ["players"], queryFn: getPlayers });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<PlayerForm>(emptyForm);
-  const [filterTeam, setFilterTeam] = useState<string>("all");
+  const [filterTeam, setFilterTeam] = useState<string>(teamParam || "all");
+
+  useEffect(() => {
+    if (teamParam) {
+      setFilterTeam(teamParam);
+      if (addParam === "true") {
+        setForm({ ...emptyForm, teamId: teamParam });
+        setOpen(true);
+      }
+    }
+  }, [teamParam, addParam]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["players"] });

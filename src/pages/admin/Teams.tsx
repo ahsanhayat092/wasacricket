@@ -135,14 +135,25 @@ export default function AdminTeams() {
                   </TableCell>
                   <TableCell>
                     <Link
-                      to="/admin/players"
+                      to={`/admin/players?team=${t.id}`}
                       className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
                     >
                       <Users className="h-3.5 w-3.5" />
                       {teamPlayers.length} players
                     </Link>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right space-x-1.5">
+                    <Link to={`/admin/players?team=${t.id}&add=true`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs font-bold border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 gap-1"
+                        title="Add player to this team squad"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add Player</span>
+                      </Button>
+                    </Link>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -157,6 +168,7 @@ export default function AdminTeams() {
                         setOpen(true);
                       }}
                       className="h-8 w-8"
+                      title="Edit team details"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>

@@ -9,6 +9,7 @@ import {
   saveInnings as fbSaveInnings,
   updateMatchLineups as fbUpdateMatchLineups,
   updateMatchDetails as fbUpdateMatchDetails,
+  upsertPlayer as fbUpsertPlayer,
 } from "@/lib/mutations";
 import { useParams, Link } from "react-router";
 import { useState, useEffect, useMemo } from "react";
@@ -25,6 +26,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -69,6 +71,8 @@ import {
   Flame,
   Award,
   Users,
+  Plus,
+  UserPlus,
 } from "lucide-react";
 import type {
   Match,
@@ -391,6 +395,162 @@ export default function AdminMatchControl() {
 }
 
 // ---------------------------------------------------------------------------
+// Quick Add Player Dialog (Before / During Match Setup)
+// ---------------------------------------------------------------------------
+
+function QuickAddPlayerDialog({
+  isOpen,
+  onClose,
+  team,
+  onPlayerAdded,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  team: Team | null;
+  onPlayerAdded?: (newPlayerId: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState<"Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper">("Batsman");
+  const [designation, setDesignation] = useState<"Captain" | "Vice Captain" | "Team Member">("Team Member");
+  const [jerseyNumber, setJerseyNumber] = useState("");
+
+  const addPlayerMutation = useMutation({
+    mutationFn: () => {
+      if (!team) throw new Error("No team selected.");
+      return fbUpsertPlayer({
+        teamId: team.id,
+        name: name.trim(),
+        role,
+        designation,
+        isCaptain: designation === "Captain",
+        isViceCaptain: designation === "Vice Captain",
+        jerseyNumber: jerseyNumber ? parseInt(jerseyNumber, 10) : undefined,
+      });
+    },
+    onSuccess: (res) => {
+      toast.success(`${name.trim()} added to ${team?.name} squad!`);
+      queryClient.invalidateQueries({ queryKey: ["matchWorkspace"] });
+      queryClient.invalidateQueries({ queryKey: ["players"] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      setName("");
+      setJerseyNumber("");
+      setRole("Batsman");
+      setDesignation("Team Member");
+      onPlayerAdded?.(res.id);
+      onClose();
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to add player to squad.");
+    },
+  });
+
+  if (!team) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Please enter a player name.");
+      return;
+    }
+    addPlayerMutation.mutate();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <TeamBadge shortName={team.shortName} logoUrl={team.logoUrl} size="sm" />
+            <DialogTitle className="text-base font-bold">
+              Add Player to {team.name}
+            </DialogTitle>
+          </div>
+          <DialogDescription className="text-xs">
+            Add a new player to this team's squad before or during the match.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold">Player Name *</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Usama Tariq"
+              className="h-9 text-xs"
+              autoFocus
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Playing Role</Label>
+              <Select value={role} onValueChange={(val: any) => setRole(val)}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Batsman">Batsman</SelectItem>
+                  <SelectItem value="Bowler">Bowler</SelectItem>
+                  <SelectItem value="All-rounder">All-rounder</SelectItem>
+                  <SelectItem value="Wicketkeeper">Wicketkeeper</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Designation</Label>
+              <Select value={designation} onValueChange={(val: any) => setDesignation(val)}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Team Member">Team Member</SelectItem>
+                  <SelectItem value="Captain">Captain (C)</SelectItem>
+                  <SelectItem value="Vice Captain">Vice Captain (VC)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold">Jersey Number (Optional)</Label>
+            <Input
+              type="number"
+              value={jerseyNumber}
+              onChange={(e) => setJerseyNumber(e.target.value)}
+              placeholder="e.g. 10"
+              className="h-9 text-xs"
+            />
+          </div>
+
+          <DialogFooter className="pt-3 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              disabled={addPlayerMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={addPlayerMutation.isPending}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+            >
+              {addPlayerMutation.isPending ? "Adding Player..." : "Add to Squad"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Start Match / Toss & Playing VI Card
 // ---------------------------------------------------------------------------
 
@@ -418,6 +578,7 @@ function StartMatchCard({
 }) {
   const [tossWinner, setTossWinner] = useState<string>("");
   const [decision, setDecision] = useState<"BAT" | "BOWL">("BAT");
+  const [addPlayerTeam, setAddPlayerTeam] = useState<Team | null>(null);
 
   const teamAPlayers = players.filter((p) => p.teamId === teamA.id);
   const teamBPlayers = players.filter((p) => p.teamId === teamB.id);
@@ -494,6 +655,20 @@ function StartMatchCard({
 
   return (
     <Card className="border-emerald-500/40 bg-card shadow-lg">
+      {/* Quick Add Player Modal */}
+      <QuickAddPlayerDialog
+        isOpen={!!addPlayerTeam}
+        onClose={() => setAddPlayerTeam(null)}
+        team={addPlayerTeam}
+        onPlayerAdded={(newId) => {
+          if (addPlayerTeam?.id === teamA.id && teamAPlayingVI.length < 6) {
+            setTeamAPlayingVI((prev) => [...prev, newId]);
+          } else if (addPlayerTeam?.id === teamB.id && teamBPlayingVI.length < 6) {
+            setTeamBPlayingVI((prev) => [...prev, newId]);
+          }
+        }}
+      />
+
       <CardHeader className="p-4 sm:p-5 border-b bg-emerald-500/5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base sm:text-lg font-black flex items-center gap-2 text-emerald-500">
@@ -519,24 +694,30 @@ function StartMatchCard({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={teamA.id}>
-                  {teamA.name} ({teamA.shortName})
+                  <div className="flex items-center gap-2">
+                    <TeamBadge shortName={teamA.shortName} logoUrl={teamA.logoUrl} size="sm" />
+                    <span>{teamA.name}</span>
+                  </div>
                 </SelectItem>
                 <SelectItem value={teamB.id}>
-                  {teamB.name} ({teamB.shortName})
+                  <div className="flex items-center gap-2">
+                    <TeamBadge shortName={teamB.shortName} logoUrl={teamB.logoUrl} size="sm" />
+                    <span>{teamB.name}</span>
+                  </div>
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-foreground">🎯 Toss Decision</Label>
+            <Label className="text-xs font-bold text-foreground">🎯 Elected To</Label>
             <Select value={decision} onValueChange={(v) => setDecision(v as "BAT" | "BOWL")}>
               <SelectTrigger className="h-10 text-xs font-semibold">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="BAT">🏏 Elected to Bat First</SelectItem>
-                <SelectItem value="BOWL">🎯 Elected to Bowl First</SelectItem>
+                <SelectItem value="BAT">🏏 Bat First</SelectItem>
+                <SelectItem value="BOWL">🎯 Bowl First</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -558,12 +739,24 @@ function StartMatchCard({
                   <TeamBadge shortName={teamA.shortName} logoUrl={teamA.logoUrl} size="sm" />
                   <span className="font-bold text-xs sm:text-sm">{teamA.name}</span>
                 </div>
-                <Badge
-                  variant={teamAPlayingVI.length === 6 ? "default" : "outline"}
-                  className={teamAPlayingVI.length === 6 ? "bg-emerald-600 text-white text-[10px]" : "border-amber-500 text-amber-500 text-[10px]"}
-                >
-                  {teamAPlayingVI.length}/6 Starters
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAddPlayerTeam(teamA)}
+                    className="h-6 text-[10px] px-2 py-0 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 font-bold gap-1"
+                    title="Add new player to squad"
+                  >
+                    <UserPlus className="h-3 w-3" /> Add Player
+                  </Button>
+                  <Badge
+                    variant={teamAPlayingVI.length === 6 ? "default" : "outline"}
+                    className={teamAPlayingVI.length === 6 ? "bg-emerald-600 text-white text-[10px]" : "border-amber-500 text-amber-500 text-[10px]"}
+                  >
+                    {teamAPlayingVI.length}/6 Starters
+                  </Badge>
+                </div>
               </div>
 
               <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
@@ -623,12 +816,24 @@ function StartMatchCard({
                   <TeamBadge shortName={teamB.shortName} logoUrl={teamB.logoUrl} size="sm" />
                   <span className="font-bold text-xs sm:text-sm">{teamB.name}</span>
                 </div>
-                <Badge
-                  variant={teamBPlayingVI.length === 6 ? "default" : "outline"}
-                  className={teamBPlayingVI.length === 6 ? "bg-emerald-600 text-white text-[10px]" : "border-amber-500 text-amber-500 text-[10px]"}
-                >
-                  {teamBPlayingVI.length}/6 Starters
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAddPlayerTeam(teamB)}
+                    className="h-6 text-[10px] px-2 py-0 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 font-bold gap-1"
+                    title="Add new player to squad"
+                  >
+                    <UserPlus className="h-3 w-3" /> Add Player
+                  </Button>
+                  <Badge
+                    variant={teamBPlayingVI.length === 6 ? "default" : "outline"}
+                    className={teamBPlayingVI.length === 6 ? "bg-emerald-600 text-white text-[10px]" : "border-amber-500 text-amber-500 text-[10px]"}
+                  >
+                    {teamBPlayingVI.length}/6 Starters
+                  </Badge>
+                </div>
               </div>
 
               <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
@@ -3145,6 +3350,8 @@ function PlayingVIEditor({
   const teamAPlayers = players.filter((p) => p.teamId === match.teamAId);
   const teamBPlayers = players.filter((p) => p.teamId === match.teamBId);
 
+  const [addPlayerTeam, setAddPlayerTeam] = useState<Team | null>(null);
+
   // Lineup state for Team A
   const [teamAPlayingVI, setTeamAPlayingVI] = useState<string[]>(() => {
     if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) return match.teamAPlayingVI;
@@ -3209,6 +3416,20 @@ function PlayingVIEditor({
 
   return (
     <div className="space-y-6">
+      {/* Quick Add Player Modal */}
+      <QuickAddPlayerDialog
+        isOpen={!!addPlayerTeam}
+        onClose={() => setAddPlayerTeam(null)}
+        team={addPlayerTeam}
+        onPlayerAdded={(newId) => {
+          if (addPlayerTeam?.id === teamA?.id && teamAPlayingVI.length < 6) {
+            setTeamAPlayingVI((prev) => [...prev, newId]);
+          } else if (addPlayerTeam?.id === teamB?.id && teamBPlayingVI.length < 6) {
+            setTeamBPlayingVI((prev) => [...prev, newId]);
+          }
+        }}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border bg-muted/20">
         <div>
           <h3 className="text-base font-bold flex items-center gap-2">
@@ -3236,12 +3457,26 @@ function PlayingVIEditor({
                 <TeamBadge shortName={teamA?.shortName ?? "TBD"} logoUrl={teamA?.logoUrl} size="sm" />
                 <CardTitle className="text-sm font-bold">{teamA?.name ?? "Team A"}</CardTitle>
               </div>
-              <Badge
-                variant={teamAPlayingVI.length === 6 ? "default" : "outline"}
-                className={teamAPlayingVI.length === 6 ? "bg-emerald-600 text-white" : "border-amber-500 text-amber-500"}
-              >
-                {teamAPlayingVI.length}/6 Selected
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                {teamA && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAddPlayerTeam(teamA)}
+                    className="h-6 text-[10px] px-2 py-0 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 font-bold gap-1"
+                    title="Add new player to squad"
+                  >
+                    <UserPlus className="h-3 w-3" /> Add Player
+                  </Button>
+                )}
+                <Badge
+                  variant={teamAPlayingVI.length === 6 ? "default" : "outline"}
+                  className={teamAPlayingVI.length === 6 ? "bg-emerald-600 text-white" : "border-amber-500 text-amber-500"}
+                >
+                  {teamAPlayingVI.length}/6 Selected
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-4 space-y-4">
@@ -3312,12 +3547,26 @@ function PlayingVIEditor({
                 <TeamBadge shortName={teamB?.shortName ?? "TBD"} logoUrl={teamB?.logoUrl} size="sm" />
                 <CardTitle className="text-sm font-bold">{teamB?.name ?? "Team B"}</CardTitle>
               </div>
-              <Badge
-                variant={teamBPlayingVI.length === 6 ? "default" : "outline"}
-                className={teamBPlayingVI.length === 6 ? "bg-emerald-600 text-white" : "border-amber-500 text-amber-500"}
-              >
-                {teamBPlayingVI.length}/6 Selected
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                {teamB && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAddPlayerTeam(teamB)}
+                    className="h-6 text-[10px] px-2 py-0 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 font-bold gap-1"
+                    title="Add new player to squad"
+                  >
+                    <UserPlus className="h-3 w-3" /> Add Player
+                  </Button>
+                )}
+                <Badge
+                  variant={teamBPlayingVI.length === 6 ? "default" : "outline"}
+                  className={teamBPlayingVI.length === 6 ? "bg-emerald-600 text-white" : "border-amber-500 text-amber-500"}
+                >
+                  {teamBPlayingVI.length}/6 Selected
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-4 space-y-4">
