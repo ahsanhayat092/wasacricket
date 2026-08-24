@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getStatistics } from "@/lib/queries";
+import { ballsToOversText } from "@/lib/cricket";
 import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
