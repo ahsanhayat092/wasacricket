@@ -1,15 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { getTeams, getPlayers } from "@/lib/queries";
+import { getTeams, getPlayers, getTournament } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLink } from "@/components/PlayerLink";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Users, ArrowRight } from "lucide-react";
+import { Users, ArrowRight, Crown } from "lucide-react";
 import { Link } from "react-router";
 
 export default function Teams() {
+  const { data: tournament } = useQuery({
+    queryKey: ["tournament"],
+    queryFn: getTournament,
+  });
   const { data: teams, isLoading: loadingTeams } = useQuery({
     queryKey: ["teams"],
     queryFn: getTeams,
@@ -59,18 +63,31 @@ export default function Teams() {
               .filter((t) => t.groupName === group)
               .map((t) => {
                 const teamPlayers = (players ?? []).filter((p) => p.teamId === t.id);
+                const isChampion = tournament?.championTeamId === t.id;
 
                 return (
-                  <Card key={t.id} className="h-full flex flex-col justify-between border shadow-sm hover:shadow-md hover:border-primary/50 transition-all overflow-hidden bg-card">
+                  <Card
+                    key={t.id}
+                    className={`h-full flex flex-col justify-between border shadow-sm hover:shadow-md hover:border-primary/50 transition-all overflow-hidden bg-card ${
+                      isChampion ? "border-2 border-amber-400/80 ring-2 ring-amber-400/20 shadow-amber-950/20" : ""
+                    }`}
+                  >
                     <div>
                       {/* Card Header */}
-                      <div className="p-4 sm:p-5 border-b bg-muted/20 flex items-center justify-between gap-3">
+                      <div className={`p-4 sm:p-5 border-b flex items-center justify-between gap-3 ${isChampion ? "bg-amber-500/15" : "bg-muted/20"}`}>
                         <div className="flex items-center gap-3 min-w-0">
                           <TeamBadge shortName={t.shortName} logoUrl={t.logoUrl} size="md" />
                           <div className="min-w-0">
-                            <h3 className="font-extrabold text-base truncate">
-                              {t.name}
-                            </h3>
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="font-extrabold text-base truncate">
+                                {t.name}
+                              </h3>
+                              {isChampion && (
+                                <Badge className="bg-amber-500 text-slate-950 font-black text-[10px] px-1.5 py-0 shrink-0 gap-0.5">
+                                  <Crown className="h-3 w-3" /> Champions
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-[11px] text-muted-foreground font-mono">
                               Code: {t.shortName}
                             </p>

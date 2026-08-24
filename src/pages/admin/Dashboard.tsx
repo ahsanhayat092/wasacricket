@@ -5,7 +5,10 @@ import { seedTournament } from "@/lib/mutations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { TeamBadge } from "@/components/TeamBadge";
+import { triggerChampionConfetti } from "@/lib/confetti";
+import { Link } from "react-router";
 import {
   CalendarDays,
   CheckCircle2,
@@ -14,6 +17,9 @@ import {
   Target,
   Trophy,
   Users,
+  Crown,
+  PartyPopper,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -48,6 +54,8 @@ export default function AdminDashboard() {
     );
   }
 
+  const { champion, finalMatch } = data;
+
   const cards = [
     { label: "Total Teams", value: data.totalTeams, icon: Trophy },
     { label: "Total Players", value: data.totalPlayers, icon: Users },
@@ -61,6 +69,62 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 space-y-8">
+      {/* Tournament Champions Spotlight (When Final is completed) */}
+      {champion && (
+        <Card className="border-2 border-amber-500/50 bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/60 shadow-xl overflow-hidden">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4 text-center sm:text-left">
+              <div className="relative">
+                <TeamBadge
+                  shortName={champion.shortName}
+                  logoUrl={champion.logoUrl}
+                  size="lg"
+                  className="h-16 w-16 text-xl ring-4 ring-amber-400 bg-slate-950"
+                />
+                <span className="absolute -bottom-1 -right-1 text-base">👑</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-amber-500 text-slate-950 font-black text-xs px-2 py-0.5">
+                    🏆 TOURNAMENT CHAMPIONS
+                  </Badge>
+                  {champion.captain && (
+                    <span className="text-xs text-amber-200/80 font-semibold">
+                      Captain: {champion.captain}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black uppercase text-amber-300">
+                  {champion.name}
+                </h2>
+                {finalMatch?.resultText && (
+                  <p className="text-xs sm:text-sm font-semibold text-slate-200">
+                    {finalMatch.resultText}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <Button
+                onClick={triggerChampionConfetti}
+                className="font-black text-xs bg-amber-500 text-slate-950 hover:bg-amber-400 gap-1.5 shadow"
+              >
+                <PartyPopper className="h-4 w-4" />
+                <span>Celebrate 🎉</span>
+              </Button>
+              {finalMatch && (
+                <Link to={`/admin/matches/${finalMatch.id}`}>
+                  <Button variant="outline" className="text-xs font-bold border-amber-500/40 text-amber-300">
+                    Grand Final Control
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         {data.totalTeams === 0 && (

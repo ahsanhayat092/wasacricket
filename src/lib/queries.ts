@@ -304,8 +304,22 @@ export async function getOverview() {
     .map((s) => s.team)
     .filter((t): t is Team => t !== null);
 
-  const champion = tournament.championTeamId
-    ? (teams.find((t) => t.id === tournament.championTeamId) ?? null)
+  const finalMatch = schedule.find(
+    (m) => m.stage === "FINAL" && (m.status === "COMPLETED" || !!m.winningTeamId) && !!m.winningTeamId,
+  ) ?? null;
+
+  const champId = tournament.championTeamId || finalMatch?.winningTeamId || null;
+  const champion = champId
+    ? (teams.find((t) => t.id === champId) ??
+      (finalMatch?.teamA?.id === champId
+        ? finalMatch.teamA
+        : finalMatch?.teamB?.id === champId
+          ? finalMatch.teamB
+          : null))
+    : null;
+
+  const runnerUp = finalMatch && champId
+    ? (finalMatch.teamAId === champId ? finalMatch.teamB : finalMatch.teamA)
     : null;
 
   const live = schedule.find((m) => m.status === "LIVE") ?? null;
@@ -322,6 +336,8 @@ export async function getOverview() {
   return {
     tournament,
     champion,
+    runnerUp,
+    finalMatch,
     live,
     nextMatch: upcoming[0] ?? null,
     latestResult: finished[finished.length - 1] ?? null,
@@ -776,7 +792,8 @@ export async function getAllPlayersWithStats(): Promise<PlayerSearchItem[]> {
 // ---------------------------------------------------------------------------
 
 export async function getAdminDashboard() {
-  const [teams, players, schedule, standings] = await Promise.all([
+  const [tournament, teams, players, schedule, standings] = await Promise.all([
+    getTournament(),
     getTeams(),
     getPlayers(),
     getSchedule(),
@@ -785,9 +802,24 @@ export async function getAdminDashboard() {
   const summary = getTournamentSummarySync(schedule);
   const top = standings.slice(0, 2);
 
+  const finalMatch = schedule.find(
+    (m) => m.stage === "FINAL" && (m.status === "COMPLETED" || !!m.winningTeamId) && !!m.winningTeamId,
+  );
+  const champId = tournament?.championTeamId || finalMatch?.winningTeamId || null;
+  const champion = champId
+    ? (teams.find((t) => t.id === champId) ??
+      (finalMatch?.teamA?.id === champId
+        ? finalMatch.teamA
+        : finalMatch?.teamB?.id === champId
+          ? finalMatch.teamB
+          : null))
+    : null;
+
   return {
     totalTeams: teams.length,
     totalPlayers: players.length,
+    champion,
+    finalMatch,
     ...summary,
     rank1: top[0]
       ? { ...top[0], team: top[0].team }

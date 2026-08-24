@@ -21,6 +21,7 @@ import {
 } from "@/lib/cricket";
 import { StoryCardModal } from "@/components/StoryCardModal";
 import { Button } from "@/components/ui/button";
+import { triggerChampionConfetti } from "@/lib/confetti";
 import {
   Award,
   CalendarDays,
@@ -36,9 +37,10 @@ import {
   Clock,
   Flame,
   Activity,
+  PartyPopper,
 } from "lucide-react";
 import type { Player } from "@/lib/firestore";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
@@ -125,9 +127,15 @@ export default function MatchDetail() {
         event={manualEvent ?? match.recentEvent}
         onDismiss={() => setManualEvent(null)}
       />
+      <StoryCardModal
+        isOpen={storyModalOpen}
+        onClose={() => setStoryModalOpen(false)}
+        match={match}
+        players={players ?? []}
+        innings={innings}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column (8 Cols): Hero Card + Scorecard & Match Tabs */}
         <div className="lg:col-span-8 space-y-6">
           <Card className="border shadow-xl bg-card overflow-hidden">
             <CardContent className="p-5 sm:p-7">
@@ -156,9 +164,7 @@ export default function MatchDetail() {
                 </div>
               </div>
 
-              {/* Team Showdown */}
               <div className="flex items-center justify-between gap-4 py-2">
-                {/* Team A */}
                 <div className="flex flex-col items-center gap-2 flex-1 text-center">
                   <TeamBadge
                     shortName={match.teamA?.shortName ?? "TBD"}
@@ -185,7 +191,6 @@ export default function MatchDetail() {
 
                 <div className="text-muted-foreground/60 font-black text-base sm:text-lg px-2">VS</div>
 
-                {/* Team B */}
                 <div className="flex flex-col items-center gap-2 flex-1 text-center">
                   <TeamBadge
                     shortName={match.teamB?.shortName ?? "TBD"}
@@ -211,17 +216,48 @@ export default function MatchDetail() {
                 </div>
               </div>
 
-              {/* Grand Match Result Banner for Completed Matches */}
               {match.resultText && (
-                <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-2 border-emerald-500/40 text-center shadow-lg shadow-emerald-950/30 space-y-3">
-                  <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs tracking-wider uppercase">
-                    <Trophy className="h-3.5 w-3.5" /> Official Match Result
-                  </div>
-                  <h3 className="text-lg sm:text-2xl font-black text-emerald-400 uppercase tracking-tight">
-                    {match.resultText}
-                  </h3>
+                <div
+                  className={`mt-6 p-5 sm:p-7 rounded-3xl border-2 text-center shadow-2xl space-y-4 ${
+                    isFinal
+                      ? "bg-gradient-to-br from-amber-950/70 via-slate-950 to-amber-950/80 border-amber-500/60 shadow-amber-950/50"
+                      : "bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 border-emerald-500/40 shadow-emerald-950/30"
+                  }`}
+                >
+                  {isFinal ? (
+                    <div className="space-y-3">
+                      <div className="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/25 border-2 border-amber-400/50 text-amber-300 font-black text-xs sm:text-sm tracking-widest uppercase shadow-md animate-bounce">
+                        <Crown className="h-4 w-4 text-amber-400" />
+                        <span>TOURNAMENT CHAMPIONS</span>
+                        <Trophy className="h-4 w-4 text-amber-400" />
+                      </div>
+                      <h3 className="text-2xl sm:text-4xl font-black uppercase tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-200 via-amber-300 to-amber-500 drop-shadow">
+                        🏆 {match.resultText}
+                      </h3>
+                      <div className="pt-1 flex items-center justify-center gap-2">
+                        <Button
+                          onClick={triggerChampionConfetti}
+                          size="sm"
+                          className="font-black text-xs bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 hover:from-amber-400 hover:to-yellow-300 shadow-md gap-1.5"
+                        >
+                          <PartyPopper className="h-3.5 w-3.5" />
+                          <span>Celebrate Victory! 🎉</span>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs tracking-wider uppercase">
+                        <Trophy className="h-3.5 w-3.5" /> Official Match Result
+                      </div>
+                      <h3 className="text-lg sm:text-2xl font-black text-emerald-400 uppercase tracking-tight">
+                        {match.resultText}
+                      </h3>
+                    </div>
+                  )}
+
                   {playerOfMatch && (
-                    <div className="pt-3 border-t border-emerald-500/20 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <div className={`pt-4 border-t flex flex-col sm:flex-row items-center justify-center gap-3 ${isFinal ? "border-amber-500/30" : "border-emerald-500/20"}`}>
                       <PlayerAvatar
                         name={playerOfMatch.name}
                         photoUrl={playerOfMatch.photoUrl}
@@ -230,7 +266,7 @@ export default function MatchDetail() {
                       />
                       <div className="text-center sm:text-left">
                         <Badge className="bg-amber-500 text-slate-950 font-black gap-1.5 py-1 px-3 shadow-sm text-xs">
-                          <Award className="h-3.5 w-3.5" /> Player of the Match
+                          <Award className="h-3.5 w-3.5" /> Player of the {isFinal ? "Grand Final" : "Match"}
                         </Badge>
                         <p className="text-base sm:text-lg font-black text-foreground mt-0.5">
                           <PlayerLink playerId={playerOfMatch.id} name={playerOfMatch.name} />
@@ -244,7 +280,6 @@ export default function MatchDetail() {
                 </div>
               )}
 
-              {/* Recent Deliveries */}
               {currentInnings?.recentBalls && currentInnings.recentBalls.length > 0 && (
                 <div className="mt-5 pt-4 border-t space-y-2">
                   <div className="flex items-center justify-between">
