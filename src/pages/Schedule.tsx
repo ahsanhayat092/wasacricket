@@ -74,10 +74,16 @@ export default function Schedule() {
               </span>
             )}
             {allVenues.length > 0 && (
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-rose-500" />
-                {allVenues.join(" • ")}
-              </span>
+              <a
+                href="https://maps.app.goo.gl/va7W9eD3MYWH2SyCA?g_st=ac"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors group"
+                title="Open Askari XI on Google Maps"
+              >
+                <MapPin className="h-3.5 w-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
+                <span>{allVenues.join(" • ")} ↗</span>
+              </a>
             )}
           </div>
         </div>

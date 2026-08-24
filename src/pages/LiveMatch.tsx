@@ -751,7 +751,16 @@ export default function LiveMatch() {
               <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-rose-500" /> Ground</span>
-                  <span className="font-semibold text-foreground">{match.venue || "Askari XI Ground, Lahore"}</span>
+                  <a
+                    href="https://maps.app.goo.gl/va7W9eD3MYWH2SyCA?g_st=ac"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-foreground hover:text-emerald-400 underline decoration-dotted underline-offset-2 transition-colors flex items-center gap-1"
+                    title="Open on Google Maps"
+                  >
+                    <span>{match.venue || "Askari XI Ground, Lahore"}</span>
+                    <span className="text-[10px] text-emerald-400">↗</span>
+                  </a>
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-amber-500" /> Timing</span>

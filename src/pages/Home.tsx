@@ -229,12 +229,18 @@ export default function Home() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-emerald-500/30 text-sm shadow-sm backdrop-blur">
-                <MapPin className="h-4 w-4 text-rose-400" />
-                <span className="font-bold text-slate-100">
-                  {allVenues.length > 0 ? allVenues.join(" • ") : "Askari XI, Lahore"}
+              <a
+                href="https://maps.app.goo.gl/va7W9eD3MYWH2SyCA?g_st=ac"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800/90 border border-emerald-500/30 hover:border-emerald-400 text-sm shadow-sm backdrop-blur transition-all group"
+                title="View venue on Google Maps"
+              >
+                <MapPin className="h-4 w-4 text-rose-400 group-hover:scale-110 transition-transform" />
+                <span className="font-bold text-slate-100 group-hover:text-emerald-300 transition-colors">
+                  {allVenues.length > 0 ? allVenues.join(" • ") : "Askari XI, Lahore"} ↗
                 </span>
-              </div>
+              </a>
             </div>
 
             {/* Slogan Banner */}
