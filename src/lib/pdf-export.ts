@@ -75,11 +75,11 @@ export async function downloadSchedulePDF(
     const isPlayoff = m.stage === "PLAYOFF" || m.stage?.toUpperCase() === "PLAYOFF";
     const isFinal = m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL";
     const matchLabel = isFinal
-      ? "🏆 GRAND FINAL"
+      ? "GRAND FINAL"
       : isPlayoff
-        ? "⚔️ PLAYOFF MATCH"
+        ? "PLAYOFF MATCH"
         : `Match ${m.matchNumber}`;
-    const dayDate = m.date ? `${m.date} (${formatMatchDay(m.day, m.date)})` : formatMatchDay(m.day);
+    const dayDate = formatMatchDay(m.day, m.date);
     const time = m.time || "TBD";
     const teamA = m.teamA
       ? `${m.teamA.name} (${m.teamA.shortName})`
@@ -99,7 +99,7 @@ export async function downloadSchedulePDF(
     
     let statusText = m.status;
     if (m.status === "UPCOMING") statusText = "Upcoming";
-    else if (m.status === "LIVE") statusText = "🔴 LIVE";
+    else if (m.status === "LIVE") statusText = "LIVE";
     else if (m.status === "COMPLETED") {
       statusText = m.resultText || "Completed";
     }
@@ -130,25 +130,29 @@ export async function downloadSchedulePDF(
       fillColor: [248, 250, 252],
     },
     columnStyles: {
-      0: { cellWidth: 26, fontStyle: "bold" },
-      1: { cellWidth: 38 },
-      2: { cellWidth: 22 },
+      0: { cellWidth: 32, fontStyle: "bold" },
+      1: { cellWidth: 36 },
+      2: { cellWidth: 20 },
       3: { cellWidth: 54, fontStyle: "bold" },
       4: { cellWidth: "auto" },
     },
     didParseCell: (data) => {
       // Highlight Grand Final row
-      const isGrandFinal = data.row.raw && String(data.row.raw[0]).includes("GRAND FINAL");
-      if (isGrandFinal && data.section === "body") {
+      const fixtureText = data.row.raw ? String(data.row.raw[0]) : "";
+      if (fixtureText.includes("GRAND FINAL") && data.section === "body") {
         data.cell.styles.fillColor = [254, 243, 199]; // amber-100
         data.cell.styles.textColor = [146, 64, 14]; // amber-800
+        data.cell.styles.fontStyle = "bold";
+      } else if (fixtureText.includes("PLAYOFF") && data.section === "body") {
+        data.cell.styles.fillColor = [243, 232, 255]; // purple-100
+        data.cell.styles.textColor = [107, 33, 168]; // purple-800
         data.cell.styles.fontStyle = "bold";
       }
 
       // Highlight Results / Status
       if (data.column.index === 4 && data.section === "body") {
         const val = String(data.cell.raw);
-        if (val.includes("LIVE")) {
+        if (val === "LIVE") {
           data.cell.styles.textColor = [220, 38, 38]; // red-600
           data.cell.styles.fontStyle = "bold";
         } else if (val.includes("won by") || val === "Completed") {
