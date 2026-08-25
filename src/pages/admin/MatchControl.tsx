@@ -170,6 +170,8 @@ export default function AdminMatchControl() {
   });
 
   // Sync tab when data loads or updates
+  const inn1 = data?.innings?.find((i) => i.inningsNumber === 1);
+  const inn2 = data?.innings?.find((i) => i.inningsNumber === 2);
   const inn1Completed = inn1?.completed;
   const inn2Id = inn2?.id;
 
