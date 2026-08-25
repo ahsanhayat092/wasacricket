@@ -240,7 +240,9 @@ export default function LiveMatch() {
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-2">
-                  <span className="text-amber-500 font-extrabold">{match.stage === "FINAL" ? "🏆 Grand Final" : `Match ${match.matchNumber}`}</span>
+                  <span className={match.stage === "FINAL" ? "text-amber-500 font-extrabold" : match.stage === "PLAYOFF" ? "text-purple-400 font-extrabold" : "text-amber-500 font-extrabold"}>
+                    {match.stage === "FINAL" ? "🏆 Grand Final" : match.stage === "PLAYOFF" ? "⚔️ Playoff Match" : `Match #${match.matchNumber}`}
+                  </span>
                   <span>•</span>
                   <span>{formatMatchDateTime(match.day, match.date, match.time)}</span>
                 </div>

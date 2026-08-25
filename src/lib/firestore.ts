@@ -60,7 +60,7 @@ export type Player = {
 };
 
 export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED" | "NO_RESULT";
-export type MatchStage = "LEAGUE" | "FINAL";
+export type MatchStage = "LEAGUE" | "PLAYOFF" | "FINAL";
 export type MatchDay = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
 
 export type Match = {

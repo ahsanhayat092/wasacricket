@@ -157,9 +157,8 @@ export async function downloadSchedulePDF(
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(71, 85, 105);
-    doc.text("• All league matches are 4 overs per side. Final Match is 5 overs per side (Tape Ball Cricket format).", 18, finalY + 19.5);
-    doc.text("• Top 2 teams from league stage standings qualify directly for the Grand Final.", 18, finalY + 24.5);
+    doc.text("• All league & playoff matches are 4 overs per side. Grand Final is 5 overs per side.", 18, finalY + 19.5);
+    doc.text("• Team Ranked 1 directly qualifies for Grand Final. Teams Ranked 2 & 3 play in the Playoff match.", 18, finalY + 24.5);
   }
 
   // 6. Page Numbers on all pages

@@ -91,7 +91,10 @@ A dedicated **Live Android Application** is linked in real-time with the web pla
 ### 4. 🏆 Standings & Automatic Net Run Rate (NRR) Table
 - **Group Stage Division**: Group A and Group B standings tables.
 - **Automated Calculation**: Matches Played (`P`), Won (`W`), Lost (`L`), Tied/No Result (`NR`), Points (`Pts`), and Net Run Rate (`NRR`) calculated to 3 decimal places.
-- **Qualification Tracking**: Highlights top-ranked teams advancing to the Grand Championship Final.
+- **Tournament Qualification System**:
+  - **Rank 1 Direct Finalist**: The top-ranked team at the end of the league stage qualifies directly for the **Grand Final**.
+  - **Playoff Match (Rank 2 vs Rank 3)**: Teams ranked 2nd and 3rd play in the **Playoff Eliminator**.
+  - **Championship Grand Final**: The winner of the Playoff advances to play the **Rank 1 Team** in the Grand Final for the WPL Championship Trophy.
 
 ---
 

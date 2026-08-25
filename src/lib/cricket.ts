@@ -574,4 +574,18 @@ export function getInningsOverWiseStats(
   return overs;
 }
 
+/** Format match stage badge text */
+export function stageBadgeText(stage?: string | null, matchNumber?: number): string {
+  const s = stage?.toUpperCase();
+  if (s === "FINAL") return "🏆 Grand Final";
+  if (s === "PLAYOFF") return "⚔️ Playoff (Rank 2 vs 3)";
+  return matchNumber ? `Match #${matchNumber}` : "League Match";
+}
 
+/** Format match stage badge CSS class */
+export function stageBadgeClass(stage?: string | null): string {
+  const s = stage?.toUpperCase();
+  if (s === "FINAL") return "bg-amber-500/15 text-amber-400 border-amber-500/40 font-bold";
+  if (s === "PLAYOFF") return "bg-purple-500/15 text-purple-400 border-purple-500/40 font-bold";
+  return "bg-muted/50 text-foreground border-border";
+}

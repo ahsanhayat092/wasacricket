@@ -27,9 +27,19 @@ export default function Schedule() {
     );
   }
 
+  const [stageFilter, setStageFilter] = useState<"ALL" | "LEAGUE" | "PLAYOFF" | "FINAL">("ALL");
+
+  const filteredMatches = useMemo(() => {
+    if (stageFilter === "ALL") return matches;
+    return matches.filter((m) => {
+      const s = m.stage?.toUpperCase();
+      return s === stageFilter;
+    });
+  }, [matches, stageFilter]);
+
   // Group matches dynamically by date or day
   const groupMap = new Map<string, HydratedMatch[]>();
-  for (const m of matches) {
+  for (const m of filteredMatches) {
     const key = (m.date && m.date.trim()) || m.day || "Scheduled";
     if (!groupMap.has(key)) {
       groupMap.set(key, []);
@@ -116,18 +126,63 @@ export default function Schedule() {
         )}
       </div>
 
-      {matches.length === 0 ? (
+      {/* Stage Filter Tabs */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={stageFilter === "ALL" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setStageFilter("ALL")}
+          className={`h-8 text-xs font-bold ${stageFilter === "ALL" ? "bg-emerald-600 text-white" : ""}`}
+        >
+          All Fixtures ({matches.length})
+        </Button>
+        <Button
+          variant={stageFilter === "LEAGUE" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setStageFilter("LEAGUE")}
+          className={`h-8 text-xs font-bold ${stageFilter === "LEAGUE" ? "bg-emerald-600 text-white" : ""}`}
+        >
+          League Matches ({matches.filter((m) => m.stage === "LEAGUE").length})
+        </Button>
+        <Button
+          variant={stageFilter === "PLAYOFF" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setStageFilter("PLAYOFF")}
+          className={`h-8 text-xs font-bold ${
+            stageFilter === "PLAYOFF"
+              ? "bg-purple-600 text-white"
+              : "border-purple-500/40 text-purple-400 hover:bg-purple-500/10"
+          }`}
+        >
+          ⚔️ Playoff Match ({matches.filter((m) => m.stage === "PLAYOFF").length})
+        </Button>
+        <Button
+          variant={stageFilter === "FINAL" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setStageFilter("FINAL")}
+          className={`h-8 text-xs font-bold ${
+            stageFilter === "FINAL"
+              ? "bg-amber-600 text-white"
+              : "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+          }`}
+        >
+          🏆 Grand Final ({matches.filter((m) => m.stage === "FINAL").length})
+        </Button>
+      </div>
+
+      {filteredMatches.length === 0 ? (
         <div className="text-center py-16 px-4 rounded-2xl border border-dashed bg-muted/20 space-y-3">
           <Trophy className="h-10 w-10 text-muted-foreground/50 mx-auto" />
-          <h3 className="text-lg font-bold">No Fixtures Scheduled Yet</h3>
+          <h3 className="text-lg font-bold">No Fixtures in this Category</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            The match schedule is being prepared. Fixtures with timings and team matchups will appear here once announced.
+            No matches found for the selected stage filter.
           </p>
         </div>
       ) : (
         Array.from(groupMap.entries()).map(([groupKey, groupMatches], groupIndex) => {
           const first = groupMatches[0];
           const hasFinal = groupMatches.some((m) => m.stage === "FINAL");
+          const hasPlayoff = groupMatches.some((m) => m.stage === "PLAYOFF");
           const groupDayText = formatMatchDay(first.day, first.date);
           const times = Array.from(new Set(groupMatches.map((m) => m.time?.trim()).filter(Boolean)));
           const timeRangeText = times.length > 1 ? `${times[0]} to ${times[times.length - 1]}` : times[0] ?? "";
@@ -135,12 +190,18 @@ export default function Schedule() {
           return (
             <section key={groupKey} className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-bold text-emerald-400 uppercase tracking-wider bg-emerald-500/10 px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 border border-emerald-500/20">
-                  <Calendar className="h-3.5 w-3.5 text-emerald-400" />
-                  {hasFinal ? "🏆 " : `Day ${groupIndex + 1} — `}
+                <h2 className={`text-sm font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 border ${
+                  hasFinal
+                    ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                    : hasPlayoff
+                      ? "bg-purple-500/15 text-purple-400 border-purple-500/30"
+                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                }`}>
+                  <Calendar className="h-3.5 w-3.5" />
+                  {hasFinal ? "🏆 Grand Final Night — " : hasPlayoff ? "⚔️ Playoff & Finals Night — " : `Day ${groupIndex + 1} — `}
                   {groupDayText}
                   {timeRangeText && (
-                    <span className="text-xs text-emerald-300 font-normal ml-1">
+                    <span className="text-xs font-normal opacity-80 ml-1">
                       ({timeRangeText})
                     </span>
                   )}

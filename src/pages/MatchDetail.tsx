@@ -158,7 +158,9 @@ export default function MatchDetail() {
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-2">
-                  <span className="text-amber-500 font-extrabold">{match.stage === "FINAL" ? "🏆 Final" : `Match ${match.matchNumber}`}</span>
+                  <span className={match.stage === "FINAL" ? "text-amber-500 font-extrabold" : match.stage === "PLAYOFF" ? "text-purple-400 font-extrabold" : "text-amber-500 font-extrabold"}>
+                    {match.stage === "FINAL" ? "🏆 Grand Final" : match.stage === "PLAYOFF" ? "⚔️ Playoff Match" : `Match #${match.matchNumber}`}
+                  </span>
                   <span>•</span>
                   <span>{formatMatchDateTime(match.day, match.date, match.time)}</span>
                 </div>
@@ -655,7 +657,11 @@ export default function MatchDetail() {
             <CardContent className="p-4 space-y-2 text-xs">
               <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
                 <p className="font-extrabold text-emerald-400 text-sm">
-                  {match.stage === "FINAL" ? "GRAND FINAL FIXTURE 🏆" : `LEAGUE MATCH #${match.matchNumber}`}
+                  {match.stage === "FINAL"
+                    ? "GRAND FINAL FIXTURE 🏆"
+                    : match.stage === "PLAYOFF"
+                      ? "PLAYOFF MATCH (Rank 2 vs 3) ⚔️"
+                      : `LEAGUE MATCH #${match.matchNumber}`}
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   WASA Premier League 2026

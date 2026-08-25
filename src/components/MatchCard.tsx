@@ -17,9 +17,16 @@ export type { HydratedMatch };
 
 export function MatchCard({ match }: { match: HydratedMatch }) {
   const to = `/live/${match.id}`;
-  const isFinal = match.stage === "FINAL";
+  const isPlayoff = match.stage === "PLAYOFF" || match.stage?.toUpperCase() === "PLAYOFF";
+  const isFinal = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
   const matchOvers = isFinal ? 5 : 4;
   const quotaBalls = matchOvers * 6;
+
+  const stageLabel = isFinal
+    ? "🏆 Grand Final"
+    : isPlayoff
+      ? "⚔️ Playoff (Rank 2 vs 3)"
+      : `Match #${match.matchNumber}`;
 
   const innings = match.innings ?? [];
   const inn1 = innings.find((i) => i.inningsNumber === 1);
@@ -56,15 +63,18 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
         className={`transition-all duration-200 border overflow-hidden ${
           match.status === "LIVE"
             ? "border-red-500/50 bg-gradient-to-br from-red-500/5 via-card to-card shadow-md ring-1 ring-red-500/20"
-            : "hover:shadow-md hover:border-primary/40 bg-card"
+            : isFinal
+              ? "border-amber-500/40 bg-gradient-to-br from-amber-500/5 via-card to-card shadow-sm hover:border-amber-500/60"
+              : isPlayoff
+                ? "border-purple-500/40 bg-gradient-to-br from-purple-500/5 via-card to-card shadow-sm hover:border-purple-500/60"
+                : "hover:shadow-md hover:border-primary/40 bg-card"
         }`}
       >
         <CardContent className="p-4 sm:p-5 space-y-4">
           {/* Header Row: Stage & Status */}
           <div className="flex items-center justify-between gap-2 border-b pb-2.5">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              {match.stage === "FINAL" ? "🏆 Final Match" : `Match #${match.matchNumber}`} ·{" "}
-              {formatMatchDateTime(match.day, match.date, match.time)}
+            <span className={`text-xs font-bold uppercase tracking-wider ${isFinal ? "text-amber-500" : isPlayoff ? "text-purple-400" : "text-muted-foreground"}`}>
+              {stageLabel} · {formatMatchDateTime(match.day, match.date, match.time)}
             </span>
             <Badge
               variant="outline"

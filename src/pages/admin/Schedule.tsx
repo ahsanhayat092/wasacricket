@@ -44,7 +44,7 @@ import type { HydratedMatch, Team } from "@/lib/firestore";
 
 type MatchForm = {
   matchNumber: number;
-  stage: "LEAGUE" | "FINAL";
+  stage: "LEAGUE" | "PLAYOFF" | "FINAL";
   day: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   teamAId: string;
   teamBId: string;
@@ -263,7 +263,7 @@ export default function AdminSchedule() {
                 <Select
                   value={form.stage}
                   onValueChange={(v) =>
-                    setForm({ ...form, stage: v as "LEAGUE" | "FINAL" })
+                    setForm({ ...form, stage: v as "LEAGUE" | "PLAYOFF" | "FINAL" })
                   }
                 >
                   <SelectTrigger>
@@ -271,7 +271,8 @@ export default function AdminSchedule() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="LEAGUE">League Stage</SelectItem>
-                    <SelectItem value="FINAL">🏆 Final</SelectItem>
+                    <SelectItem value="PLAYOFF">⚔️ Playoff (Rank 2 vs 3)</SelectItem>
+                    <SelectItem value="FINAL">🏆 Grand Final</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -312,7 +313,15 @@ export default function AdminSchedule() {
                   onValueChange={(v) => setForm({ ...form, teamAId: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={form.stage === "FINAL" ? "Rank 1" : "Select team"} />
+                    <SelectValue
+                      placeholder={
+                        form.stage === "FINAL"
+                          ? "Rank 1 (Auto)"
+                          : form.stage === "PLAYOFF"
+                            ? "Rank 2 (Auto)"
+                            : "Select team"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {teams?.map((t) => (
@@ -330,7 +339,15 @@ export default function AdminSchedule() {
                   onValueChange={(v) => setForm({ ...form, teamBId: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={form.stage === "FINAL" ? "Rank 2" : "Select team"} />
+                    <SelectValue
+                      placeholder={
+                        form.stage === "FINAL"
+                          ? "Playoff Winner (Auto)"
+                          : form.stage === "PLAYOFF"
+                            ? "Rank 3 (Auto)"
+                            : "Select team"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {teams?.map((t) => (
@@ -411,7 +428,7 @@ function ScheduleRow({
   deleting: boolean;
   onSave: (v: {
     matchNumber?: number;
-    stage?: "LEAGUE" | "FINAL";
+    stage?: "LEAGUE" | "PLAYOFF" | "FINAL";
     day?: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
     date?: string;
     time?: string;
@@ -422,7 +439,7 @@ function ScheduleRow({
   onDelete: () => void;
 }) {
   const [matchNumber, setMatchNumber] = useState<number>(match.matchNumber);
-  const [stage, setStage] = useState<"LEAGUE" | "FINAL">(match.stage);
+  const [stage, setStage] = useState<"LEAGUE" | "PLAYOFF" | "FINAL">(match.stage);
   const [day, setDay] = useState<"MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY">(
     match.day as "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY",
   );
@@ -443,6 +460,7 @@ function ScheduleRow({
     setTeamBId(match.teamB?.id ?? null);
   }, [match.id, match.matchNumber, match.stage, match.day, match.date, match.time, match.venue, match.teamA?.id, match.teamB?.id]);
 
+  const isPlayoff = stage === "PLAYOFF";
   const isFinal = stage === "FINAL";
   const teamsEditable = match.status === "UPCOMING";
 
@@ -485,14 +503,15 @@ function ScheduleRow({
 
           <Select
             value={stage}
-            onValueChange={(v) => setStage(v as "LEAGUE" | "FINAL")}
+            onValueChange={(v) => setStage(v as "LEAGUE" | "PLAYOFF" | "FINAL")}
           >
             <SelectTrigger className="w-36 h-7 text-[11px] text-muted-foreground">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="LEAGUE">League Match</SelectItem>
-              <SelectItem value="FINAL">🏆 Final</SelectItem>
+              <SelectItem value="PLAYOFF">⚔️ Playoff</SelectItem>
+              <SelectItem value="FINAL">🏆 Grand Final</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -505,7 +524,15 @@ function ScheduleRow({
               onValueChange={(v) => setTeamAId(v || null)}
             >
               <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue placeholder={isFinal ? "Rank 1" : "Team A"} />
+                <SelectValue
+                  placeholder={
+                    isFinal
+                      ? "Rank 1 (Auto)"
+                      : isPlayoff
+                        ? "Rank 2 (Auto)"
+                        : "Team A"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {teams.map((t) => (
@@ -521,7 +548,15 @@ function ScheduleRow({
               onValueChange={(v) => setTeamBId(v || null)}
             >
               <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue placeholder={isFinal ? "Rank 2" : "Team B"} />
+                <SelectValue
+                  placeholder={
+                    isFinal
+                      ? "Playoff Winner (Auto)"
+                      : isPlayoff
+                        ? "Rank 3 (Auto)"
+                        : "Team B"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {teams.map((t) => (
@@ -534,7 +569,8 @@ function ScheduleRow({
           </div>
         ) : (
           <span className="font-medium text-sm">
-            {match.teamA?.name ?? "Rank 1"} vs {match.teamB?.name ?? "Rank 2"}
+            {match.teamA?.name ?? (isFinal ? "Rank 1" : isPlayoff ? "Rank 2" : "Team A")} vs{" "}
+            {match.teamB?.name ?? (isFinal ? "Playoff Winner" : isPlayoff ? "Rank 3" : "Team B")}
           </span>
         )}
       </TableCell>

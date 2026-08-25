@@ -206,8 +206,8 @@ export async function recalculateStandings() {
       });
     }
 
-    // League match points & NRR aggregation
-    if (m.stage === "LEAGUE") {
+    // League match points & NRR aggregation (Playoff and Final do not affect league points table)
+    if (m.stage === "LEAGUE" || (!m.stage && (m.matchNumber ?? 0) <= 9)) {
       const aA = agg.get(m.teamAId);
       const aB = agg.get(m.teamBId);
       if (aA && aB) {
@@ -232,18 +232,18 @@ export async function recalculateStandings() {
           aA.points += tournament.lossPoints;
         }
       }
-    }
 
-    for (const inn of [inn1, inn2]) {
-      if (!inn) continue;
-      const batting = agg.get(inn.battingTeamId);
-      const bowling = agg.get(inn.bowlingTeamId);
-      if (!batting || !bowling) continue;
-      const effBalls = effectiveNrrBalls(inn.balls, inn.allOut, quotaBalls);
-      batting.runsFor += inn.runs;
-      batting.ballsFor += effBalls;
-      bowling.runsAgainst += inn.runs;
-      bowling.ballsAgainst += effBalls;
+      for (const inn of [inn1, inn2]) {
+        if (!inn) continue;
+        const batting = agg.get(inn.battingTeamId);
+        const bowling = agg.get(inn.bowlingTeamId);
+        if (!batting || !bowling) continue;
+        const effBalls = effectiveNrrBalls(inn.balls, inn.allOut, quotaBalls);
+        batting.runsFor += inn.runs;
+        batting.ballsFor += effBalls;
+        bowling.runsAgainst += inn.runs;
+        bowling.ballsAgainst += effBalls;
+      }
     }
   }
 
@@ -278,43 +278,62 @@ export async function recalculateStandings() {
   const batch = writeBatch(db);
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    batch.set(standingDoc(r.teamId), {
+    const standingRef = doc(standingsCol(), r.teamId);
+    let qualificationStatus = "IN_CONTENTION";
+    if (allLeagueMatchesCompleted) {
+      if (i === 0) {
+        qualificationStatus = "QUALIFIED_FINAL"; // Rank 1 directly to Grand Final
+      } else if (i === 1 || i === 2) {
+        qualificationStatus = "QUALIFIED_PLAYOFF"; // Rank 2 & 3 to Playoff
+      } else {
+        qualificationStatus = "ELIMINATED";
+      }
+    }
+
+    batch.set(standingRef, {
       tournamentId: TOURNAMENT_ID,
       teamId: r.teamId,
+      position: i + 1,
       played: r.played,
       won: r.won,
       lost: r.lost,
       tied: r.tied,
       noResult: r.noResult,
-      points: r.points,
       runsFor: r.runsFor,
       ballsFor: r.ballsFor,
       runsAgainst: r.runsAgainst,
       ballsAgainst: r.ballsAgainst,
-      nrr: r.nrr,
-      position: i + 1,
-      qualified: allLeagueMatchesCompleted && i < 2,
+      netRunRate: r.nrr,
+      points: r.points,
       adminTiebreak: r.adminTiebreak,
+      qualificationStatus,
       updatedAt: now(),
     });
   }
   await batch.commit();
 
-  await maybeGenerateFinalFixture(allMatches, rows);
+  await maybeGeneratePlayoffAndFinalFixtures(allMatches, rows);
   return rows;
 }
 
 // ---------------------------------------------------------------------------
-// Auto-populate the Final fixture once league stage is complete or top 2 teams are determined
+// Auto-populate Playoff (Rank 2 vs Rank 3) and Grand Final (Rank 1 vs Playoff Winner)
 // ---------------------------------------------------------------------------
 
-export async function maybeGenerateFinalFixture(
+export async function maybeGeneratePlayoffAndFinalFixtures(
   allMatches: Match[],
   sortedRows: { teamId: string }[],
 ) {
-  if (!sortedRows || sortedRows.length < 2) return;
+  if (!sortedRows || sortedRows.length < 3) return;
 
-  // 1. Identify the Final match flexibly (checking stage === "FINAL", case-insensitivity, or highest match number)
+  // 1. Identify Playoff and Final matches
+  let playoffMatch = allMatches.find(
+    (m) =>
+      m.stage === "PLAYOFF" ||
+      m.stage === "playoff" ||
+      m.stage?.toUpperCase() === "PLAYOFF",
+  );
+
   let finalMatch = allMatches.find(
     (m) =>
       m.stage === "FINAL" ||
@@ -322,24 +341,24 @@ export async function maybeGenerateFinalFixture(
       m.stage?.toUpperCase() === "FINAL",
   );
 
-  // If not explicitly tagged with stage === "FINAL", check match with highest matchNumber (e.g. match 10)
+  // Fallbacks if stage not explicitly set
+  if (!playoffMatch && allMatches.length > 0) {
+    playoffMatch = allMatches.find((m) => m.matchNumber === 10);
+  }
   if (!finalMatch && allMatches.length > 0) {
-    const sortedByNumber = allMatches
-      .slice()
-      .sort((a, b) => (b.matchNumber || 0) - (a.matchNumber || 0));
-    if (sortedByNumber[0] && (sortedByNumber[0].matchNumber >= 10 || !sortedByNumber[0].teamAId)) {
-      finalMatch = sortedByNumber[0];
-    }
+    finalMatch = allMatches.find(
+      (m) =>
+        m.matchNumber === 11 || (m.matchNumber >= 10 && m.id !== playoffMatch?.id),
+    );
   }
 
-  if (!finalMatch) return;
-
-  // If Final is already completed or currently live, do not overwrite
-  if (finalMatch.status === "COMPLETED" || finalMatch.status === "LIVE") return;
-
-  // 2. Identify all league matches
+  // 2. Identify all league matches (excluding playoff and final)
   const leagueMatches = allMatches.filter(
-    (m) => m.id !== finalMatch!.id && m.stage?.toUpperCase() !== "FINAL",
+    (m) =>
+      m.id !== playoffMatch?.id &&
+      m.id !== finalMatch?.id &&
+      m.stage?.toUpperCase() !== "PLAYOFF" &&
+      m.stage?.toUpperCase() !== "FINAL",
   );
 
   const allLeagueDone =
@@ -351,27 +370,62 @@ export async function maybeGenerateFinalFixture(
         m.status === "ABANDONED",
     );
 
-  // STRICT REQUIREMENT: Do NOT select finalists until ALL league matches are completed
+  // STRICT RULE: Do not populate playoff/final until all league matches are done
   if (!allLeagueDone) {
     return;
   }
 
-  const top1Id = sortedRows[0].teamId;
-  const top2Id = sortedRows[1].teamId;
+  const rank1Id = sortedRows[0].teamId;
+  const rank2Id = sortedRows[1].teamId;
+  const rank3Id = sortedRows[2].teamId;
 
-  if (
-    finalMatch.teamAId !== top1Id ||
-    finalMatch.teamBId !== top2Id ||
-    finalMatch.stage !== "FINAL"
-  ) {
-    await updateDoc(matchDoc(finalMatch.id), {
-      teamAId: top1Id,
-      teamBId: top2Id,
-      stage: "FINAL",
-      updatedAt: now(),
-    });
+  // Update Playoff fixture (Rank 2 vs Rank 3)
+  if (playoffMatch && playoffMatch.status !== "COMPLETED" && playoffMatch.status !== "LIVE") {
+    if (
+      playoffMatch.teamAId !== rank2Id ||
+      playoffMatch.teamBId !== rank3Id ||
+      playoffMatch.stage !== "PLAYOFF"
+    ) {
+      await updateDoc(matchDoc(playoffMatch.id), {
+        teamAId: rank2Id,
+        teamBId: rank3Id,
+        stage: "PLAYOFF",
+        updatedAt: now(),
+      });
+    }
+  }
+
+  // Determine Playoff Winner for Final Team B
+  let playoffWinnerId: string | null = null;
+  if (playoffMatch && (playoffMatch.status === "COMPLETED" || playoffMatch.winningTeamId)) {
+    playoffWinnerId = playoffMatch.winningTeamId ?? null;
+  }
+
+  // Update Final fixture (Rank 1 vs Playoff Winner)
+  if (finalMatch && finalMatch.status !== "COMPLETED" && finalMatch.status !== "LIVE") {
+    const desiredTeamA = rank1Id;
+    const desiredTeamB = playoffWinnerId;
+
+    if (
+      finalMatch.teamAId !== desiredTeamA ||
+      (desiredTeamB && finalMatch.teamBId !== desiredTeamB) ||
+      finalMatch.stage !== "FINAL"
+    ) {
+      const updatePayload: Record<string, unknown> = {
+        teamAId: desiredTeamA,
+        stage: "FINAL",
+        updatedAt: now(),
+      };
+      if (desiredTeamB) {
+        updatePayload.teamBId = desiredTeamB;
+      }
+      await updateDoc(matchDoc(finalMatch.id), updatePayload);
+    }
   }
 }
+
+// Aliases for backward compatibility
+export const maybeGenerateFinalFixture = maybeGeneratePlayoffAndFinalFixtures;
 
 // ---------------------------------------------------------------------------
 // Innings totals sync

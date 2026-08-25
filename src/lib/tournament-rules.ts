@@ -16,6 +16,7 @@ export type RuleCategory =
   | "Bowling & Deliveries"
   | "Last Man Standing"
   | "Fielding & Substitutions"
+  | "Playoffs & Finals Qualification"
   | "Tie-Breaker Format";
 
 export interface TournamentRuleItem {
@@ -176,18 +177,32 @@ export const DEFAULT_TOURNAMENT_RULES: TournamentRuleItem[] = [
     order: 23,
   },
 
-  // 6. Tie-Breaker Format
+  // 6. Playoffs & Finals Qualification
   {
     id: "rule-24",
-    category: "Tie-Breaker Format",
-    rule: "In Case of Tie in Group Match: 1 point awarded to each Team (no Super Over).",
+    category: "Playoffs & Finals Qualification",
+    rule: "Team Ranked 1 after the league matches qualifies directly for the Grand Final.",
     order: 24,
   },
   {
     id: "rule-25",
-    category: "Tie-Breaker Format",
-    rule: "In Case of Tie in Grand Final: Continuous Super Overs will be played until a winner is decided.",
+    category: "Playoffs & Finals Qualification",
+    rule: "Teams Ranked 2 and 3 play in the Playoff Match (Eliminator). The winning team advances to play Team Ranked 1 in the Grand Final.",
     order: 25,
+  },
+
+  // 7. Tie-Breaker Format
+  {
+    id: "rule-26",
+    category: "Tie-Breaker Format",
+    rule: "In Case of Tie in Group Match: 1 point awarded to each Team (no Super Over).",
+    order: 26,
+  },
+  {
+    id: "rule-27",
+    category: "Tie-Breaker Format",
+    rule: "In Case of Tie in Playoff / Grand Final: Continuous Super Overs will be played until a winner is decided.",
+    order: 27,
   },
 ];
 

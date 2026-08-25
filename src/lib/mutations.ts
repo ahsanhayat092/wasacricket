@@ -191,7 +191,7 @@ export async function deletePlayer(playerId: string) {
 
 export async function createMatch(input: {
   matchNumber: number;
-  stage: "LEAGUE" | "FINAL";
+  stage: "LEAGUE" | "PLAYOFF" | "FINAL";
   day: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   teamAId?: string | null;
   teamBId?: string | null;
@@ -248,7 +248,7 @@ export async function deleteMatch(matchId: string) {
 export async function updateMatchDetails(input: {
   matchId: string;
   matchNumber?: number;
-  stage?: "LEAGUE" | "FINAL";
+  stage?: "LEAGUE" | "PLAYOFF" | "FINAL";
   day?: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   date?: string;
   time?: string;
@@ -353,7 +353,30 @@ export async function autoGenerateSchedule() {
     });
   }
 
-  // Add Final
+  // Add Playoff (Rank 2 vs Rank 3)
+  const playoffDocRef = doc(matchesCol());
+  batch.set(playoffDocRef, {
+    tournamentId: TOURNAMENT_ID,
+    matchNumber: matchNum++,
+    stage: "PLAYOFF" as const,
+    day: "SATURDAY" as const,
+    date: "27 August",
+    time: "11:45 PM",
+    venue: "Askari XI, Lahore",
+    teamAId: null,
+    teamBId: null,
+    status: "UPCOMING" as const,
+    tossWinnerId: null,
+    tossDecision: null,
+    winningTeamId: null,
+    resultText: null,
+    playerOfMatchId: null,
+    completedAt: null,
+    createdAt: now(),
+    updatedAt: now(),
+  });
+
+  // Add Grand Final (Rank 1 vs Winner of Playoff)
   const finalDocRef = doc(matchesCol());
   batch.set(finalDocRef, {
     tournamentId: TOURNAMENT_ID,
@@ -378,7 +401,7 @@ export async function autoGenerateSchedule() {
 
   await batch.commit();
   await recalculateStandings();
-  return { count: pairings.length + 1 };
+  return { count: pairings.length + 2 };
 }
 
 // ---------------------------------------------------------------------------

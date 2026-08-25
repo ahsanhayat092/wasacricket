@@ -390,7 +390,7 @@ export function StoryCardModal({
               <div className="relative z-10 my-auto py-4 space-y-4 text-center">
                 {/* Match Stage & Timing */}
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 border border-white/10 text-[10px] font-bold text-slate-300">
-                  <span>{match.stage === "FINAL" ? "🏆 GRAND FINAL" : `MATCH #${match.matchNumber}`}</span>
+                  <span>{match.stage === "FINAL" ? "🏆 GRAND FINAL" : match.stage === "PLAYOFF" ? "⚔️ PLAYOFF MATCH" : `MATCH #${match.matchNumber}`}</span>
                   <span>•</span>
                   <span>{formatMatchDateTime(match.day, match.date, match.time)}</span>
                 </div>

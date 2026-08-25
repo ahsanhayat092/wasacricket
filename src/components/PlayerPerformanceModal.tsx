@@ -347,7 +347,7 @@ export function PlayerPerformanceModal({
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2.5 text-xs">
                         <div className="flex items-center gap-2">
                           <span className="font-black text-foreground">
-                            {log.stage === "FINAL" ? "🏆 Final" : `Match #${log.matchNumber}`}
+                            {log.stage === "FINAL" ? "🏆 Grand Final" : log.stage === "PLAYOFF" ? "⚔️ Playoff" : `Match #${log.matchNumber}`}
                           </span>
                           <span className="text-muted-foreground font-semibold">vs</span>
                           <div className="flex items-center gap-1 font-bold text-foreground">

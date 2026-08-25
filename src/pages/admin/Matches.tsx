@@ -69,7 +69,7 @@ export default function AdminMatches() {
             {matches?.map((m) => (
               <TableRow key={m.id}>
                 <TableCell className="font-bold">
-                  {m.stage === "FINAL" ? "🏆 Final" : `Match ${m.matchNumber}`}
+                  {m.stage === "FINAL" ? "🏆 Grand Final" : m.stage === "PLAYOFF" ? "⚔️ Playoff" : `Match ${m.matchNumber}`}
                 </TableCell>
                 <TableCell className="text-xs">
                   <div className="font-semibold text-foreground">{formatMatchDay(m.day, m.date)}</div>

@@ -110,23 +110,37 @@ function hydrateMatch(
   m: Match,
   teams: Team[],
   innings: Innings[] = [],
-  top1Team: Team | null = null,
-  top2Team: Team | null = null,
+  rank1Team: Team | null = null,
+  rank2Team: Team | null = null,
+  rank3Team: Team | null = null,
+  playoffWinnerTeam: Team | null = null,
 ): HydratedMatch {
   const find = (id: string | null | undefined) =>
     teams.find((t) => t.id === id) ?? null;
 
+  const isPlayoff = m.stage === "PLAYOFF" || m.stage?.toUpperCase() === "PLAYOFF";
   const isFinal = m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL";
-  const teamA = find(m.teamAId) ?? (isFinal ? top1Team : null);
-  const teamB = find(m.teamBId) ?? (isFinal ? top2Team : null);
+
+  let teamA = find(m.teamAId);
+  let teamB = find(m.teamBId);
+
+  if (!teamA) {
+    if (isPlayoff) teamA = rank2Team;
+    else if (isFinal) teamA = rank1Team;
+  }
+
+  if (!teamB) {
+    if (isPlayoff) teamB = rank3Team;
+    else if (isFinal) teamB = playoffWinnerTeam;
+  }
 
   return {
     ...m,
     day: m.day,
     date: m.date,
     time: m.time,
-    teamAId: m.teamAId ?? (isFinal && top1Team ? top1Team.id : m.teamAId),
-    teamBId: m.teamBId ?? (isFinal && top2Team ? top2Team.id : m.teamBId),
+    teamAId: m.teamAId ?? teamA?.id ?? null,
+    teamBId: m.teamBId ?? teamB?.id ?? null,
     teamA,
     teamB,
     tossWinner: find(m.tossWinnerId),
@@ -152,11 +166,18 @@ export async function getSchedule(): Promise<HydratedMatch[]> {
       .map((d) => ({ id: d.id, ...d.data() }) as Match)
       .sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0));
 
+    const playoffMatchRaw = matches.find(
+      (m) => m.stage === "PLAYOFF" || m.stage?.toUpperCase() === "PLAYOFF" || m.matchNumber === 10,
+    );
     const finalMatchRaw = matches.find(
-      (m) => m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL" || (m.matchNumber && m.matchNumber >= 10),
+      (m) => m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL" || m.matchNumber === 11,
     );
     const leagueMatchesRaw = matches.filter(
-      (m) => m.id !== finalMatchRaw?.id && m.stage?.toUpperCase() !== "FINAL",
+      (m) =>
+        m.id !== playoffMatchRaw?.id &&
+        m.id !== finalMatchRaw?.id &&
+        m.stage?.toUpperCase() !== "PLAYOFF" &&
+        m.stage?.toUpperCase() !== "FINAL",
     );
     const allLeagueDone =
       leagueMatchesRaw.length > 0 &&
@@ -167,10 +188,12 @@ export async function getSchedule(): Promise<HydratedMatch[]> {
           m.status === "ABANDONED",
       );
 
-    const top1Team = allLeagueDone && standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
-    const top2Team = allLeagueDone && standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
+    const rank1Team = allLeagueDone && standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
+    const rank2Team = allLeagueDone && standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
+    const rank3Team = allLeagueDone && standings[2]?.teamId ? teams.find((t) => t.id === standings[2].teamId) ?? null : null;
+    const playoffWinnerTeam = playoffMatchRaw?.winningTeamId ? teams.find((t) => t.id === playoffMatchRaw.winningTeamId) ?? null : null;
 
-    return matches.map((m) => hydrateMatch(m, teams, allInnings, top1Team, top2Team));
+    return matches.map((m) => hydrateMatch(m, teams, allInnings, rank1Team, rank2Team, rank3Team, playoffWinnerTeam));
   } catch (err) {
     console.error("Error loading schedule:", err);
     return [];
@@ -210,11 +233,18 @@ export async function getMatchById(matchId: string): Promise<{
     .sort((a, b) => (a.position || 0) - (b.position || 0));
 
   const allMatchesList = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
+  const playoffMatchRaw = allMatchesList.find(
+    (m) => m.stage === "PLAYOFF" || m.stage?.toUpperCase() === "PLAYOFF" || m.matchNumber === 10,
+  );
   const finalMatchRaw = allMatchesList.find(
-    (m) => m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL" || (m.matchNumber && m.matchNumber >= 10),
+    (m) => m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL" || m.matchNumber === 11,
   );
   const leagueMatchesRaw = allMatchesList.filter(
-    (m) => m.id !== finalMatchRaw?.id && m.stage?.toUpperCase() !== "FINAL",
+    (m) =>
+      m.id !== playoffMatchRaw?.id &&
+      m.id !== finalMatchRaw?.id &&
+      m.stage?.toUpperCase() !== "PLAYOFF" &&
+      m.stage?.toUpperCase() !== "FINAL",
   );
   const allLeagueDone =
     leagueMatchesRaw.length > 0 &&
@@ -225,10 +255,12 @@ export async function getMatchById(matchId: string): Promise<{
         m.status === "ABANDONED",
     );
 
-  const top1Team = allLeagueDone && standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
-  const top2Team = allLeagueDone && standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
+  const rank1Team = allLeagueDone && standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
+  const rank2Team = allLeagueDone && standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;
+  const rank3Team = allLeagueDone && standings[2]?.teamId ? teams.find((t) => t.id === standings[2].teamId) ?? null : null;
+  const playoffWinnerTeam = playoffMatchRaw?.winningTeamId ? teams.find((t) => t.id === playoffMatchRaw.winningTeamId) ?? null : null;
 
-  const hydrated = await hydrateMatch(match, teams, [], top1Team, top2Team);
+  const hydrated = await hydrateMatch(match, teams, [], rank1Team, rank2Team, rank3Team, playoffWinnerTeam);
   const inningsList = inningsSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as Innings)
     .sort((a, b) => a.inningsNumber - b.inningsNumber);

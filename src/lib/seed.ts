@@ -103,21 +103,48 @@ export async function seedFirestore() {
     });
   }
 
-  // Insert Final placeholder
+  // Insert Playoff placeholder (Rank 2 vs Rank 3)
   await addDoc(matchesCol(), {
     tournamentId: TOURNAMENT_ID,
     matchNumber: 10,
+    stage: "PLAYOFF" as const,
+    day: "SATURDAY" as const,
+    date: "27 August",
+    time: "11:45 PM",
+    venue: "Askari XI, Lahore",
+    teamAId: null,
+    teamBId: null,
+    status: "UPCOMING" as const,
+    tossWinnerId: null,
+    tossDecision: null,
+    winningTeamId: null,
+    resultText: null,
+    playerOfMatchId: null,
+    completedAt: null,
+    createdAt: now(),
+    updatedAt: now(),
+  });
+
+  // Insert Grand Final placeholder (Rank 1 vs Winner of Playoff)
+  await addDoc(matchesCol(), {
+    tournamentId: TOURNAMENT_ID,
+    matchNumber: 11,
     stage: "FINAL" as const,
     day: "SATURDAY" as const,
     date: "27 August",
     time: "12:45 AM",
     venue: "Askari XI, Lahore",
-    teamAId: null, teamBId: null,
+    teamAId: null,
+    teamBId: null,
     status: "UPCOMING" as const,
-    tossWinnerId: null, tossDecision: null,
-    winningTeamId: null, resultText: null,
-    playerOfMatchId: null, completedAt: null,
-    createdAt: now(), updatedAt: now(),
+    tossWinnerId: null,
+    tossDecision: null,
+    winningTeamId: null,
+    resultText: null,
+    playerOfMatchId: null,
+    completedAt: null,
+    createdAt: now(),
+    updatedAt: now(),
   });
 
   await recalculateStandings();
