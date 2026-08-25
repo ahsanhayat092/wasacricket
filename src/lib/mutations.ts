@@ -229,16 +229,16 @@ export async function deleteMatch(matchId: string) {
     query(inningsCol(), where("matchId", "==", matchId)),
   );
   const batch = writeBatch(db);
-  for (const doc of inningsSnap.docs) {
+  for (const innDoc of inningsSnap.docs) {
     const batSnap = await getDocs(
-      query(battingScoresCol(), where("inningsId", "==", doc.id)),
+      query(battingScoresCol(), where("inningsId", "==", innDoc.id)),
     );
     const bowlSnap = await getDocs(
-      query(bowlingScoresCol(), where("inningsId", "==", doc.id)),
+      query(bowlingScoresCol(), where("inningsId", "==", innDoc.id)),
     );
     batSnap.docs.forEach((d) => batch.delete(d.ref));
     bowlSnap.docs.forEach((d) => batch.delete(d.ref));
-    batch.delete(doc.ref);
+    batch.delete(innDoc.ref);
   }
   batch.delete(matchDoc(matchId));
   await batch.commit();

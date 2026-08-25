@@ -7,6 +7,7 @@
  */
 
 import {
+  doc,
   getDocs,
   getDoc,
   setDoc,
@@ -300,7 +301,7 @@ export async function recalculateStandings() {
   const batch = writeBatch(db);
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const standingRef = doc(standingsCol(), r.teamId);
+    const standingRef = standingDoc(r.teamId);
     const scenario = scenarioResults.get(r.teamId);
 
     const qualificationStatus = scenario?.qualificationStatus ?? "IN_CONTENTION";
