@@ -170,14 +170,14 @@ export default function AdminMatchControl() {
   });
 
   // Sync tab when data loads or updates
-  const inn1 = data?.innings?.find((i) => i.inningsNumber === 1);
-  const inn2 = data?.innings?.find((i) => i.inningsNumber === 2);
+  const inn1Completed = inn1?.completed;
+  const inn2Id = inn2?.id;
 
   useEffect(() => {
-    if (inn2 && inn1?.completed && activeInningsTab === "1") {
+    if (inn2Id && inn1Completed && activeInningsTab === "1") {
       setActiveInningsTab("2");
     }
-  }, [inn2, inn1?.completed, activeInningsTab]);
+  }, [inn2Id, inn1Completed, activeInningsTab]);
 
   const match = data?.match;
   const teams = data?.teams ?? [];
@@ -185,17 +185,22 @@ export default function AdminMatchControl() {
   const isFinalMatch = match?.stage === "FINAL" || match?.stage?.toUpperCase() === "FINAL";
   const teamA = teams.find((t) => t.id === match?.teamAId) ?? null;
   const teamB = teams.find((t) => t.id === match?.teamBId) ?? null;
+  const matchId = match?.id;
+  const teamAId = teamA?.id;
+  const teamBId = teamB?.id;
+  const matchTeamAId = match?.teamAId;
+  const matchTeamBId = match?.teamBId;
 
   useEffect(() => {
-    if (match && isFinalMatch && (!match.teamAId || !match.teamBId) && teamA && teamB) {
+    if (matchId && isFinalMatch && (!matchTeamAId || !matchTeamBId) && teamAId && teamBId) {
       fbUpdateMatchDetails({
-        matchId: match.id,
-        teamAId: teamA.id,
-        teamBId: teamB.id,
+        matchId,
+        teamAId,
+        teamBId,
         stage: "FINAL",
       }).catch(console.error);
     }
-  }, [isFinalMatch, match?.teamAId, match?.teamBId, teamA?.id, teamB?.id, match?.id]);
+  }, [isFinalMatch, matchTeamAId, matchTeamBId, teamAId, teamBId, matchId]);
 
   if (isLoading) {
     return (
@@ -1493,8 +1498,17 @@ function InningsLiveConsole({
     return teamSquad;
   };
 
-  const battingPlayers = getPlayingSquad(battingTeamId).slice(0, 6);
-  const bowlingPlayers = getPlayingSquad(bowlingTeamId).slice(0, 6);
+  const battingPlayers = useMemo(() => {
+    return getPlayingSquad(battingTeamId).slice(0, 6);
+  }, [players, battingTeamId, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
+
+  const bowlingPlayers = useMemo(() => {
+    return getPlayingSquad(bowlingTeamId).slice(0, 6);
+  }, [players, bowlingTeamId, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
+
+  const battingPlayerIdsKey = useMemo(() => battingPlayers.map((p) => p.id).join(","), [battingPlayers]);
+  const bowlingPlayerIdsKey = useMemo(() => bowlingPlayers.map((p) => p.id).join(","), [bowlingPlayers]);
+
   // All squad players of the fielding team (Playing VI + Reserve Fielders) eligible to catch / run out
   const fieldingPlayers = useMemo(() => {
     if (!bowlingTeamId) return [];
@@ -1638,6 +1652,8 @@ function InningsLiveConsole({
   // Auto-sync batRows and bowlRows when battingPlayers/bowlingPlayers change (due to lineup edits or player replacement)
   useEffect(() => {
     setBatRows((prev) => {
+      const prevIds = prev.map((b) => b.playerId).join(",");
+      if (prevIds === battingPlayerIdsKey && prev.length > 0) return prev;
       const prevMap = new Map(prev.map((b) => [b.playerId, b]));
       return battingPlayers.map((p) => {
         const existingRow = prevMap.get(p.id);
@@ -1657,6 +1673,8 @@ function InningsLiveConsole({
     });
 
     setBowlRows((prev) => {
+      const prevIds = prev.map((b) => b.playerId).join(",");
+      if (prevIds === bowlingPlayerIdsKey && prev.length > 0) return prev;
       const prevMap = new Map(prev.map((b) => [b.playerId, b]));
       return bowlingPlayers.map((p) => {
         const existingRow = prevMap.get(p.id);
@@ -1674,23 +1692,21 @@ function InningsLiveConsole({
         };
       });
     });
-  }, [battingPlayers, bowlingPlayers]);
+  }, [battingPlayerIdsKey, bowlingPlayerIdsKey, battingPlayers, bowlingPlayers]);
 
   // Auto-select initial batsmen and first bowler on innings start (0 legal balls only)
   useEffect(() => {
     if (!strikerId && battingPlayers.length > 0) {
-      const notOut = batRows.filter((b) => b.batted && !b.isOut);
-      setStrikerId(notOut[0]?.playerId ?? battingPlayers[0]?.id ?? "");
+      setStrikerId(battingPlayers[0]?.id ?? "");
     }
     if (!nonStrikerId && battingPlayers.length > 1) {
-      const notOut = batRows.filter((b) => b.batted && !b.isOut);
-      setNonStrikerId(notOut[1]?.playerId ?? battingPlayers[1]?.id ?? "");
+      setNonStrikerId(battingPlayers[1]?.id ?? "");
     }
     // Only auto-select bowler for 1st over (0 legal balls bowled)
     if (!currentBowlerId && bowlingPlayers.length > 0 && totalLegalBalls === 0) {
       setCurrentBowlerId(bowlingPlayers[0]?.id ?? "");
     }
-  }, [battingPlayers, bowlingPlayers, batRows, strikerId, nonStrikerId, currentBowlerId, totalLegalBalls]);
+  }, [battingPlayerIdsKey, bowlingPlayerIdsKey, totalLegalBalls]);
 
   // Correction & Squad Substitution Modal State
   const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
