@@ -16,7 +16,7 @@ export default function PointsTable() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mb-2">Points Table</h1>
         <p className="text-sm text-muted-foreground">
-          All six teams ranked in a single table. Top two teams qualify for the Grand Final.
+          All six teams ranked in a single table. Rank 1 qualifies directly for the Grand Final. Ranks 2 & 3 play in the Playoff match.
         </p>
       </div>
 

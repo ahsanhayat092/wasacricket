@@ -69,7 +69,7 @@ export function NRRExplanation() {
               4. Ranking & Tiebreakers
             </div>
             <p className="text-muted-foreground text-[11px] leading-relaxed">
-              Teams are ranked by: <strong>Points (Win: 2, Tie/NR: 1, Loss: 0)</strong> ➔ <strong>Net Run Rate (NRR)</strong> ➔ <strong>Head-to-Head / Admin Tiebreak</strong>. Top 2 teams advance to the Final.
+              Teams are ranked by: <strong>Points (Win: 2, Tie/NR: 1, Loss: 0)</strong> ➔ <strong>Net Run Rate (NRR)</strong> ➔ <strong>Head-to-Head / Admin Tiebreak</strong>. Rank 1 directly advances to the Grand Final; Ranks 2 & 3 advance to the Playoff Eliminator.
             </p>
           </div>
         </div>
