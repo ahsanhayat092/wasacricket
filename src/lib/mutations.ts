@@ -50,7 +50,80 @@ import { recalculateStandings, syncInningsTotals, finalizeMatch } from "./tourna
 // Tournament
 // ---------------------------------------------------------------------------
 
+export async function createTournament(input: Partial<Tournament> & { name: string; formatType?: any }) {
+  const docRef = doc(tournamentsCol());
+  const tournamentId = docRef.id;
+  const slug = input.slug || input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  const newTournament: Omit<Tournament, "id"> = {
+    name: input.name,
+    shortName: input.shortName || input.name.slice(0, 4).toUpperCase(),
+    slug,
+    description: input.description || null,
+    formatType: input.formatType || "TAPE_BALL_INDOOR",
+    winPoints: input.winPoints ?? 2,
+    tiePoints: input.tiePoints ?? 1,
+    noResultPoints: input.noResultPoints ?? 1,
+    lossPoints: input.lossPoints ?? 0,
+    oversPerSide: input.oversPerSide ?? 4,
+    maxOverPerBowler: input.maxOverPerBowler ?? 1,
+    playersPerTeam: input.playersPerTeam ?? 6,
+    maxWickets: input.maxWickets ?? 6,
+    allowLastManStanding: input.allowLastManStanding ?? true,
+    wideRuns: input.wideRuns ?? 1,
+    noBallRuns: input.noBallRuns ?? 1,
+    freeHitEnabled: input.freeHitEnabled ?? true,
+    playoffFormat: input.playoffFormat ?? "DIRECT_TOP2",
+    scorerPin: input.scorerPin || null,
+    venueName: input.venueName || "Askari XI, Lahore",
+    venueMapsUrl: input.venueMapsUrl || null,
+    branding: input.branding || {
+      primaryColor: "#10b981",
+      accentColor: "#f59e0b",
+      logoUrl: null,
+      bannerUrl: null,
+    },
+    status: input.status || "UPCOMING",
+    ownerId: input.ownerId || null,
+    championTeamId: null,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  await setDoc(docRef, newTournament);
+  return { id: tournamentId, ...newTournament };
+}
+
+export async function updateTournament(tournamentId: string, input: Partial<Tournament>) {
+  await setDoc(
+    tournamentDoc(tournamentId),
+    {
+      ...input,
+      updatedAt: now(),
+    },
+    { merge: true },
+  );
+}
+
+export async function deleteTournament(tournamentId: string) {
+  // Delete tournament document and its teams, players, matches
+  const batch = writeBatch(db);
+  batch.delete(tournamentDoc(tournamentId));
+
+  const tTeams = await getDocs(query(teamsCol(), where("tournamentId", "==", tournamentId)));
+  tTeams.docs.forEach((d) => batch.delete(d.ref));
+
+  const tMatches = await getDocs(query(matchesCol(), where("tournamentId", "==", tournamentId)));
+  tMatches.docs.forEach((d) => batch.delete(d.ref));
+
+  const tStandings = await getDocs(query(standingsCol(), where("tournamentId", "==", tournamentId)));
+  tStandings.docs.forEach((d) => batch.delete(d.ref));
+
+  await batch.commit();
+}
+
 export async function updateTournamentSettings(input: {
+  tournamentId?: string;
   name: string;
   shortName?: string;
   winPoints: number;
@@ -59,8 +132,9 @@ export async function updateTournamentSettings(input: {
   lossPoints: number;
   oversPerSide: number;
 }) {
+  const tId = input.tournamentId || TOURNAMENT_ID;
   await setDoc(
-    tournamentDoc(),
+    tournamentDoc(tId),
     {
       ...input,
       shortName: input.shortName ?? null,

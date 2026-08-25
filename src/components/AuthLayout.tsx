@@ -37,6 +37,7 @@ import {
   UserCheck,
   Users,
   BookOpen,
+  Layers,
 } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
@@ -46,6 +47,7 @@ import { Badge } from "./ui/badge";
 
 const adminMenuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
+  { icon: Layers, label: "Tournaments Hub", path: "/admin/tournaments" },
   { icon: Trophy, label: "Teams", path: "/admin/teams" },
   { icon: Users, label: "Players", path: "/admin/players" },
   { icon: CalendarDays, label: "Schedule", path: "/admin/schedule" },

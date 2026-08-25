@@ -1,34 +1,32 @@
 import { Link, NavLink, Outlet } from "react-router";
-import { useQuery } from "@tanstack/react-query";
-import { getTournament } from "@/lib/queries";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
+import { useTournament } from "@/context/TournamentContext";
 import { usePlayerModal } from "@/context/PlayerModalContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Moon, Sun, Menu, Trophy, Shield, KeyRound, LogIn, Search } from "lucide-react";
+import { Moon, Sun, Menu, Trophy, Shield, KeyRound, LogIn, Search, Layers } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-
-const NAV = [
-  { to: "/", label: "Home" },
-  { to: "/schedule", label: "Schedule" },
-  { to: "/teams", label: "Teams" },
-  { to: "/points-table", label: "Points Table" },
-  { to: "/results", label: "Results" },
-  { to: "/statistics", label: "Statistics" },
-  { to: "/rules", label: "Rules" },
-];
 
 export function PublicLayout() {
   const { theme, toggle } = useTheme();
   const { user, isAdmin, isScorer } = useAuth();
   const { openPlayerSearch } = usePlayerModal();
-  const { data: tournament } = useQuery({
-    queryKey: ["tournament"],
-    queryFn: getTournament,
-  });
+  const { tournament, activeTournamentSlug, isFlagshipWasa } = useTournament();
   const [open, setOpen] = useState(false);
+
+  const basePrefix = activeTournamentSlug ? `/t/${activeTournamentSlug}` : "";
+
+  const NAV = [
+    { to: `${basePrefix}/`, label: "Home" },
+    { to: `${basePrefix}/schedule`, label: "Schedule" },
+    { to: `${basePrefix}/teams`, label: "Teams" },
+    { to: `${basePrefix}/points-table`, label: "Points Table" },
+    { to: `${basePrefix}/results`, label: "Results" },
+    { to: `${basePrefix}/statistics`, label: "Statistics" },
+    { to: `${basePrefix}/rules`, label: "Rules" },
+  ];
 
   const navLinkCls = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -39,12 +37,13 @@ export function PublicLayout() {
     );
 
   const tournamentTitle = tournament?.name || "WASA Premier League";
+  const venueTitle = tournament?.venueName || "Askari XI, Lahore";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2.5 font-bold text-lg">
+          <Link to={basePrefix || "/"} className="flex items-center gap-2.5 font-bold text-lg">
             <span className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-md">
               <Trophy className="h-5 w-5 text-amber-300" />
             </span>
@@ -53,7 +52,7 @@ export function PublicLayout() {
                 {tournamentTitle}
               </span>
               <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                Officers Event • WASA Lahore
+                {isFlagshipWasa ? "Officers Event • WASA Lahore" : venueTitle}
               </span>
             </div>
           </Link>
@@ -165,10 +164,10 @@ export function PublicLayout() {
       <footer className="border-t py-8 mt-12 bg-muted/20">
         <div className="mx-auto max-w-6xl px-4 text-center space-y-2">
           <p className="text-sm font-semibold text-foreground">
-            {tournamentTitle} — Officers Event
+            {tournamentTitle} {isFlagshipWasa ? "— Officers Event" : ""}
           </p>
           <p className="text-xs text-muted-foreground">
-            Askari XI, Lahore • 24, 25 August (9:00 PM to 1:00 AM) • WASA Lahore
+            {venueTitle} {isFlagshipWasa ? "• 24, 25 August (9:00 PM to 1:00 AM) • WASA Lahore" : ""}
           </p>
           <p className="text-[11px] text-muted-foreground/80 pt-2 border-t border-border/40 max-w-xs mx-auto">
             Team Spirit • Competition • Excellence — Play Hard, Win Together!

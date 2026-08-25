@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import {
   tournamentDoc,
+  tournamentsCol,
   teamsCol,
   playersCol,
   matchesCol,
@@ -49,13 +50,40 @@ import {
 // Tournament
 // ---------------------------------------------------------------------------
 
-export async function getTournament(): Promise<Tournament> {
-  const snap = await getDoc(tournamentDoc());
+export async function getTournaments(): Promise<Tournament[]> {
+  const snap = await getDocs(tournamentsCol());
+  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Tournament);
+  // If "main" not in DB, prepend default WASA
+  if (!list.some((t) => t.id === TOURNAMENT_ID)) {
+    list.unshift({
+      id: TOURNAMENT_ID,
+      slug: "wasa-2026",
+      name: "WASA Premier League 2026",
+      shortName: "WPL 2026",
+      winPoints: 2,
+      tiePoints: 1,
+      noResultPoints: 1,
+      lossPoints: 0,
+      oversPerSide: 4,
+      status: "COMPLETED",
+      formatType: "TAPE_BALL_INDOOR",
+      venueName: "Askari XI, Lahore",
+      venueMapsUrl: "https://maps.app.goo.gl/va7W9eD3MYWH2SyCA?g_st=ac",
+      championTeamId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  return list;
+}
+
+export async function getTournament(tournamentId: string = TOURNAMENT_ID): Promise<Tournament> {
+  const snap = await getDoc(tournamentDoc(tournamentId));
   if (!snap.exists()) {
     return {
-      id: TOURNAMENT_ID,
-      name: "WASA Premier League",
-      shortName: "WPL",
+      id: tournamentId,
+      name: tournamentId === TOURNAMENT_ID ? "WASA Premier League" : "Cricket Tournament",
+      shortName: tournamentId === TOURNAMENT_ID ? "WPL" : "CT",
       winPoints: 2,
       tiePoints: 1,
       noResultPoints: 1,
@@ -73,9 +101,9 @@ export async function getTournament(): Promise<Tournament> {
 // Teams
 // ---------------------------------------------------------------------------
 
-export async function getTeams(): Promise<Team[]> {
+export async function getTeams(tournamentId: string = TOURNAMENT_ID): Promise<Team[]> {
   const snap = await getDocs(
-    query(teamsCol(), where("tournamentId", "==", TOURNAMENT_ID)),
+    query(teamsCol(), where("tournamentId", "==", tournamentId)),
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
 }

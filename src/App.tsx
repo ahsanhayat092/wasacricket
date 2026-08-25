@@ -1,6 +1,7 @@
 import { Routes, Route, Outlet } from "react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { TournamentProvider } from "@/context/TournamentContext";
 import { PlayerModalProvider } from "@/context/PlayerModalContext";
 import AuthLayout from "@/components/AuthLayout";
 import { PublicLayout } from "@/components/PublicLayout";
@@ -16,6 +17,7 @@ import Statistics from "./pages/Statistics";
 import MatchDetail from "./pages/MatchDetail";
 import LiveMatch from "./pages/LiveMatch";
 import TournamentRules from "./pages/TournamentRules";
+import ScorerPinEntry from "./pages/ScorerPinEntry";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminTeams from "./pages/admin/Teams";
 import AdminPlayers from "./pages/admin/Players";
@@ -26,52 +28,75 @@ import AdminPointsTable from "./pages/admin/PointsTable";
 import AdminRules from "./pages/admin/Rules";
 import AdminUsers from "./pages/admin/Users";
 import AdminSettings from "./pages/admin/Settings";
+import TournamentsList from "./pages/admin/TournamentsList";
+import TournamentWizard from "./pages/admin/TournamentWizard";
 
 export default function App() {
   return (
     <ErrorBoundary>
-      <PlayerModalProvider>
-        <Routes>
-          {/* Public site */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/schedule" element={<Schedule />} />
-            <Route path="/teams" element={<Teams />} />
-            <Route path="/teams/:id" element={<TeamDetail />} />
-            <Route path="/points-table" element={<PointsTable />} />
-            <Route path="/results" element={<Results />} />
-            <Route path="/statistics" element={<Statistics />} />
-            <Route path="/rules" element={<TournamentRules />} />
-            <Route path="/matches/:id" element={<LiveMatch />} />
-            <Route path="/live/:id" element={<LiveMatch />} />
-          </Route>
+      <TournamentProvider>
+        <PlayerModalProvider>
+          <Routes>
+            {/* Scorer PIN quick entry */}
+            <Route path="/scorer/:id" element={<ScorerPinEntry />} />
 
-          {/* Admin & Scorers Workspace (Auth required) */}
-          <Route
-            path="/admin"
-            element={
-              <AuthLayout>
-                <Outlet />
-              </AuthLayout>
-            }
-          >
-            <Route index element={<AdminDashboard />} />
-            <Route path="teams" element={<AdminTeams />} />
-            <Route path="players" element={<AdminPlayers />} />
-            <Route path="schedule" element={<AdminSchedule />} />
-            <Route path="matches" element={<AdminMatches />} />
-            <Route path="matches/:id" element={<AdminMatchControl />} />
-            <Route path="points-table" element={<AdminPointsTable />} />
-            <Route path="rules" element={<AdminRules />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="settings" element={<AdminSettings />} />
-          </Route>
+            {/* Public tenant micro-portal (/t/:slug/...) */}
+            <Route path="/t/:slug" element={<PublicLayout />}>
+              <Route index element={<Home />} />
+              <Route path="schedule" element={<Schedule />} />
+              <Route path="teams" element={<Teams />} />
+              <Route path="teams/:id" element={<TeamDetail />} />
+              <Route path="points-table" element={<PointsTable />} />
+              <Route path="results" element={<Results />} />
+              <Route path="statistics" element={<Statistics />} />
+              <Route path="rules" element={<TournamentRules />} />
+              <Route path="matches/:id" element={<LiveMatch />} />
+              <Route path="live/:id" element={<LiveMatch />} />
+            </Route>
 
-          <Route path="/login" element={<Login />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Toaster />
-      </PlayerModalProvider>
+            {/* Public flagship site */}
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/schedule" element={<Schedule />} />
+              <Route path="/teams" element={<Teams />} />
+              <Route path="/teams/:id" element={<TeamDetail />} />
+              <Route path="/points-table" element={<PointsTable />} />
+              <Route path="/results" element={<Results />} />
+              <Route path="/statistics" element={<Statistics />} />
+              <Route path="/rules" element={<TournamentRules />} />
+              <Route path="/matches/:id" element={<LiveMatch />} />
+              <Route path="/live/:id" element={<LiveMatch />} />
+            </Route>
+
+            {/* Admin & Scorers Workspace (Auth required) */}
+            <Route
+              path="/admin"
+              element={
+                <AuthLayout>
+                  <Outlet />
+                </AuthLayout>
+              }
+            >
+              <Route index element={<AdminDashboard />} />
+              <Route path="tournaments" element={<TournamentsList />} />
+              <Route path="tournaments/new" element={<TournamentWizard />} />
+              <Route path="teams" element={<AdminTeams />} />
+              <Route path="players" element={<AdminPlayers />} />
+              <Route path="schedule" element={<AdminSchedule />} />
+              <Route path="matches" element={<AdminMatches />} />
+              <Route path="matches/:id" element={<AdminMatchControl />} />
+              <Route path="points-table" element={<AdminPointsTable />} />
+              <Route path="rules" element={<AdminRules />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
+
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Toaster />
+        </PlayerModalProvider>
+      </TournamentProvider>
     </ErrorBoundary>
   );
 }

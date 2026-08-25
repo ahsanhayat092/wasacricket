@@ -18,15 +18,44 @@ import { db } from "./firebase";
 // Types
 // ---------------------------------------------------------------------------
 
+export type TournamentFormatType = "T20" | "T10" | "ODI" | "TEST" | "TAPE_BALL_INDOOR" | "CUSTOM";
+export type PlayoffFormatType = "DIRECT_TOP2" | "PAGE_PLAYOFF_TOP3" | "IPL_TOP4" | "SEMI_FINALS" | "NONE";
+export type TournamentStatus = "UPCOMING" | "ONGOING" | "COMPLETED" | "DRAFT";
+
+export type TournamentBranding = {
+  primaryColor?: string;
+  accentColor?: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  sponsorLogos?: string[];
+};
+
 export type Tournament = {
   id: string;
+  slug?: string;
   name: string;
   shortName?: string | null;
+  description?: string | null;
+  formatType?: TournamentFormatType;
   winPoints: number;
   tiePoints: number;
   noResultPoints: number;
   lossPoints: number;
   oversPerSide: number;
+  maxOverPerBowler?: number;
+  playersPerTeam?: number;
+  maxWickets?: number;
+  allowLastManStanding?: boolean;
+  wideRuns?: number;
+  noBallRuns?: number;
+  freeHitEnabled?: boolean;
+  playoffFormat?: PlayoffFormatType;
+  scorerPin?: string | null;
+  venueName?: string | null;
+  venueMapsUrl?: string | null;
+  branding?: TournamentBranding;
+  status?: TournamentStatus;
+  ownerId?: string | null;
   championTeamId?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -255,7 +284,8 @@ export type UserAccount = {
 
 export const TOURNAMENT_ID = "main";
 
-export const tournamentDoc = () => typedDoc<Omit<Tournament, "id">>("tournaments", TOURNAMENT_ID);
+export const tournamentsCol = () => typedCollection<Omit<Tournament, "id">>("tournaments");
+export const tournamentDoc = (id: string = TOURNAMENT_ID) => typedDoc<Omit<Tournament, "id">>("tournaments", id);
 export const teamsCol = () => typedCollection<Omit<Team, "id">>("teams");
 export const playersCol = () => typedCollection<Omit<Player, "id">>("players");
 export const matchesCol = () => typedCollection<Omit<Match, "id">>("matches");
