@@ -73,6 +73,8 @@ import {
   Users,
   Plus,
   UserPlus,
+  UserCheck,
+  RefreshCw,
 } from "lucide-react";
 import type {
   Match,
@@ -545,6 +547,460 @@ function QuickAddPlayerDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Player Substitution & Scorecard Correction Modal (During Live Match)
+// ---------------------------------------------------------------------------
+
+function PlayerCorrectionDialog({
+  isOpen,
+  onClose,
+  match,
+  teams,
+  players,
+  batRows,
+  bowlRows,
+  battingTeamId,
+  bowlingTeamId,
+  onUpdateLineup,
+  onSwapScorecardPlayer,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  match: Match;
+  teams: Team[];
+  players: Player[];
+  batRows?: BatRow[];
+  bowlRows?: BowlRow[];
+  battingTeamId?: string | null;
+  bowlingTeamId?: string | null;
+  onUpdateLineup: (
+    teamAPlayingVI: string[],
+    teamAReserveId: string | null,
+    teamBPlayingVI: string[],
+    teamBReserveId: string | null
+  ) => void;
+  onSwapScorecardPlayer?: (
+    type: "batting" | "bowling",
+    oldPlayerId: string,
+    newPlayerId: string,
+    newPlayerName: string
+  ) => void;
+}) {
+  const teamA = teams.find((t) => t.id === match.teamAId) ?? match.teamA;
+  const teamB = teams.find((t) => t.id === match.teamBId) ?? match.teamB;
+
+  const teamAPlayers = players.filter((p) => p.teamId === match.teamAId);
+  const teamBPlayers = players.filter((p) => p.teamId === match.teamBId);
+
+  const [addPlayerTeam, setAddPlayerTeam] = useState<Team | null>(null);
+
+  // Lineup state for Team A
+  const [teamAPlayingVI, setTeamAPlayingVI] = useState<string[]>(() => {
+    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) return match.teamAPlayingVI;
+    return teamAPlayers.slice(0, 6).map((p) => p.id);
+  });
+  const [teamAReserveId, setTeamAReserveId] = useState<string>(() => {
+    if (match.teamAReserveId) return match.teamAReserveId;
+    return teamAPlayers[6]?.id ?? "";
+  });
+
+  // Lineup state for Team B
+  const [teamBPlayingVI, setTeamBPlayingVI] = useState<string[]>(() => {
+    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) return match.teamBPlayingVI;
+    return teamBPlayers.slice(0, 6).map((p) => p.id);
+  });
+  const [teamBReserveId, setTeamBReserveId] = useState<string>(() => {
+    if (match.teamBReserveId) return match.teamBReserveId;
+    return teamBPlayers[6]?.id ?? "";
+  });
+
+  // Scorecard swap state
+  const [swapType, setSwapType] = useState<"batting" | "bowling">("batting");
+  const [wrongPlayerId, setWrongPlayerId] = useState<string>("");
+  const [correctPlayerId, setCorrectPlayerId] = useState<string>("");
+
+  const activeBattingSquad = players.filter((p) => p.teamId === battingTeamId);
+  const activeBowlingSquad = players.filter((p) => p.teamId === bowlingTeamId);
+
+  const togglePlayerA = (id: string) => {
+    if (teamAPlayingVI.includes(id)) {
+      setTeamAPlayingVI(teamAPlayingVI.filter((p) => p !== id));
+    } else {
+      if (teamAPlayingVI.length >= 6) {
+        toast.error("Playing squad is limited to 6 starting players.");
+        return;
+      }
+      setTeamAPlayingVI([...teamAPlayingVI, id]);
+      if (teamAReserveId === id) setTeamAReserveId("");
+    }
+  };
+
+  const togglePlayerB = (id: string) => {
+    if (teamBPlayingVI.includes(id)) {
+      setTeamBPlayingVI(teamBPlayingVI.filter((p) => p !== id));
+    } else {
+      if (teamBPlayingVI.length >= 6) {
+        toast.error("Playing squad is limited to 6 starting players.");
+        return;
+      }
+      setTeamBPlayingVI([...teamBPlayingVI, id]);
+      if (teamBReserveId === id) setTeamBReserveId("");
+    }
+  };
+
+  const handleSaveLineups = () => {
+    if (teamAPlayingVI.length !== 6 && teamAPlayers.length >= 6) {
+      toast.error(`Please select exactly 6 players for ${teamA?.name ?? "Team A"}.`);
+      return;
+    }
+    if (teamBPlayingVI.length !== 6 && teamBPlayers.length >= 6) {
+      toast.error(`Please select exactly 6 players for ${teamB?.name ?? "Team B"}.`);
+      return;
+    }
+
+    onUpdateLineup(teamAPlayingVI, teamAReserveId || null, teamBPlayingVI, teamBReserveId || null);
+    onClose();
+  };
+
+  const handleApplyScorecardSwap = () => {
+    if (!wrongPlayerId || !correctPlayerId) {
+      toast.error("Please select both the wrong player and the correct replacement.");
+      return;
+    }
+    if (wrongPlayerId === correctPlayerId) {
+      toast.error("Wrong player and replacement player cannot be the same.");
+      return;
+    }
+
+    const correctPlayer = players.find((p) => p.id === correctPlayerId);
+    if (!correctPlayer) {
+      toast.error("Replacement player not found.");
+      return;
+    }
+
+    onSwapScorecardPlayer?.(swapType, wrongPlayerId, correctPlayerId, correctPlayer.name);
+    setWrongPlayerId("");
+    setCorrectPlayerId("");
+    onClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {/* Quick Add Player Sub-Modal */}
+        <QuickAddPlayerDialog
+          isOpen={!!addPlayerTeam}
+          onClose={() => setAddPlayerTeam(null)}
+          team={addPlayerTeam}
+          onPlayerAdded={(newId) => {
+            if (addPlayerTeam?.id === teamA?.id && teamAPlayingVI.length < 6) {
+              setTeamAPlayingVI((prev) => [...prev, newId]);
+            } else if (addPlayerTeam?.id === teamB?.id && teamBPlayingVI.length < 6) {
+              setTeamBPlayingVI((prev) => [...prev, newId]);
+            }
+          }}
+        />
+
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <UserCheck className="h-5 w-5 text-emerald-500" />
+            <DialogTitle className="text-lg font-bold">
+              Player Correction & Squad Replacement
+            </DialogTitle>
+          </div>
+          <DialogDescription className="text-xs">
+            Replace players wrongly selected at toss, create new players in squad mid-match, or correct scorecard entries.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs defaultValue="lineup" className="w-full pt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="lineup" className="text-xs font-bold gap-1.5">
+              <Users className="h-3.5 w-3.5" /> 1. Replace in Playing VI (6+1)
+            </TabsTrigger>
+            <TabsTrigger value="scorecard" className="text-xs font-bold gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5" /> 2. Correct Scorecard Entry
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: Lineup & Playing VI Replacement */}
+          <TabsContent value="lineup" className="space-y-4 pt-3">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Team A */}
+              <div className="p-3.5 rounded-xl border bg-muted/10 space-y-2.5">
+                <div className="flex items-center justify-between pb-2 border-b">
+                  <div className="flex items-center gap-1.5">
+                    <TeamBadge shortName={teamA?.shortName} logoUrl={teamA?.logoUrl} size="sm" />
+                    <span className="font-bold text-xs">{teamA?.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {teamA && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setAddPlayerTeam(teamA as Team)}
+                        className="h-6 text-[10px] px-2 py-0 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 font-bold gap-1"
+                      >
+                        <Plus className="h-3 w-3" /> Add Player
+                      </Button>
+                    )}
+                    <Badge
+                      variant={teamAPlayingVI.length === 6 ? "default" : "outline"}
+                      className={teamAPlayingVI.length === 6 ? "bg-emerald-600 text-white text-[10px]" : "border-amber-500 text-amber-500 text-[10px]"}
+                    >
+                      {teamAPlayingVI.length}/6
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                  {teamAPlayers.map((p) => {
+                    const isSelected = teamAPlayingVI.includes(p.id);
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => togglePlayerA(p.id)}
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                          isSelected
+                            ? "bg-emerald-500/15 border-emerald-500/50 font-semibold"
+                            : "hover:bg-muted/40 border-border opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={isSelected} />
+                          <span>{p.name}</span>
+                          {p.designation === "Captain" && (
+                            <Badge className="bg-amber-600 text-white text-[8px] py-0 px-1 font-bold">(C)</Badge>
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="text-[9px]">{p.role}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-2 border-t space-y-1">
+                  <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                    <ArrowRightLeft className="h-3 w-3 text-amber-500" /> Reserve Player:
+                  </Label>
+                  <Select value={teamAReserveId || undefined} onValueChange={setTeamAReserveId}>
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue placeholder="Select Reserve" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamAPlayers
+                        .filter((p) => !teamAPlayingVI.includes(p.id))
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name} ({p.role})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Team B */}
+              <div className="p-3.5 rounded-xl border bg-muted/10 space-y-2.5">
+                <div className="flex items-center justify-between pb-2 border-b">
+                  <div className="flex items-center gap-1.5">
+                    <TeamBadge shortName={teamB?.shortName} logoUrl={teamB?.logoUrl} size="sm" />
+                    <span className="font-bold text-xs">{teamB?.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {teamB && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setAddPlayerTeam(teamB as Team)}
+                        className="h-6 text-[10px] px-2 py-0 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 font-bold gap-1"
+                      >
+                        <Plus className="h-3 w-3" /> Add Player
+                      </Button>
+                    )}
+                    <Badge
+                      variant={teamBPlayingVI.length === 6 ? "default" : "outline"}
+                      className={teamBPlayingVI.length === 6 ? "bg-emerald-600 text-white text-[10px]" : "border-amber-500 text-amber-500 text-[10px]"}
+                    >
+                      {teamBPlayingVI.length}/6
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                  {teamBPlayers.map((p) => {
+                    const isSelected = teamBPlayingVI.includes(p.id);
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => togglePlayerB(p.id)}
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                          isSelected
+                            ? "bg-emerald-500/15 border-emerald-500/50 font-semibold"
+                            : "hover:bg-muted/40 border-border opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={isSelected} />
+                          <span>{p.name}</span>
+                          {p.designation === "Captain" && (
+                            <Badge className="bg-amber-600 text-white text-[8px] py-0 px-1 font-bold">(C)</Badge>
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="text-[9px]">{p.role}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-2 border-t space-y-1">
+                  <Label className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                    <ArrowRightLeft className="h-3 w-3 text-amber-500" /> Reserve Player:
+                  </Label>
+                  <Select value={teamBReserveId || undefined} onValueChange={setTeamBReserveId}>
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue placeholder="Select Reserve" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamBPlayers
+                        .filter((p) => !teamBPlayingVI.includes(p.id))
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name} ({p.role})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-3 gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSaveLineups}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+              >
+                Save & Update Lineups
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+
+          {/* Tab 2: Scorecard Player Attribution Swap */}
+          <TabsContent value="scorecard" className="space-y-4 pt-3">
+            <div className="p-4 rounded-xl border bg-muted/15 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                If runs or bowling figures were attributed to the wrong player during live scoring, use this tool to reassign their scorecard entry to the correct squad member without resetting stats.
+              </p>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Correction Type</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={swapType === "batting" ? "default" : "outline"}
+                    onClick={() => {
+                      setSwapType("batting");
+                      setWrongPlayerId("");
+                      setCorrectPlayerId("");
+                    }}
+                    className={swapType === "batting" ? "bg-emerald-600 text-white text-xs font-bold" : "text-xs"}
+                  >
+                    🏏 Batting Scorecard Correction
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={swapType === "bowling" ? "default" : "outline"}
+                    onClick={() => {
+                      setSwapType("bowling");
+                      setWrongPlayerId("");
+                      setCorrectPlayerId("");
+                    }}
+                    className={swapType === "bowling" ? "bg-emerald-600 text-white text-xs font-bold" : "text-xs"}
+                  >
+                    🎯 Bowling Scorecard Correction
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-rose-500">
+                    1. Wrong Player on Scorecard *
+                  </Label>
+                  <Select value={wrongPlayerId || undefined} onValueChange={setWrongPlayerId}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Select player to replace" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {swapType === "batting"
+                        ? batRows
+                            ?.filter((b) => b.batted || b.balls > 0 || b.runs > 0)
+                            .map((b) => (
+                              <SelectItem key={b.playerId} value={b.playerId}>
+                                {b.name} ({b.runs} runs, {b.balls} balls)
+                              </SelectItem>
+                            ))
+                        : bowlRows
+                            ?.filter((b) => b.bowled || b.balls > 0)
+                            .map((b) => (
+                              <SelectItem key={b.playerId} value={b.playerId}>
+                                {b.name} ({b.wickets}w, {b.runs}r, {ballsToOversText(b.balls)} ov)
+                              </SelectItem>
+                            ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-emerald-500">
+                    2. Correct Replacement Player *
+                  </Label>
+                  <Select value={correctPlayerId || undefined} onValueChange={setCorrectPlayerId}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Select correct player" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(swapType === "batting" ? activeBattingSquad : activeBowlingSquad).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-2 gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!wrongPlayerId || !correctPlayerId}
+                  onClick={handleApplyScorecardSwap}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Apply Scorecard Correction
+                </Button>
+              </DialogFooter>
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -1146,6 +1602,47 @@ function InningsLiveConsole({
     return currentBalls >= maxBalls;
   };
 
+  // Auto-sync batRows and bowlRows when battingPlayers/bowlingPlayers change (due to lineup edits or player replacement)
+  useEffect(() => {
+    setBatRows((prev) => {
+      const prevMap = new Map(prev.map((b) => [b.playerId, b]));
+      return battingPlayers.map((p) => {
+        const existingRow = prevMap.get(p.id);
+        if (existingRow) return existingRow;
+        return {
+          playerId: p.id,
+          name: p.name,
+          batted: false,
+          runs: 0,
+          balls: 0,
+          fours: 0,
+          sixes: 0,
+          isOut: false,
+          dismissal: "",
+        };
+      });
+    });
+
+    setBowlRows((prev) => {
+      const prevMap = new Map(prev.map((b) => [b.playerId, b]));
+      return bowlingPlayers.map((p) => {
+        const existingRow = prevMap.get(p.id);
+        if (existingRow) return existingRow;
+        return {
+          playerId: p.id,
+          name: p.name,
+          bowled: false,
+          balls: 0,
+          maidens: 0,
+          runs: 0,
+          wickets: 0,
+          wides: 0,
+          noBalls: 0,
+        };
+      });
+    });
+  }, [battingPlayers, bowlingPlayers]);
+
   // Auto-select initial batsmen and first bowler on innings start (0 legal balls only)
   useEffect(() => {
     if (!strikerId && battingPlayers.length > 0) {
@@ -1161,6 +1658,9 @@ function InningsLiveConsole({
       setCurrentBowlerId(bowlingPlayers[0]?.id ?? "");
     }
   }, [battingPlayers, bowlingPlayers, batRows, strikerId, nonStrikerId, currentBowlerId, totalLegalBalls]);
+
+  // Correction & Squad Substitution Modal State
+  const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
 
   // Recent Balls Feed (History for this session & stored in Firestore)
   const [recentBalls, setRecentBalls] = useState<string[]>(() => existing?.recentBalls ?? []);
@@ -1329,6 +1829,51 @@ function InningsLiveConsole({
       partnerships: dynamicPartnerships,
       recentEvent,
     });
+  };
+
+  const handleSwapScorecardPlayer = (
+    type: "batting" | "bowling",
+    oldPlayerId: string,
+    newPlayerId: string,
+    newPlayerName: string,
+  ) => {
+    if (type === "batting") {
+      const newBat = batRows.map((b) =>
+        b.playerId === oldPlayerId ? { ...b, playerId: newPlayerId, name: newPlayerName } : b,
+      );
+      setBatRows(newBat);
+      if (strikerId === oldPlayerId) setStrikerId(newPlayerId);
+      if (nonStrikerId === oldPlayerId) setNonStrikerId(newPlayerId);
+      triggerSave(newBat, bowlRows, extras, closed, recentBalls);
+      toast.success(`Batting scorecard updated: Replaced with ${newPlayerName}`);
+    } else {
+      const newBowl = bowlRows.map((b) =>
+        b.playerId === oldPlayerId ? { ...b, playerId: newPlayerId, name: newPlayerName } : b,
+      );
+      setBowlRows(newBowl);
+      if (currentBowlerId === oldPlayerId) setCurrentBowlerId(newPlayerId);
+      if (lastOverBowlerId === oldPlayerId) setLastOverBowlerId(newPlayerId);
+      triggerSave(batRows, newBowl, extras, closed, recentBalls);
+      toast.success(`Bowling scorecard updated: Replaced with ${newPlayerName}`);
+    }
+  };
+
+  const handleUpdateLineups = async (
+    teamAPlayingVI: string[],
+    teamAReserveId: string | null,
+    teamBPlayingVI: string[],
+    teamBReserveId: string | null,
+  ) => {
+    await fbUpdateMatchLineups({
+      matchId,
+      teamAPlayingVI,
+      teamAReserveId,
+      teamBPlayingVI,
+      teamBReserveId,
+    });
+    queryClient.invalidateQueries({ queryKey: ["matchWorkspace", matchId] });
+    toast.success("Playing VI & Lineups updated!");
+    onSaved();
   };
 
   // Check if Innings or Match has ended
@@ -2112,12 +2657,27 @@ function InningsLiveConsole({
               </div>
             </div>
 
-            {/* Over Wheel / Recent Deliveries with Over Separator */}
-            <div className="flex flex-col items-start sm:items-end gap-1.5 w-full sm:w-auto">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-                Recent Deliveries
-              </span>
-              <RecentBalls balls={recentBalls} maxOversToShow={maxMatchOvers} />
+            {/* Over Wheel & Player Replacement Button */}
+            <div className="flex flex-col items-start sm:items-end gap-2.5 w-full sm:w-auto">
+              {!readOnly && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCorrectionModalOpen(true)}
+                  className="h-8 text-xs font-bold border-sky-500/40 text-sky-400 hover:bg-sky-500/10 gap-1.5 shadow-sm"
+                  title="Replace player wrongly selected at toss, add new player to squad, or correct scorecard entries"
+                >
+                  <UserCheck className="h-3.5 w-3.5 text-sky-400" />
+                  <span>Replace Player / Squad Edit</span>
+                </Button>
+              )}
+              <div className="flex flex-col items-start sm:items-end gap-1 w-full sm:w-auto">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                  Recent Deliveries
+                </span>
+                <RecentBalls balls={recentBalls} maxOversToShow={maxMatchOvers} />
+              </div>
             </div>
           </div>
         </CardContent>
@@ -2182,14 +2742,26 @@ function InningsLiveConsole({
                 <CardTitle className="text-sm font-bold flex items-center gap-1.5">
                   <Crown className="h-4 w-4 text-amber-500" /> Active Players on Field
                 </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSwapStrike}
-                  className="h-7 text-xs gap-1 px-2"
-                >
-                  <ArrowRightLeft className="h-3 w-3" /> Swap Strike
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCorrectionModalOpen(true)}
+                    className="h-7 text-[11px] font-bold border-sky-500/40 text-sky-400 hover:bg-sky-500/10 gap-1 px-2"
+                    title="Replace wrongly selected player on field"
+                  >
+                    <UserCheck className="h-3 w-3" /> Replace
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSwapStrike}
+                    className="h-7 text-xs gap-1 px-2"
+                  >
+                    <ArrowRightLeft className="h-3 w-3" /> Swap
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
@@ -3246,6 +3818,21 @@ function InningsLiveConsole({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Player Correction & Substitution Dialog */}
+      <PlayerCorrectionDialog
+        isOpen={correctionModalOpen}
+        onClose={() => setCorrectionModalOpen(false)}
+        match={match}
+        teams={teams}
+        players={players}
+        batRows={batRows}
+        bowlRows={bowlRows}
+        battingTeamId={battingTeamId}
+        bowlingTeamId={bowlingTeamId}
+        onUpdateLineup={handleUpdateLineups}
+        onSwapScorecardPlayer={handleSwapScorecardPlayer}
+      />
     </div>
   );
 }
