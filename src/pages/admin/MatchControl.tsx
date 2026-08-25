@@ -362,7 +362,7 @@ export default function AdminMatchControl() {
 
             <TabsContent value="1" className="mt-4">
               <InningsLiveConsole
-                key={`innings-${match.id}-1-${inn1?.id ?? "fresh"}-${inn1?.runs ?? 0}`}
+                key={`innings-${match.id}-1`}
                 matchId={match.id}
                 inningsNumber={1}
                 workspace={data}
@@ -381,7 +381,7 @@ export default function AdminMatchControl() {
 
             <TabsContent value="2" className="mt-4">
               <InningsLiveConsole
-                key={`innings-${match.id}-2-${inn2?.id ?? "fresh"}-${inn1?.runs ?? 0}`}
+                key={`innings-${match.id}-2`}
                 matchId={match.id}
                 inningsNumber={2}
                 workspace={data}
@@ -479,8 +479,6 @@ function QuickAddPlayerDialog({
     },
   });
 
-  if (!team) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -491,19 +489,20 @@ function QuickAddPlayerDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <TeamBadge shortName={team.shortName} logoUrl={team.logoUrl} size="sm" />
-            <DialogTitle className="text-base font-bold">
-              Add Player to {team.name}
-            </DialogTitle>
-          </div>
-          <DialogDescription className="text-xs">
-            Add a new player to this team's squad before or during the match.
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog open={isOpen && !!team} onOpenChange={(open) => !open && onClose()}>
+      {team && (
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <TeamBadge shortName={team.shortName} logoUrl={team.logoUrl} size="sm" />
+              <DialogTitle className="text-base font-bold">
+                Add Player to {team.name}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs">
+              Add a new player to this team's squad before or during the match.
+            </DialogDescription>
+          </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
@@ -581,6 +580,7 @@ function QuickAddPlayerDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      )}
     </Dialog>
   );
 }
