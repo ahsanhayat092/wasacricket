@@ -12,11 +12,22 @@ import { Calendar, MapPin, Clock, Trophy, FileDown, Loader2 } from "lucide-react
 
 export default function Schedule() {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [stageFilter, setStageFilter] = useState<"ALL" | "LEAGUE" | "PLAYOFF" | "FINAL">("ALL");
+
   const { data: matches, isLoading } = useQuery({
     queryKey: ["schedule"],
     queryFn: getSchedule,
     refetchInterval: 15000,
   });
+
+  const filteredMatches = useMemo(() => {
+    if (!matches) return [];
+    if (stageFilter === "ALL") return matches;
+    return matches.filter((m) => {
+      const s = m.stage?.toUpperCase();
+      return s === stageFilter;
+    });
+  }, [matches, stageFilter]);
 
   if (isLoading || !matches) {
     return (
@@ -26,16 +37,6 @@ export default function Schedule() {
       </div>
     );
   }
-
-  const [stageFilter, setStageFilter] = useState<"ALL" | "LEAGUE" | "PLAYOFF" | "FINAL">("ALL");
-
-  const filteredMatches = useMemo(() => {
-    if (stageFilter === "ALL") return matches;
-    return matches.filter((m) => {
-      const s = m.stage?.toUpperCase();
-      return s === stageFilter;
-    });
-  }, [matches, stageFilter]);
 
   // Group matches dynamically by date or day
   const groupMap = new Map<string, HydratedMatch[]>();
