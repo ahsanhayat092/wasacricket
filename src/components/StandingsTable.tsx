@@ -120,18 +120,33 @@ export function StandingsTable({
 
       {!compact && (
         <div className="p-3 bg-muted/20 border-t flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5 font-medium text-amber-400">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span><strong>Rank 1</strong>: Direct Grand Final Spot</span>
-          </span>
-          <span className="flex items-center gap-1.5 font-medium text-purple-400">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500" />
-            <span><strong>Rank 2 & 3</strong>: Playoff Eliminator Spot</span>
-          </span>
-          <span className="flex items-center gap-1.5 font-medium text-rose-400">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
-            <span><strong>Eliminated</strong>: Cannot mathematically reach Top 3</span>
-          </span>
+          {rows.some((r) => r.qualificationStatus === "QUALIFIED_PLAYOFF") ? (
+            <>
+              <span className="flex items-center gap-1.5 font-medium text-amber-400">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span><strong>Rank 1</strong>: Direct Grand Final Spot</span>
+              </span>
+              <span className="flex items-center gap-1.5 font-medium text-purple-400">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500" />
+                <span><strong>Rank 2 & 3</strong>: Playoff Eliminator Spot</span>
+              </span>
+              <span className="flex items-center gap-1.5 font-medium text-rose-400">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
+                <span><strong>Eliminated</strong>: Cannot mathematically reach Top 3</span>
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="flex items-center gap-1.5 font-medium text-amber-400">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span><strong>Rank 1 & 2</strong>: Direct Grand Finalists</span>
+              </span>
+              <span className="flex items-center gap-1.5 font-medium text-rose-400">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
+                <span><strong>Eliminated</strong>: Cannot reach Top 2</span>
+              </span>
+            </>
+          )}
         </div>
       )}
     </div>

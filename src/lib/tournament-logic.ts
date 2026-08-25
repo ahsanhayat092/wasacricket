@@ -275,6 +275,13 @@ export async function recalculateStandings() {
         m.status === "ABANDONED",
     );
 
+  const hasPlayoffMatch = allMatches.some(
+    (m) =>
+      m.stage === "PLAYOFF" ||
+      m.stage === "playoff" ||
+      m.stage?.toUpperCase() === "PLAYOFF",
+  );
+
   const currentPointsMap = new Map<string, number>(rows.map((r) => [r.teamId, r.points]));
   const currentPositionsMap = new Map<string, number>(rows.map((r, idx) => [r.teamId, idx + 1]));
   const currentNrrMap = new Map<string, number>(rows.map((r) => [r.teamId, r.nrr]));
@@ -287,6 +294,7 @@ export async function recalculateStandings() {
     currentPositionsMap,
     currentNrrMap,
     tournament.winPoints || 2,
+    hasPlayoffMatch,
   );
 
   const batch = writeBatch(db);
@@ -360,42 +368,70 @@ export function calculateScenarioQualifications(
   currentPositions: Map<string, number>,
   currentNrrMap?: Map<string, number>,
   winPoints = 2,
+  hasPlayoffMatch = true,
 ): Map<string, TeamScenarioOutcome> {
   const result = new Map<string, TeamScenarioOutcome>();
+  const qualifyingCutoff = hasPlayoffMatch ? 3 : 2;
 
   if (allLeagueMatchesCompleted) {
     for (const t of teams) {
       const pos = currentPositions.get(t.id) ?? 99;
-      if (pos === 1) {
-        result.set(t.id, {
-          teamId: t.id,
-          canReachTop3: true,
-          guaranteedTop3: true,
-          canReachRank1: true,
-          guaranteedRank1: true,
-          eliminated: false,
-          qualificationStatus: "QUALIFIED_FINAL",
-        });
-      } else if (pos === 2 || pos === 3) {
-        result.set(t.id, {
-          teamId: t.id,
-          canReachTop3: true,
-          guaranteedTop3: true,
-          canReachRank1: false,
-          guaranteedRank1: false,
-          eliminated: false,
-          qualificationStatus: "QUALIFIED_PLAYOFF",
-        });
+      if (!hasPlayoffMatch) {
+        // Direct Top 2 to Grand Final
+        if (pos === 1 || pos === 2) {
+          result.set(t.id, {
+            teamId: t.id,
+            canReachTop3: true,
+            guaranteedTop3: true,
+            canReachRank1: pos === 1,
+            guaranteedRank1: pos === 1,
+            eliminated: false,
+            qualificationStatus: "QUALIFIED_FINAL",
+          });
+        } else {
+          result.set(t.id, {
+            teamId: t.id,
+            canReachTop3: false,
+            guaranteedTop3: false,
+            canReachRank1: false,
+            guaranteedRank1: false,
+            eliminated: true,
+            qualificationStatus: "ELIMINATED",
+          });
+        }
       } else {
-        result.set(t.id, {
-          teamId: t.id,
-          canReachTop3: false,
-          guaranteedTop3: false,
-          canReachRank1: false,
-          guaranteedRank1: false,
-          eliminated: true,
-          qualificationStatus: "ELIMINATED",
-        });
+        // Rank 1 -> Final, Rank 2 & 3 -> Playoff
+        if (pos === 1) {
+          result.set(t.id, {
+            teamId: t.id,
+            canReachTop3: true,
+            guaranteedTop3: true,
+            canReachRank1: true,
+            guaranteedRank1: true,
+            eliminated: false,
+            qualificationStatus: "QUALIFIED_FINAL",
+          });
+        } else if (pos === 2 || pos === 3) {
+          result.set(t.id, {
+            teamId: t.id,
+            canReachTop3: true,
+            guaranteedTop3: true,
+            canReachRank1: false,
+            guaranteedRank1: false,
+            eliminated: false,
+            qualificationStatus: "QUALIFIED_PLAYOFF",
+          });
+        } else {
+          result.set(t.id, {
+            teamId: t.id,
+            canReachTop3: false,
+            guaranteedTop3: false,
+            canReachRank1: false,
+            guaranteedRank1: false,
+            eliminated: true,
+            qualificationStatus: "ELIMINATED",
+          });
+        }
       }
     }
     return result;
@@ -525,12 +561,12 @@ export function calculateScenarioQualifications(
 
       const tracker = teamTracker.get(tid)!;
 
-      // Can reach top 3 if strictly fewer than 3 teams are ahead of my team
-      if (strictlyAbove < 3) {
+      // Can reach qualifying cutoff if strictly fewer teams are ahead of my team
+      if (strictlyAbove < qualifyingCutoff) {
         tracker.canReachTop3 = true;
       }
-      // Guaranteed top 3 if at most 3 teams are >= my team
-      if (atLeastSame > 3) {
+      // Guaranteed qualification if at most qualifyingCutoff teams are >= my team
+      if (atLeastSame > qualifyingCutoff) {
         tracker.guaranteedTop3 = false;
       }
 
@@ -665,10 +701,10 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
     playoffWinnerId = playoffMatch.winningTeamId ?? null;
   }
 
-  // Update Final fixture (Rank 1 vs Playoff Winner)
+  // Update Final fixture (Rank 1 vs Rank 2 if no playoff, or Rank 1 vs Playoff Winner if playoff exists)
   if (finalMatch && finalMatch.status !== "COMPLETED" && finalMatch.status !== "LIVE") {
     const desiredTeamA = rank1Id;
-    const desiredTeamB = playoffWinnerId;
+    const desiredTeamB = playoffMatch ? playoffWinnerId : rank2Id;
 
     if (
       finalMatch.teamAId !== desiredTeamA ||
