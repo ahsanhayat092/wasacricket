@@ -6,12 +6,13 @@ import {
   completeMatch as fbCompleteMatch,
   reopenMatch as fbReopenMatch,
   resetMatch as fbResetMatch,
+  deleteMatch as fbDeleteMatch,
   saveInnings as fbSaveInnings,
   updateMatchLineups as fbUpdateMatchLineups,
   updateMatchDetails as fbUpdateMatchDetails,
   upsertPlayer as fbUpsertPlayer,
 } from "@/lib/mutations";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useNavigate } from "react-router";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -75,6 +76,7 @@ import {
   UserPlus,
   UserCheck,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import type {
   Match,
@@ -96,6 +98,7 @@ type WorkspaceData = {
 
 export default function AdminMatchControl() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["matchWorkspace", id],
@@ -156,6 +159,16 @@ export default function AdminMatchControl() {
     onError: (e) => toast.error(e.message),
   });
 
+  const deleteMatch = useMutation({
+    mutationFn: () => fbDeleteMatch(id!),
+    onSuccess: () => {
+      toast.success("Match permanently deleted!");
+      invalidate();
+      navigate("/admin/matches");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   // Sync tab when data loads or updates
   const inn1 = data?.innings?.find((i) => i.inningsNumber === 1);
   const inn2 = data?.innings?.find((i) => i.inningsNumber === 2);
@@ -166,6 +179,24 @@ export default function AdminMatchControl() {
     }
   }, [inn2, inn1?.completed, activeInningsTab]);
 
+  const match = data?.match;
+  const teams = data?.teams ?? [];
+  const players = data?.players ?? [];
+  const isFinalMatch = match?.stage === "FINAL" || match?.stage?.toUpperCase() === "FINAL";
+  const teamA = teams.find((t) => t.id === match?.teamAId) ?? null;
+  const teamB = teams.find((t) => t.id === match?.teamBId) ?? null;
+
+  useEffect(() => {
+    if (match && isFinalMatch && (!match.teamAId || !match.teamBId) && teamA && teamB) {
+      fbUpdateMatchDetails({
+        matchId: match.id,
+        teamAId: teamA.id,
+        teamBId: teamB.id,
+        stage: "FINAL",
+      }).catch(console.error);
+    }
+  }, [isFinalMatch, match?.teamAId, match?.teamBId, teamA?.id, teamB?.id, match?.id]);
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-4 max-w-7xl mx-auto">
@@ -175,7 +206,7 @@ export default function AdminMatchControl() {
     );
   }
 
-  if (!data) {
+  if (!data || !match) {
     return (
       <div className="p-8 text-center max-w-md mx-auto space-y-4">
         <div className="p-6 rounded-2xl border bg-card shadow-sm space-y-3">
@@ -188,22 +219,6 @@ export default function AdminMatchControl() {
       </div>
     );
   }
-
-  const { match, teams = [], players = [], innings: _innings = [] } = data;
-  const isFinalMatch = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
-  const teamA = teams.find((t) => t.id === match.teamAId) ?? null;
-  const teamB = teams.find((t) => t.id === match.teamBId) ?? null;
-
-  useEffect(() => {
-    if (isFinalMatch && (!match.teamAId || !match.teamBId) && teamA && teamB) {
-      fbUpdateMatchDetails({
-        matchId: match.id,
-        teamAId: teamA.id,
-        teamBId: teamB.id,
-        stage: "FINAL",
-      }).catch(console.error);
-    }
-  }, [isFinalMatch, match.teamAId, match.teamBId, teamA?.id, teamB?.id, match.id]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
@@ -256,6 +271,23 @@ export default function AdminMatchControl() {
             }}
           >
             <RotateCcw className="h-3.5 w-3.5" /> Restart Match (Reset DB)
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5 text-rose-500 border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600"
+            disabled={deleteMatch.isPending}
+            onClick={() => {
+              if (
+                confirm(
+                  `🗑️ PERMANENTLY DELETE THIS MATCH?\n\nThis will remove the fixture and all associated innings and scorecards permanently.\n\nAre you sure?`
+                )
+              ) {
+                deleteMatch.mutate();
+              }
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete Match
           </Button>
         </div>
       </div>

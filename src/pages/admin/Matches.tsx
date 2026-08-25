@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
 import { getSchedule } from "@/lib/queries";
-import { updateMatchDetails, setMatchStatus, resetMatch as fbResetMatch } from "@/lib/mutations";
+import { updateMatchDetails, setMatchStatus, resetMatch as fbResetMatch, deleteMatch as fbDeleteMatch } from "@/lib/mutations";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
-import { RotateCcw, Trophy } from "lucide-react";
+import { RotateCcw, Trophy, Trash2 } from "lucide-react";
 
 export default function AdminMatches() {
   const { data: matches, isLoading } = useQuery({
@@ -27,6 +27,7 @@ export default function AdminMatches() {
     queryClient.invalidateQueries({ queryKey: ["schedule"] });
     queryClient.invalidateQueries({ queryKey: ["standings"] });
     queryClient.invalidateQueries({ queryKey: ["statistics"] });
+    queryClient.invalidateQueries({ queryKey: ["overview"] });
   };
 
   const setStatus = useMutation({
@@ -40,6 +41,15 @@ export default function AdminMatches() {
     mutationFn: (matchId: string) => fbResetMatch(matchId),
     onSuccess: () => {
       toast.success("Match reset successfully! All scorecards and toss data cleared.");
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deleteMatchMutation = useMutation({
+    mutationFn: (matchId: string) => fbDeleteMatch(matchId),
+    onSuccess: () => {
+      toast.success("Match and its scorecards deleted successfully!");
       invalidate();
     },
     onError: (e) => toast.error(e.message),
@@ -149,6 +159,24 @@ export default function AdminMatches() {
                         <RotateCcw className="h-3 w-3" /> Reset
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 text-xs gap-1"
+                      disabled={deleteMatchMutation.isPending}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `🗑️ Permanently DELETE ${m.stage === "FINAL" ? "Grand Final" : m.stage === "PLAYOFF" ? "Playoff Match" : `Match ${m.matchNumber}`}?\n\nThis will remove the fixture and all associated innings and scorecards.`
+                          )
+                        ) {
+                          deleteMatchMutation.mutate(m.id);
+                        }
+                      }}
+                      title="Permanently Delete Match"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
