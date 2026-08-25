@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSchedule } from "@/lib/queries";
 import { MatchCard, type HydratedMatch } from "@/components/MatchCard";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
