@@ -176,6 +176,13 @@ export type BowlingScore = {
   noBalls: number;
 };
 
+export type QualificationStatusType =
+  | "QUALIFIED_FINAL"
+  | "QUALIFIED_PLAYOFF"
+  | "QUALIFIED_TOP3"
+  | "IN_CONTENTION"
+  | "ELIMINATED";
+
 export type Standing = {
   id: string; // same as teamId
   tournamentId: string;
@@ -193,6 +200,12 @@ export type Standing = {
   nrr: number;
   position: number;
   qualified: boolean;
+  qualificationStatus?: QualificationStatusType;
+  canReachTop3?: boolean;
+  guaranteedTop3?: boolean;
+  canReachRank1?: boolean;
+  guaranteedRank1?: boolean;
+  eliminated?: boolean;
   adminTiebreak: number;
   updatedAt: string;
 };

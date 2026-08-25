@@ -325,4 +325,189 @@ describe("getInningsOverWiseStats", () => {
   });
 });
 
+import { calculateScenarioQualifications } from "./tournament-logic";
+import type { Match } from "./firestore";
 
+describe("calculateScenarioQualifications", () => {
+  const teams = [
+    { id: "wolves", name: "Wolves" },
+    { id: "falcons", name: "Falcons" },
+    { id: "tigers", name: "Tigers" },
+    { id: "lions", name: "Lions" },
+    { id: "stallions", name: "Stallions" },
+    { id: "dolphins", name: "Dolphins" },
+  ];
+
+  it("identifies mathematically eliminated teams when they cannot reach top 3", () => {
+    // Current points:
+    // Wolves: 4 (2 played, 1 match left)
+    // Falcons: 2 (2 played, 1 match left)
+    // Tigers: 2 (1 played, 2 matches left)
+    // Lions: 2 (2 played, 1 match left)
+    // Stallions: 0 (1 played, 2 matches left)
+    // Dolphins: 0 (2 played, 1 match left -> max 2 pts)
+    const currentPoints = new Map([
+      ["wolves", 4],
+      ["falcons", 2],
+      ["tigers", 2],
+      ["lions", 2],
+      ["stallions", 0],
+      ["dolphins", 0],
+    ]);
+
+    const leagueMatches: Match[] = [
+      // Completed matches
+      {
+        id: "m1",
+        tournamentId: "t1",
+        matchNumber: 1,
+        stage: "LEAGUE",
+        day: "MONDAY",
+        teamAId: "lions",
+        teamBId: "dolphins",
+        status: "COMPLETED",
+        winningTeamId: "lions",
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "m4",
+        tournamentId: "t1",
+        matchNumber: 4,
+        stage: "LEAGUE",
+        day: "MONDAY",
+        teamAId: "wolves",
+        teamBId: "dolphins",
+        status: "COMPLETED",
+        winningTeamId: "wolves",
+        createdAt: "",
+        updatedAt: "",
+      },
+      // Remaining unplayed matches
+      {
+        id: "m6",
+        tournamentId: "t1",
+        matchNumber: 6,
+        stage: "LEAGUE",
+        day: "TUESDAY",
+        teamAId: "wolves",
+        teamBId: "falcons",
+        status: "UPCOMING",
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "m7",
+        tournamentId: "t1",
+        matchNumber: 7,
+        stage: "LEAGUE",
+        day: "TUESDAY",
+        teamAId: "tigers",
+        teamBId: "stallions",
+        status: "UPCOMING",
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "m8",
+        tournamentId: "t1",
+        matchNumber: 8,
+        stage: "LEAGUE",
+        day: "TUESDAY",
+        teamAId: "lions",
+        teamBId: "stallions",
+        status: "UPCOMING",
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "m9",
+        tournamentId: "t1",
+        matchNumber: 9,
+        stage: "LEAGUE",
+        day: "TUESDAY",
+        teamAId: "tigers",
+        teamBId: "dolphins",
+        status: "UPCOMING",
+        createdAt: "",
+        updatedAt: "",
+      },
+    ];
+
+    const currentPositions = new Map([
+      ["wolves", 1],
+      ["falcons", 2],
+      ["tigers", 3],
+      ["lions", 4],
+      ["stallions", 5],
+      ["dolphins", 6],
+    ]);
+
+    const currentNrrMap = new Map([
+      ["wolves", 5.375],
+      ["falcons", 3.75],
+      ["tigers", 0.25],
+      ["lions", -2.768],
+      ["stallions", -4.5],
+      ["dolphins", -4.701],
+    ]);
+
+    const results = calculateScenarioQualifications(
+      teams,
+      leagueMatches,
+      currentPoints,
+      false,
+      currentPositions,
+      currentNrrMap,
+      2,
+    );
+
+    // Dolphins cannot exceed 2 points and cannot reach Top 3 in any remaining scenario
+    expect(results.get("dolphins")?.eliminated).toBe(true);
+    expect(results.get("dolphins")?.qualificationStatus).toBe("ELIMINATED");
+    expect(results.get("dolphins")?.canReachTop3).toBe(false);
+
+    // Other teams are still in contention
+    expect(results.get("wolves")?.canReachTop3).toBe(true);
+    expect(results.get("falcons")?.canReachTop3).toBe(true);
+    expect(results.get("tigers")?.canReachTop3).toBe(true);
+    expect(results.get("lions")?.canReachTop3).toBe(true);
+    expect(results.get("stallions")?.canReachTop3).toBe(true);
+  });
+
+  it("correctly confirms final qualification when all league matches are done", () => {
+    const currentPoints = new Map([
+      ["wolves", 6],
+      ["falcons", 4],
+      ["tigers", 4],
+      ["lions", 2],
+      ["stallions", 2],
+      ["dolphins", 0],
+    ]);
+
+    const currentPositions = new Map([
+      ["wolves", 1],
+      ["falcons", 2],
+      ["tigers", 3],
+      ["lions", 4],
+      ["stallions", 5],
+      ["dolphins", 6],
+    ]);
+
+    const results = calculateScenarioQualifications(
+      teams,
+      [],
+      currentPoints,
+      true, // all league matches completed
+      currentPositions,
+      2,
+    );
+
+    expect(results.get("wolves")?.qualificationStatus).toBe("QUALIFIED_FINAL");
+    expect(results.get("falcons")?.qualificationStatus).toBe("QUALIFIED_PLAYOFF");
+    expect(results.get("tigers")?.qualificationStatus).toBe("QUALIFIED_PLAYOFF");
+    expect(results.get("lions")?.qualificationStatus).toBe("ELIMINATED");
+    expect(results.get("stallions")?.qualificationStatus).toBe("ELIMINATED");
+    expect(results.get("dolphins")?.qualificationStatus).toBe("ELIMINATED");
+  });
+});

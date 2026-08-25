@@ -38,15 +38,20 @@ export function StandingsTable({
         </TableHeader>
         <TableBody>
           {rows.map((s) => {
-            const isRank1 = s.position === 1;
-            const isPlayoffRank = s.position === 2 || s.position === 3;
+            const status = s.qualificationStatus;
+            const isEliminated = status === "ELIMINATED" || s.eliminated;
+            const isQualifiedFinal = status === "QUALIFIED_FINAL";
+            const isQualifiedPlayoff = status === "QUALIFIED_PLAYOFF";
+            const isQualifiedTop3 = status === "QUALIFIED_TOP3" || s.guaranteedTop3;
 
             return (
               <TableRow
                 key={s.teamId}
                 className={cn(
-                  isRank1 && "bg-amber-500/5 border-l-2 border-l-amber-500",
-                  isPlayoffRank && "bg-purple-500/5 border-l-2 border-l-purple-500",
+                  isQualifiedFinal && "bg-amber-500/5 border-l-2 border-l-amber-500",
+                  (isQualifiedPlayoff || isQualifiedTop3) && "bg-purple-500/5 border-l-2 border-l-purple-500",
+                  isEliminated && "opacity-75 bg-muted/10",
+                  !status && s.position === 1 && "bg-amber-500/[0.02]",
                 )}
               >
                 <TableCell className="font-bold">
@@ -62,15 +67,29 @@ export function StandingsTable({
                       logoUrl={s.team?.logoUrl}
                       size="sm"
                     />
-                    <span className="font-medium">{s.team?.name}</span>
-                    {isRank1 && (
+                    <span className={cn("font-medium", isEliminated && "line-through text-muted-foreground")}>
+                      {s.team?.name}
+                    </span>
+
+                    {/* Mathematically derived Scenario Badges */}
+                    {isQualifiedFinal && (
                       <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-bold hover:bg-amber-500/30">
-                        🏆 GRAND FINAL
+                        🏆 GRAND FINAL (Q)
                       </Badge>
                     )}
-                    {isPlayoffRank && (
+                    {isQualifiedPlayoff && (
                       <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/40 text-[10px] font-bold hover:bg-purple-500/30">
-                        ⚔️ PLAYOFF
+                        ⚔️ PLAYOFF (Q)
+                      </Badge>
+                    )}
+                    {!isQualifiedFinal && !isQualifiedPlayoff && isQualifiedTop3 && (
+                      <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold hover:bg-emerald-500/30">
+                        🟢 TOP 3 (Q)
+                      </Badge>
+                    )}
+                    {isEliminated && (
+                      <Badge variant="outline" className="bg-rose-500/10 text-rose-400 border-rose-500/30 text-[10px] font-bold">
+                        🔴 ELIMINATED
                       </Badge>
                     )}
                   </Link>
@@ -103,15 +122,15 @@ export function StandingsTable({
         <div className="p-3 bg-muted/20 border-t flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5 font-medium text-amber-400">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span><strong>Rank 1</strong>: Directly qualifies for Grand Final</span>
+            <span><strong>Rank 1</strong>: Direct Grand Final Spot</span>
           </span>
           <span className="flex items-center gap-1.5 font-medium text-purple-400">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500" />
-            <span><strong>Rank 2 & 3</strong>: Qualify for Playoff (Eliminator)</span>
+            <span><strong>Rank 2 & 3</strong>: Playoff Eliminator Spot</span>
           </span>
-          <span className="flex items-center gap-1.5 font-medium text-muted-foreground">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-muted-foreground/40" />
-            <span><strong>Rank 4–6</strong>: Eliminated</span>
+          <span className="flex items-center gap-1.5 font-medium text-rose-400">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
+            <span><strong>Eliminated</strong>: Cannot mathematically reach Top 3</span>
           </span>
         </div>
       )}
