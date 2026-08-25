@@ -77,8 +77,9 @@ export default function AdminMatches() {
                     <div className="text-[11px] text-amber-500 font-mono font-bold">{m.time}</div>
                   )}
                 </TableCell>
-                <TableCell className="font-semibold">
-                  {m.teamA?.shortName ?? "TBD"} vs {m.teamB?.shortName ?? "TBD"}
+                <TableCell className="font-semibold text-xs">
+                  {m.teamA?.shortName ?? (m.stage === "FINAL" ? "TBD (Rank 1)" : m.stage === "PLAYOFF" ? "TBD (Rank 2)" : "TBD")} vs{" "}
+                  {m.teamB?.shortName ?? (m.stage === "FINAL" ? "TBD (Playoff Winner)" : m.stage === "PLAYOFF" ? "TBD (Rank 3)" : "TBD")}
                 </TableCell>
                 <TableCell>
                   <Badge

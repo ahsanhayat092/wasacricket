@@ -253,7 +253,9 @@ export default function LiveMatch() {
                 {/* Team A */}
                 <div className="flex flex-col items-center gap-2 flex-1 text-center">
                   <TeamBadge shortName={teamA?.shortName ?? "TBD"} logoUrl={teamA?.logoUrl} size="lg" />
-                  <span className="font-black text-base sm:text-xl tracking-tight">{teamA?.name ?? "Rank 1"}</span>
+                  <span className="font-black text-base sm:text-xl tracking-tight">
+                    {teamA?.name ?? (isFinal ? "TBD (Rank 1)" : isPlayoff ? "TBD (Rank 2)" : "TBD")}
+                  </span>
                   {inn1?.battingTeamId === teamA?.id && (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
@@ -281,7 +283,9 @@ export default function LiveMatch() {
                 {/* Team B */}
                 <div className="flex flex-col items-center gap-2 flex-1 text-center">
                   <TeamBadge shortName={teamB?.shortName ?? "TBD"} logoUrl={teamB?.logoUrl} size="lg" />
-                  <span className="font-black text-base sm:text-xl tracking-tight">{teamB?.name ?? "Rank 2"}</span>
+                  <span className="font-black text-base sm:text-xl tracking-tight">
+                    {teamB?.name ?? (isFinal ? "TBD (Playoff Winner)" : isPlayoff ? "TBD (Rank 3)" : "TBD")}
+                  </span>
                   {inn1?.battingTeamId === teamB?.id && (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">

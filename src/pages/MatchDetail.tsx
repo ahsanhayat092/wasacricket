@@ -174,7 +174,7 @@ export default function MatchDetail() {
                     size="lg"
                   />
                   <span className="font-black text-base sm:text-xl tracking-tight">
-                    {match.teamA?.name ?? "Rank 1"}
+                    {match.teamA?.name ?? (isFinal ? "TBD (Rank 1)" : isPlayoff ? "TBD (Rank 2)" : "TBD")}
                   </span>
                   {innings.find((i) => i.battingTeamId === match.teamA?.id) ? (
                     <div className="font-mono">
@@ -200,7 +200,7 @@ export default function MatchDetail() {
                     size="lg"
                   />
                   <span className="font-black text-base sm:text-xl tracking-tight">
-                    {match.teamB?.name ?? "Rank 2"}
+                    {match.teamB?.name ?? (isFinal ? "TBD (Playoff Winner)" : isPlayoff ? "TBD (Rank 3)" : "TBD")}
                   </span>
                   {innings.find((i) => i.battingTeamId === match.teamB?.id) ? (
                     <div className="font-mono">

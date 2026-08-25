@@ -106,10 +106,12 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
                     className={`font-bold text-sm sm:text-base truncate ${
                       currentlyBattingTeam?.id === match.teamAId && match.status === "LIVE"
                         ? "text-emerald-500 font-extrabold"
-                        : "text-foreground"
+                        : match.teamA
+                          ? "text-foreground"
+                          : "text-muted-foreground font-semibold"
                     }`}
                   >
-                    {match.teamA?.name ?? "Rank 1"}
+                    {match.teamA?.name ?? (isFinal ? "TBD (Rank 1)" : isPlayoff ? "TBD (Rank 2)" : "TBD")}
                   </span>
                   {currentlyBattingTeam?.id === match.teamAId && match.status === "LIVE" && (
                     <span className="text-[10px] text-emerald-500 font-semibold flex items-center gap-1">
@@ -146,10 +148,12 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
                     className={`font-bold text-sm sm:text-base truncate ${
                       currentlyBattingTeam?.id === match.teamBId && match.status === "LIVE"
                         ? "text-emerald-500 font-extrabold"
-                        : "text-foreground"
+                        : match.teamB
+                          ? "text-foreground"
+                          : "text-muted-foreground font-semibold"
                     }`}
                   >
-                    {match.teamB?.name ?? "Rank 2"}
+                    {match.teamB?.name ?? (isFinal ? "TBD (Playoff Winner)" : isPlayoff ? "TBD (Rank 3)" : "TBD")}
                   </span>
                   {currentlyBattingTeam?.id === match.teamBId && match.status === "LIVE" && (
                     <span className="text-[10px] text-emerald-500 font-semibold flex items-center gap-1">

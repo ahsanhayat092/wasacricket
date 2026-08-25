@@ -309,21 +309,22 @@ export default function AdminSchedule() {
               <div className="space-y-2">
                 <Label>Team A</Label>
                 <Select
-                  value={form.teamAId}
-                  onValueChange={(v) => setForm({ ...form, teamAId: v })}
+                  value={form.teamAId || "__TBD__"}
+                  onValueChange={(v) => setForm({ ...form, teamAId: v === "__TBD__" ? "" : v })}
                 >
                   <SelectTrigger>
                     <SelectValue
                       placeholder={
                         form.stage === "FINAL"
-                          ? "Rank 1 (Auto)"
+                          ? "TBD (Rank 1 - Auto)"
                           : form.stage === "PLAYOFF"
-                            ? "Rank 2 (Auto)"
+                            ? "TBD (Rank 2 - Auto)"
                             : "Select team"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__TBD__">TBD (Auto-assign)</SelectItem>
                     {teams?.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
@@ -335,21 +336,22 @@ export default function AdminSchedule() {
               <div className="space-y-2">
                 <Label>Team B</Label>
                 <Select
-                  value={form.teamBId}
-                  onValueChange={(v) => setForm({ ...form, teamBId: v })}
+                  value={form.teamBId || "__TBD__"}
+                  onValueChange={(v) => setForm({ ...form, teamBId: v === "__TBD__" ? "" : v })}
                 >
                   <SelectTrigger>
                     <SelectValue
                       placeholder={
                         form.stage === "FINAL"
-                          ? "Playoff Winner (Auto)"
+                          ? "TBD (Playoff Winner - Auto)"
                           : form.stage === "PLAYOFF"
-                            ? "Rank 3 (Auto)"
+                            ? "TBD (Rank 3 - Auto)"
                             : "Select team"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__TBD__">TBD (Auto-assign)</SelectItem>
                     {teams?.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
@@ -520,21 +522,28 @@ function ScheduleRow({
         {teamsEditable ? (
           <div className="flex items-center gap-1.5">
             <Select
-              value={teamAId ?? ""}
-              onValueChange={(v) => setTeamAId(v || null)}
+              value={teamAId ?? "__TBD__"}
+              onValueChange={(v) => setTeamAId(v === "__TBD__" ? null : (v || null))}
             >
               <SelectTrigger className="w-32 h-8 text-xs">
                 <SelectValue
                   placeholder={
                     isFinal
-                      ? "Rank 1 (Auto)"
+                      ? "TBD (Rank 1)"
                       : isPlayoff
-                        ? "Rank 2 (Auto)"
-                        : "Team A"
+                        ? "TBD (Rank 2)"
+                        : "TBD"
                   }
                 />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__TBD__">
+                  {isFinal
+                    ? "TBD (Rank 1 - Auto)"
+                    : isPlayoff
+                      ? "TBD (Rank 2 - Auto)"
+                      : "TBD (Unassigned)"}
+                </SelectItem>
                 {teams.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
@@ -544,21 +553,28 @@ function ScheduleRow({
             </Select>
             <span className="text-xs text-muted-foreground">vs</span>
             <Select
-              value={teamBId ?? ""}
-              onValueChange={(v) => setTeamBId(v || null)}
+              value={teamBId ?? "__TBD__"}
+              onValueChange={(v) => setTeamBId(v === "__TBD__" ? null : (v || null))}
             >
               <SelectTrigger className="w-32 h-8 text-xs">
                 <SelectValue
                   placeholder={
                     isFinal
-                      ? "Playoff Winner (Auto)"
+                      ? "TBD (Playoff Winner)"
                       : isPlayoff
-                        ? "Rank 3 (Auto)"
-                        : "Team B"
+                        ? "TBD (Rank 3)"
+                        : "TBD"
                   }
                 />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__TBD__">
+                  {isFinal
+                    ? "TBD (Playoff Winner - Auto)"
+                    : isPlayoff
+                      ? "TBD (Rank 3 - Auto)"
+                      : "TBD (Unassigned)"}
+                </SelectItem>
                 {teams.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
@@ -569,8 +585,8 @@ function ScheduleRow({
           </div>
         ) : (
           <span className="font-medium text-sm">
-            {match.teamA?.name ?? (isFinal ? "Rank 1" : isPlayoff ? "Rank 2" : "Team A")} vs{" "}
-            {match.teamB?.name ?? (isFinal ? "Playoff Winner" : isPlayoff ? "Rank 3" : "Team B")}
+            {match.teamA?.name ?? (isFinal ? "TBD (Rank 1)" : isPlayoff ? "TBD (Rank 2)" : "TBD")} vs{" "}
+            {match.teamB?.name ?? (isFinal ? "TBD (Playoff Winner)" : isPlayoff ? "TBD (Rank 3)" : "TBD")}
           </span>
         )}
       </TableCell>

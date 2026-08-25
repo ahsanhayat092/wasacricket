@@ -221,8 +221,8 @@ export default function AdminMatchControl() {
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase">
                 {match.stage === "FINAL" ? "🏆 Grand Final" : match.stage === "PLAYOFF" ? "⚔️ Playoff Match" : `Match ${match.matchNumber}`}:{" "}
-                {teamA?.name ?? (match.stage === "FINAL" ? "Rank 1" : match.stage === "PLAYOFF" ? "Rank 2" : "Team A")} vs{" "}
-                {teamB?.name ?? (match.stage === "FINAL" ? "Playoff Winner" : match.stage === "PLAYOFF" ? "Rank 3" : "Team B")}
+                {teamA?.name ?? (match.stage === "FINAL" ? "TBD (Rank 1)" : match.stage === "PLAYOFF" ? "TBD (Rank 2)" : "TBD")} vs{" "}
+                {teamB?.name ?? (match.stage === "FINAL" ? "TBD (Playoff Winner)" : match.stage === "PLAYOFF" ? "TBD (Rank 3)" : "TBD")}
               </h1>
               <Badge variant="outline" className={statusBadgeClass(match.status as MatchStatus)}>
                 {match.status.replace("_", " ")}

@@ -72,12 +72,29 @@ export async function downloadSchedulePDF(
 
   // 3. Table Rows Construction
   const tableData = matches.map((m) => {
-    const isFinal = m.stage === "FINAL";
-    const matchLabel = isFinal ? "🏆 GRAND FINAL" : `Match ${m.matchNumber}`;
+    const isPlayoff = m.stage === "PLAYOFF" || m.stage?.toUpperCase() === "PLAYOFF";
+    const isFinal = m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL";
+    const matchLabel = isFinal
+      ? "🏆 GRAND FINAL"
+      : isPlayoff
+        ? "⚔️ PLAYOFF MATCH"
+        : `Match ${m.matchNumber}`;
     const dayDate = m.date ? `${m.date} (${formatMatchDay(m.day, m.date)})` : formatMatchDay(m.day);
     const time = m.time || "TBD";
-    const teamA = m.teamA ? `${m.teamA.name} (${m.teamA.shortName})` : "Rank 1";
-    const teamB = m.teamB ? `${m.teamB.name} (${m.teamB.shortName})` : "Rank 2";
+    const teamA = m.teamA
+      ? `${m.teamA.name} (${m.teamA.shortName})`
+      : isFinal
+        ? "TBD (Rank 1)"
+        : isPlayoff
+          ? "TBD (Rank 2)"
+          : "TBD";
+    const teamB = m.teamB
+      ? `${m.teamB.name} (${m.teamB.shortName})`
+      : isFinal
+        ? "TBD (Playoff Winner)"
+        : isPlayoff
+          ? "TBD (Rank 3)"
+          : "TBD";
     const matchup = `${teamA} vs ${teamB}`;
     
     let statusText = m.status;
