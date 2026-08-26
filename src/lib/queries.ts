@@ -80,6 +80,82 @@ export async function getTournaments(): Promise<Tournament[]> {
   return list;
 }
 
+export async function getUserTournaments(userEmail?: string | null, userUid?: string | null): Promise<Tournament[]> {
+  if (!userEmail && !userUid) return [];
+  const isSuperAdmin = userEmail?.toLowerCase() === "ahsanhayat092@gmail.com";
+
+  if (isSuperAdmin) {
+    return await getTournaments();
+  }
+
+  // Find tournaments where ownerId == userUid
+  const ownerSnap = userUid
+    ? await getDocs(query(tournamentsCol(), where("ownerId", "==", userUid)))
+    : { docs: [] };
+  const ownerTournaments = ownerSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Tournament);
+
+  // Find tournaments where userEmail is in tournamentMembers
+  const memberSnap = userEmail
+    ? await getDocs(query(tournamentMembersCol(), where("userEmail", "==", userEmail.toLowerCase().trim())))
+    : { docs: [] };
+  const memberTournamentIds = memberSnap.docs.map((d) => (d.data() as any).tournamentId);
+
+  const additionalTournaments: Tournament[] = [];
+  for (const tId of memberTournamentIds) {
+    if (tId && !ownerTournaments.some((t) => t.id === tId)) {
+      const snap = await getDoc(tournamentDoc(tId));
+      if (snap.exists()) {
+        additionalTournaments.push({ id: snap.id, ...snap.data() } as Tournament);
+      }
+    }
+  }
+
+  return [...ownerTournaments, ...additionalTournaments];
+}
+
+export async function checkTournamentAccess(
+  tournamentId: string,
+  userEmail?: string | null,
+  userUid?: string | null,
+): Promise<{ canManage: boolean; isOwner: boolean; role: string | null }> {
+  if (!userEmail && !userUid) return { canManage: false, isOwner: false, role: null };
+  const email = userEmail?.toLowerCase().trim();
+  if (email === "ahsanhayat092@gmail.com") {
+    return { canManage: true, isOwner: true, role: "OWNER" };
+  }
+
+  // Check tournament document
+  const tSnap = await getDoc(tournamentDoc(tournamentId));
+  if (tSnap.exists()) {
+    const tData = tSnap.data() as Tournament;
+    if (tData.ownerId && tData.ownerId === userUid) {
+      return { canManage: true, isOwner: true, role: "OWNER" };
+    }
+  }
+
+  // Check tournamentMembers collection
+  if (email) {
+    const memberSnap = await getDocs(
+      query(
+        tournamentMembersCol(),
+        where("tournamentId", "==", tournamentId),
+        where("userEmail", "==", email),
+      ),
+    );
+    if (!memberSnap.empty) {
+      const member = memberSnap.docs[0].data() as any;
+      const role = member.role || "ADMIN";
+      return {
+        canManage: role === "OWNER" || role === "ADMIN",
+        isOwner: role === "OWNER",
+        role,
+      };
+    }
+  }
+
+  return { canManage: false, isOwner: false, role: null };
+}
+
 function resolveTournamentId(idOrContext?: any): string {
   if (typeof idOrContext === "string" && idOrContext.trim()) {
     return idOrContext.trim();

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
-import { getAdminDashboard, getTournaments } from "@/lib/queries";
+import { getAdminDashboard, getUserTournaments } from "@/lib/queries";
 import { useTournament } from "@/context/TournamentContext";
+import { useAuth } from "@/hooks/useAuth";
 import { seedTournament } from "@/lib/mutations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,18 +35,32 @@ import { toast } from "sonner";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { tournamentId, tournament, setTournamentId } = useTournament();
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
-  const { data: tournaments } = useQuery({
-    queryKey: ["tournaments"],
-    queryFn: getTournaments,
+  const isSuperAdmin = user?.email?.toLowerCase() === "ahsanhayat092@gmail.com";
+
+  const { data: tournaments, isLoading: isLoadingTournaments } = useQuery({
+    queryKey: ["user_tournaments", user?.uid, user?.email],
+    queryFn: () => getUserTournaments(user?.email, user?.uid),
   });
+
+  // Auto-switch to user's first tournament if current tournamentId is not theirs
+  useEffect(() => {
+    if (!isSuperAdmin && tournaments && tournaments.length > 0) {
+      const hasCurrent = tournaments.some((t) => t.id === tournamentId);
+      if (!hasCurrent) {
+        setTournamentId(tournaments[0].id);
+      }
+    }
+  }, [isSuperAdmin, tournaments, tournamentId, setTournamentId]);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["adminDashboard", tournamentId],
     queryFn: () => getAdminDashboard(tournamentId),
     refetchInterval: 20000,
+    enabled: !!tournamentId,
   });
 
   const seed = useMutation({
@@ -61,6 +76,29 @@ export default function AdminDashboard() {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  if (!isLoadingTournaments && (!tournaments || tournaments.length === 0) && !isSuperAdmin) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto space-y-6 text-center py-16">
+        <Card className="p-10 text-center space-y-6 border-dashed border-2 bg-muted/10 rounded-3xl shadow-sm">
+          <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
+            <Trophy className="h-10 w-10" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black tracking-tight">Create Your First Cricket Tournament!</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+              You are logged in as an Organizer. Launch your corporate cup, tape-ball league, or club championship with our 5-step tournament wizard.
+            </p>
+          </div>
+          <Link to="/admin/tournaments/new" className="inline-block">
+            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 rounded-xl shadow-lg shadow-emerald-600/20 px-8 h-12">
+              <Plus className="h-5 w-5" /> Launch 5-Step Tournament Wizard
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading || !data) {
     return (

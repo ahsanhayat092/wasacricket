@@ -1,4 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useTournament } from "@/context/TournamentContext";
+import { getUserTournaments } from "@/lib/queries";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -33,11 +36,13 @@ import {
   Settings,
   Shield,
   ShieldCheck,
+  ShieldAlert,
   Trophy,
   UserCheck,
   Users,
   BookOpen,
   Layers,
+  Plus,
 } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
@@ -46,21 +51,20 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 
 const adminMenuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
-  { icon: Layers, label: "Tournaments Hub", path: "/admin/tournaments" },
-  { icon: Trophy, label: "Teams", path: "/admin/teams" },
-  { icon: Users, label: "Players", path: "/admin/players" },
-  { icon: CalendarDays, label: "Schedule", path: "/admin/schedule" },
-  { icon: ClipboardList, label: "Matches & Scoring", path: "/admin/matches" },
-  { icon: ListOrdered, label: "Points Table", path: "/admin/points-table" },
+  { icon: LayoutDashboard, label: "Overview", path: "/admin" },
+  { icon: Layers, label: "My Tournaments", path: "/admin/tournaments" },
+  { icon: Users, label: "Teams & Squads", path: "/admin/teams" },
+  { icon: CalendarDays, label: "Fixtures & Schedule", path: "/admin/schedule" },
+  { icon: ClipboardList, label: "Scorecards & Reset", path: "/admin/matches" },
+  { icon: ListOrdered, label: "Standings & Points", path: "/admin/points-table" },
   { icon: BookOpen, label: "Tournament Rules", path: "/admin/rules" },
-  { icon: UserCheck, label: "People & Permissions", path: "/admin/users" },
+  { icon: ShieldCheck, label: "People & Permissions", path: "/admin/users" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 
 const scorerMenuItems = [
-  { icon: KeyRound, label: "Scorer Dashboard", path: "/scorer/dashboard" },
-  { icon: ClipboardList, label: "Matches & Scoring", path: "/admin/matches" },
+  { icon: LayoutDashboard, label: "Scorer Dashboard", path: "/scorer/dashboard" },
+  { icon: ClipboardList, label: "Live Matches", path: "/admin/matches" },
 ];
 
 export default function AuthLayout({
@@ -168,10 +172,39 @@ export default function AuthLayout({
 
 function AuthLayoutContent({ children }: { children: ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
+  const { tournamentId, tournament, setTournamentId } = useTournament();
   const location = useLocation();
   const navigate = useNavigate();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
+
+  const isSuperAdmin = user?.email?.toLowerCase() === "ahsanhayat092@gmail.com";
+
+  // Fetch tournaments owned or managed by this user
+  const { data: userTournaments, isLoading: isLoadingTourneys } = useQuery({
+    queryKey: ["user_tournaments", user?.uid, user?.email],
+    queryFn: () => getUserTournaments(user?.email, user?.uid),
+    enabled: !!user,
+  });
+
+  const isGlobalPath =
+    location.pathname === "/admin/tournaments" ||
+    location.pathname === "/admin/tournaments/new";
+
+  const isAuthorizedForCurrentTournament =
+    isSuperAdmin ||
+    isGlobalPath ||
+    (userTournaments && userTournaments.some((t) => t.id === tournamentId));
+
+  // Auto-switch to user's first tournament if active tournamentId doesn't belong to them
+  useEffect(() => {
+    if (!isSuperAdmin && !isLoadingTourneys && userTournaments && userTournaments.length > 0) {
+      const hasCurrent = userTournaments.some((t) => t.id === tournamentId);
+      if (!hasCurrent) {
+        setTournamentId(userTournaments[0].id);
+      }
+    }
+  }, [isSuperAdmin, isLoadingTourneys, userTournaments, tournamentId, setTournamentId]);
 
   const menuItems = isAdmin ? adminMenuItems : scorerMenuItems;
   const activeMenuItem = menuItems.find((item) => item.path === location.pathname);
@@ -191,7 +224,7 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
             {!isCollapsed && (
               <div className="flex flex-col leading-tight min-w-0">
                 <span className="font-bold tracking-tight truncate text-sm">
-                  WASA Premier League
+                  {tournament?.name || "WASA Premier League"}
                 </span>
                 <span className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
                   {isAdmin ? (
@@ -234,7 +267,7 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
 
           <div className="mt-6 px-4 pt-4 border-t">
             <Link
-              to="/"
+              to={tournament?.slug ? `/t/${tournament.slug}` : "/"}
               className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors group"
             >
               <ExternalLink className="h-3.5 w-3.5 group-hover:text-primary" />
@@ -299,7 +332,38 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
-          {children}
+          {!isAuthorizedForCurrentTournament && !isLoadingTourneys ? (
+            <div className="flex items-center justify-center min-h-[65vh] p-4">
+              <Card className="p-8 max-w-md w-full text-center space-y-5 border-dashed border-2 bg-muted/10 rounded-3xl shadow-sm">
+                <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto shadow-inner">
+                  <ShieldAlert className="h-8 w-8" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-xl font-black tracking-tight">Tournament Access Restricted</h2>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    You are not authorized to manage <strong>{tournament?.name || "this tournament"}</strong>. In multi-tenant mode, organizers can only view and manage tournaments they own or are invited to.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 pt-2">
+                  <Button
+                    onClick={() => navigate("/admin/tournaments/new")}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 rounded-xl h-10"
+                  >
+                    <Plus className="h-4 w-4" /> Launch 5-Step Tournament Wizard
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/admin/tournaments")}
+                    className="text-xs font-bold rounded-xl h-10"
+                  >
+                    View My Tournaments
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </SidebarInset>
     </>

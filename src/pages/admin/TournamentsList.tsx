@@ -1,10 +1,11 @@
 import React from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { getTournaments } from "@/lib/queries";
+import { getUserTournaments } from "@/lib/queries";
 import { deleteTournament } from "@/lib/mutations";
 import { queryClient } from "@/providers/trpc";
 import { useTournament } from "@/context/TournamentContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,21 +21,26 @@ import {
   Sparkles,
   Share2,
   SlidersHorizontal,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function TournamentsList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { tournamentId, setTournamentId } = useTournament();
 
+  const isSuperAdmin = user?.email?.toLowerCase() === "ahsanhayat092@gmail.com";
+
   const { data: tournaments, isLoading } = useQuery({
-    queryKey: ["tournaments"],
-    queryFn: getTournaments,
+    queryKey: ["user_tournaments", user?.uid, user?.email],
+    queryFn: () => getUserTournaments(user?.email, user?.uid),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (tId: string) => deleteTournament(tId),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user_tournaments"] });
       queryClient.invalidateQueries({ queryKey: ["tournaments"] });
       toast.success("Tournament deleted successfully.");
     },
@@ -183,7 +189,7 @@ export default function TournamentsList() {
                     </Button>
                   </div>
 
-                  {t.id !== "main" && (
+                  {t.id !== "main" && (isSuperAdmin || t.ownerId === user?.uid) && (
                     <Button
                       size="icon"
                       variant="ghost"
@@ -204,6 +210,27 @@ export default function TournamentsList() {
             </Card>
           );
         })}
+
+        {!isLoading && (!tournaments || tournaments.length === 0) && (
+          <div className="col-span-3">
+            <Card className="p-12 text-center space-y-6 border-dashed border-2 bg-muted/10 rounded-2xl max-w-xl mx-auto">
+              <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
+                <Trophy className="h-8 w-8" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold tracking-tight">No Tournaments Yet</h3>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                  You haven't created any tournaments yet. Launch your corporate league, tape-ball cup, or club tournament in 5 minutes with our wizard!
+                </p>
+              </div>
+              <Link to="/admin/tournaments/new" className="inline-block">
+                <Button className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 rounded-xl shadow-md shadow-emerald-600/20 px-6">
+                  <Plus className="h-4 w-4" /> Launch 5-Step Tournament Wizard
+                </Button>
+              </Link>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

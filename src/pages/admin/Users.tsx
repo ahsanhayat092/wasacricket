@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
-import { getTournamentMembers, getTournaments, getTournament } from "@/lib/queries";
+import { getTournamentMembers, getTournaments, getTournament, getUserTournaments } from "@/lib/queries";
 import {
   inviteTournamentMember,
   updateTournamentMemberRole,
@@ -76,8 +76,8 @@ export default function AdminUsers() {
   const [newPin, setNewPin] = useState(tournament?.scorerPin || "1234");
 
   const { data: tournaments } = useQuery({
-    queryKey: ["tournaments"],
-    queryFn: getTournaments,
+    queryKey: ["user_tournaments", currentUser?.uid, currentUser?.email],
+    queryFn: () => getUserTournaments(currentUser?.email, currentUser?.uid),
   });
 
   const { data: members, isLoading } = useQuery({
