@@ -182,14 +182,42 @@ The **WasaCricket Platform** is a full-stack, real-time, multi-tenant Cricket To
 
 ---
 
-## 🔐 9. Authentication & Role Management
+## 🔐 9. Scalable Multi-Tenant RBAC: `User -> Tournament Membership -> Role`
 
-- **Firebase Authentication**: Email/Password and Google OAuth.
-- **Role Hierarchy**:
-  - `ADMIN` / `OWNER`: Full administrative access to tournament settings, teams, players, schedule, rules, and user roles.
-  - `SCORER`: Ground access to toss, ball-by-ball live scoring, and match finalization.
-  - `PUBLIC`: Unrestricted browsing of scores, standings, and statistics.
-- **User Role Management Screen (`/admin/users`)**: Search registered users and promote/demote roles instantly.
+The platform uses a **Tournament-Scoped Role-Based Access Control (RBAC)** architecture instead of rigid global roles:
+
+```
+                            ┌────────────────────────┐
+                            │      User Account      │
+                            │   (Firebase Auth ID)   │
+                            └───────────┬────────────┘
+                                        │
+                 ┌──────────────────────┼──────────────────────┐
+                 ▼                      ▼                      ▼
+       [ Tournament A ]          [ Tournament B ]       [ Tournament C ]
+       Role: OWNER               Role: ADMIN            Role: SCORER
+       • Full Control            • Manage Teams         • Live Match Console
+       • Delete Event            • Manage Schedule      • Toss & Playing XI
+       • Manage Admins           • Record Scores        • Ball-by-ball Entry
+```
+
+### Role Matrix by Tournament Scope:
+
+| Permission / Capability | `OWNER` | `ADMIN` | `SCORER` | `PUBLIC` |
+| :--- | :---: | :---: | :---: | :---: |
+| **View Live Scores, Scorecards & Standings** | ✅ | ✅ | ✅ | ✅ |
+| **Universal Player Search & Statistics** | ✅ | ✅ | ✅ | ✅ |
+| **Share on WhatsApp & Download QR Posters** | ✅ | ✅ | ✅ | ✅ |
+| **Export PDFs, Story Cards & Certificates** | ✅ | ✅ | ✅ | ✅ |
+| **Input Ball-by-Ball Live Scoring Console** | ✅ | ✅ | ✅ | ❌ |
+| **Record Toss, Set Starting Lineup & PotM** | ✅ | ✅ | ✅ | ❌ |
+| **Undo / Redo Delivery Errors** | ✅ | ✅ | ✅ | ❌ |
+| **Create & Edit Teams, Players, Rosters** | ✅ | ✅ | ❌ | ❌ |
+| **Generate & Reschedule Match Fixtures** | ✅ | ✅ | ❌ | ❌ |
+| **Assign / Invite Tournament Scorers** | ✅ | ✅ | ❌ | ❌ |
+| **Invite Additional Tournament Admins** | ✅ | ❌ | ❌ | ❌ |
+| **Configure Overs, Rules & Branding / Colors** | ✅ | ❌ | ❌ | ❌ |
+| **Delete / Archive Tournament** | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -199,3 +227,4 @@ The **WasaCricket Platform** is a full-stack, real-time, multi-tenant Cricket To
 - **Backend & Database**: Firebase Firestore with sub-second real-time snapshot listeners.
 - **QR Engine**: `qrcode` canvas rendering.
 - **Automated Testing**: `vitest` unit test suite (47 tests passing).
+

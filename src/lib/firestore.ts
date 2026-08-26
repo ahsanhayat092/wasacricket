@@ -282,10 +282,29 @@ export type UserAccount = {
   createdBy?: string | null;
 };
 
+// ---------------------------------------------------------------------------
+// Scalable Tournament-Scoped RBAC: User -> Tournament Membership -> Role
+// ---------------------------------------------------------------------------
+export type TournamentRole = "OWNER" | "ADMIN" | "SCORER";
+
+export type TournamentMember = {
+  id: string; // `${tournamentId}_${userId}`
+  tournamentId: string;
+  userId: string;
+  userEmail: string;
+  userName?: string | null;
+  role: TournamentRole;
+  invitedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export const TOURNAMENT_ID = "main";
 
 export const tournamentsCol = () => typedCollection<Omit<Tournament, "id">>("tournaments");
 export const tournamentDoc = (id: string = TOURNAMENT_ID) => typedDoc<Omit<Tournament, "id">>("tournaments", id);
+export const tournamentMembersCol = () => typedCollection<Omit<TournamentMember, "id">>("tournamentMembers");
+export const tournamentMemberDoc = (id: string) => typedDoc<Omit<TournamentMember, "id">>("tournamentMembers", id);
 export const teamsCol = () => typedCollection<Omit<Team, "id">>("teams");
 export const playersCol = () => typedCollection<Omit<Player, "id">>("players");
 export const matchesCol = () => typedCollection<Omit<Match, "id">>("matches");
