@@ -207,6 +207,11 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
     }
   }, [isSuperAdmin, isLoadingTourneys, userTournaments, tournamentId, setTournamentId]);
 
+  // Prevent flash of unauthorized tournament data while user tournaments are loading
+  if (!isSuperAdmin && !isGlobalPath && isLoadingTourneys) {
+    return <AuthLayoutSkeleton />;
+  }
+
   const menuItems = isAdmin ? adminMenuItems : scorerMenuItems;
   const activeMenuItem = menuItems.find((item) => item.path === location.pathname);
 

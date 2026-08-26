@@ -44,7 +44,12 @@ export default function AdminDashboard() {
   const { data: tournaments, isLoading: isLoadingTournaments } = useQuery({
     queryKey: ["user_tournaments", user?.uid, user?.email],
     queryFn: () => getUserTournaments(user?.email, user?.uid),
+    enabled: !!user,
   });
+
+  const isAuthorized =
+    isSuperAdmin ||
+    (!!tournaments && tournaments.some((t) => t.id === tournamentId));
 
   // Auto-switch to user's first tournament if current tournamentId is not theirs
   useEffect(() => {
@@ -60,7 +65,7 @@ export default function AdminDashboard() {
     queryKey: ["adminDashboard", tournamentId],
     queryFn: () => getAdminDashboard(tournamentId),
     refetchInterval: 20000,
-    enabled: !!tournamentId,
+    enabled: !!tournamentId && isAuthorized,
   });
 
   const seed = useMutation({
@@ -77,7 +82,19 @@ export default function AdminDashboard() {
     onError: (e) => toast.error(e.message),
   });
 
-  if (!isLoadingTournaments && (!tournaments || tournaments.length === 0) && !isSuperAdmin) {
+  // 1. While tournaments are resolving for non-super-admin, show skeleton (never flash unauthorized data)
+  if (!isSuperAdmin && isLoadingTournaments) {
+    return (
+      <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 rounded-2xl" />
+        ))}
+      </div>
+    );
+  }
+
+  // 2. If user owns 0 tournaments, show welcoming launchpad card
+  if (!isSuperAdmin && !isLoadingTournaments && (!tournaments || tournaments.length === 0)) {
     return (
       <div className="p-6 max-w-2xl mx-auto space-y-6 text-center py-16">
         <Card className="p-10 text-center space-y-6 border-dashed border-2 bg-muted/10 rounded-3xl shadow-sm">
@@ -100,7 +117,8 @@ export default function AdminDashboard() {
     );
   }
 
-  if (isLoading || !data) {
+  // 3. If currently switching or unauthorized, show skeleton
+  if (!isAuthorized || isLoading || !data) {
     return (
       <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
