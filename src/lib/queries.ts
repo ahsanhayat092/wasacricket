@@ -263,11 +263,7 @@ export async function getTeamById(teamId: string): Promise<Team | null> {
 // ---------------------------------------------------------------------------
 
 export async function getPlayers(idOrContext?: any): Promise<Player[]> {
-  const tournamentId = idOrContext ? resolveTournamentId(idOrContext) : null;
-  if (!tournamentId) {
-    const snap = await getDocs(playersCol());
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
-  }
+  const tournamentId = resolveTournamentId(idOrContext);
 
   // Find teams for this tournament
   const teams = await getTeams(tournamentId);
@@ -275,9 +271,23 @@ export async function getPlayers(idOrContext?: any): Promise<Player[]> {
   const teamIds = new Set(teams.map((t) => t.id));
 
   const snap = await getDocs(playersCol());
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as Player)
-    .filter((p) => p.teamId && teamIds.has(p.teamId));
+  const allDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
+
+  if (tournamentId === TOURNAMENT_ID || tournamentId === "main") {
+    return allDocs.filter(
+      (p) =>
+        (p.tournamentId === "main" || !p.tournamentId || p.tournamentId === TOURNAMENT_ID) &&
+        p.teamId &&
+        teamIds.has(p.teamId),
+    );
+  }
+
+  // For custom tournaments, strictly match tournamentId or teamIds belonging to this tournament
+  return allDocs.filter(
+    (p) =>
+      (p.tournamentId === tournamentId) ||
+      (p.teamId && teamIds.has(p.teamId)),
+  );
 }
 
 export async function getPlayersByTeam(teamId: string): Promise<Player[]> {

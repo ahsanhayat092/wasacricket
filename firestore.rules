@@ -49,8 +49,13 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    match /tournamentMembers/{memberId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
     match /users/{userId} {
-      allow read: if isAuth();
+      allow read: if true;
       allow write: if isAuth();
     }
   }

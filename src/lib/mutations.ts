@@ -1094,6 +1094,24 @@ export async function inviteTournamentMember(input: {
   };
 
   await setDoc(tournamentMemberDoc(memberDocId), memberData, { merge: true });
+
+  // Also ensure record in users collection so they have immediate login role
+  try {
+    const existingSnap = await getDocs(query(usersCol(), where("email", "==", cleanEmail)));
+    if (existingSnap.empty) {
+      await addDoc(usersCol(), {
+        email: cleanEmail,
+        name: input.userName?.trim() || cleanEmail.split("@")[0],
+        role: input.role === "SCORER" ? "scorer" : "admin",
+        createdBy: input.invitedBy || "Admin",
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    }
+  } catch (err) {
+    console.warn("Could not upsert user record:", err);
+  }
+
   return { id: memberDocId, ...memberData };
 }
 

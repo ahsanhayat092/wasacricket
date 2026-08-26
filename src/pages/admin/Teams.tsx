@@ -53,8 +53,8 @@ export default function AdminTeams() {
     staleTime: 30 * 1000,
   });
   const { data: players } = useQuery({
-    queryKey: ["players"],
-    queryFn: getPlayers,
+    queryKey: ["players", tournamentId],
+    queryFn: () => getPlayers(tournamentId),
     staleTime: 60 * 1000,
   });
 
