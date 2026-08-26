@@ -374,8 +374,8 @@ export default function AdminDashboard() {
                   <div>
                     <p className="font-bold text-sm">{r.team.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {r.points} pts · NRR {r.nrr >= 0 ? "+" : ""}
-                      {r.nrr.toFixed(3)}
+                      {r.points ?? 0} pts · NRR {(r.nrr ?? 0) >= 0 ? "+" : ""}
+                      {(r.nrr ?? 0).toFixed(3)}
                     </p>
                   </div>
                 </>
