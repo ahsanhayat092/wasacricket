@@ -486,11 +486,25 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
         if (filteredDocs.length > 0) {
           return filteredDocs
             .map((d) => {
-              const s = { id: d.id, ...d.data() } as Standing;
+              const raw = d.data() as any;
+              const nrr =
+                typeof raw.nrr === "number" && !isNaN(raw.nrr)
+                  ? raw.nrr
+                  : typeof raw.netRunRate === "number" && !isNaN(raw.netRunRate)
+                    ? raw.netRunRate
+                    : 0;
+              const s = { id: d.id, ...raw, nrr } as Standing;
               return { ...s, team: teamMap.get(s.teamId) ?? null };
             })
             .filter((s): s is StandingWithTeam => s.team !== null)
-            .sort((a, b) => (a.position || 0) - (b.position || 0));
+            .sort(
+              (a, b) =>
+                (b.points ?? 0) - (a.points ?? 0) ||
+                (b.nrr ?? 0) - (a.nrr ?? 0) ||
+                ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
+                (a.position || 0) - (b.position || 0),
+            )
+            .map((s, idx) => ({ ...s, position: idx + 1 }));
         }
       }
 
@@ -518,11 +532,25 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
 
     const standings = standingSnap.docs
       .map((d) => {
-        const s = { id: d.id, ...d.data() } as Standing;
+        const raw = d.data() as any;
+        const nrr =
+          typeof raw.nrr === "number" && !isNaN(raw.nrr)
+            ? raw.nrr
+            : typeof raw.netRunRate === "number" && !isNaN(raw.netRunRate)
+              ? raw.netRunRate
+              : 0;
+        const s = { id: d.id, ...raw, nrr } as Standing;
         return { ...s, team: teamMap.get(s.teamId) ?? null };
       })
       .filter((s): s is StandingWithTeam => s.team !== null)
-      .sort((a, b) => (a.position || 0) - (b.position || 0));
+      .sort(
+        (a, b) =>
+          (b.points ?? 0) - (a.points ?? 0) ||
+          (b.nrr ?? 0) - (a.nrr ?? 0) ||
+          ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
+          (a.position || 0) - (b.position || 0),
+      )
+      .map((s, idx) => ({ ...s, position: idx + 1 }));
 
     return standings;
   } catch (err) {

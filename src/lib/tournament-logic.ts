@@ -344,6 +344,7 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
       runsAgainst: r.runsAgainst,
       ballsAgainst: r.ballsAgainst,
       netRunRate: r.nrr,
+      nrr: r.nrr,
       points: r.points,
       adminTiebreak: r.adminTiebreak,
       qualified: isQualified,
