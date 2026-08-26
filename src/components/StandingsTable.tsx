@@ -38,20 +38,45 @@ export function StandingsTable({
         </TableHeader>
         <TableBody>
           {rows.map((s) => {
-            const status = s.qualificationStatus;
-            const isEliminated = status === "ELIMINATED" || s.eliminated;
-            const isQualifiedFinal = status === "QUALIFIED_FINAL";
-            const isQualifiedPlayoff = status === "QUALIFIED_PLAYOFF";
-            const isQualifiedTop3 = status === "QUALIFIED_TOP3" || s.guaranteedTop3;
+            const hasPlayoffs = rows.some(
+              (r) =>
+                r.qualificationStatus === "QUALIFIED_PLAYOFF" ||
+                r.qualificationStatus === "QUALIFIED_TOP3",
+            );
+            const qualifyingCutoff = hasPlayoffs ? 3 : 2;
+            const isTopRanked = s.position <= qualifyingCutoff;
+
+            const isQualifiedFinal =
+              s.qualificationStatus === "QUALIFIED_FINAL" ||
+              (!hasPlayoffs && s.position <= 2) ||
+              (hasPlayoffs && s.position === 1);
+
+            const isQualifiedPlayoff =
+              hasPlayoffs &&
+              (s.qualificationStatus === "QUALIFIED_PLAYOFF" ||
+                s.position === 2 ||
+                s.position === 3);
+
+            const isQualifiedTop3 =
+              hasPlayoffs &&
+              (s.qualificationStatus === "QUALIFIED_TOP3" ||
+                s.guaranteedTop3 ||
+                s.position <= 3);
+
+            const isEliminated =
+              !isTopRanked &&
+              (s.qualificationStatus === "ELIMINATED" ||
+                s.eliminated ||
+                rows.every((r) => r.played > 0));
 
             return (
               <TableRow
                 key={s.teamId}
                 className={cn(
                   isQualifiedFinal && "bg-amber-500/5 border-l-2 border-l-amber-500",
-                  (isQualifiedPlayoff || isQualifiedTop3) && "bg-purple-500/5 border-l-2 border-l-purple-500",
+                  !isQualifiedFinal && (isQualifiedPlayoff || isQualifiedTop3) && "bg-purple-500/5 border-l-2 border-l-purple-500",
                   isEliminated && "opacity-75 bg-muted/10",
-                  !status && s.position === 1 && "bg-amber-500/[0.02]",
+                  !s.qualificationStatus && s.position === 1 && "bg-amber-500/[0.02]",
                 )}
               >
                 <TableCell className="font-bold">
@@ -77,7 +102,7 @@ export function StandingsTable({
                         🏆 GRAND FINAL (Q)
                       </Badge>
                     )}
-                    {isQualifiedPlayoff && (
+                    {!isQualifiedFinal && isQualifiedPlayoff && (
                       <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/40 text-[10px] font-bold hover:bg-purple-500/30">
                         ⚔️ PLAYOFF (Q)
                       </Badge>
