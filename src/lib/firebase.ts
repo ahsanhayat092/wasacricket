@@ -1,11 +1,5 @@
-import { initializeApp } from "firebase/app";
-import {
-  initializeAuth,
-  browserLocalPersistence,
-  browserSessionPersistence,
-  indexedDBLocalPersistence,
-  GoogleAuthProvider,
-} from "firebase/auth";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
@@ -19,16 +13,15 @@ const firebaseConfig = {
   measurementId: "G-ZKYNFENBGK",
 };
 
-const app = initializeApp(firebaseConfig);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export const auth = initializeAuth(app, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
-});
-
+export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 
 // Analytics only in browser environments
 if (typeof window !== "undefined") {
-  getAnalytics(app);
+  try {
+    getAnalytics(app);
+  } catch {}
 }
