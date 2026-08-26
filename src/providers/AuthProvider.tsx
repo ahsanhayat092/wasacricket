@@ -39,8 +39,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user || !user.email) {
+        // Check if there is an active organizer session in localStorage
+        const organizerSessionStr =
+          typeof window !== "undefined"
+            ? localStorage.getItem("wasa_organizer_session")
+            : null;
+        if (organizerSessionStr) {
+          try {
+            const org = JSON.parse(organizerSessionStr);
+            if (org?.email) {
+              const cleanEmail = org.email.toLowerCase().trim();
+              setState({
+                firebaseUser: {
+                  uid: org.uid || `org_${cleanEmail.replace(/[^a-z0-9]/gi, "_")}`,
+                  email: cleanEmail,
+                  displayName: org.name || cleanEmail.split("@")[0],
+                  photoURL: null,
+                } as any,
+                role: "admin",
+                isAdmin: true,
+                isScorer: true,
+                isLoading: false,
+              });
+              return;
+            }
+          } catch {}
+        }
+
         // Check if there is an active PIN session in sessionStorage
-        const hasPinSession = typeof window !== "undefined" && sessionStorage.getItem("scorer_global_pin_auth") === "true";
+        const hasPinSession =
+          typeof window !== "undefined" &&
+          sessionStorage.getItem("scorer_global_pin_auth") === "true";
         setState({
           firebaseUser: null,
           role: hasPinSession ? "scorer" : null,

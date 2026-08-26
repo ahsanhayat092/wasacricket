@@ -24,7 +24,11 @@ export function useAuth(options?: UseAuthOptions) {
   const { firebaseUser, role, isAdmin, isScorer, isLoading } = useFirebaseAuth();
 
   const logout = useCallback(async () => {
-    await signOut(auth);
+    try {
+      localStorage.removeItem("wasa_organizer_session");
+      sessionStorage.removeItem("scorer_global_pin_auth");
+      await signOut(auth);
+    } catch {}
     navigate(redirectPath);
   }, [navigate, redirectPath]);
 
