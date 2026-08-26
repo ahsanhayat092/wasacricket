@@ -1,149 +1,201 @@
-# WASA Premier League — Cricket Scoring & Tournament Platform
-## Comprehensive Feature Documentation
+# Cricket Management & Live Scoring Platform — Master Feature Matrix
+## Comprehensive Platform Architecture & Capabilities Guide
 
-The **WASA Premier League (WPL)** platform is a full-stack, real-time cricket tournament management and live-scoring ecosystem designed for WASA Lahore. It connects a **Live Android Scoring Application** used by on-field scorers with a **High-Performance Public Web Portal** for players, officials, and fans.
-
----
-
-## 📱 Live Android Mobile App Scoring Integration
-
-A dedicated **Live Android Application** is linked in real-time with the web platform:
-
-- **Sub-Second Cloud Sync**: Scorers at the Askari XI ground input ball-by-ball actions on Android, which instantly update the web scoreboard, graphs, partnerships, and leaderboards via cloud Firestore sync.
-- **On-Field Match Scorer Console**:
-  - Live toss recording (Batting / Bowling election).
-  - Playing VI (6) & Match Reserve (1) selection before toss.
-  - Delivery recording with extras (Wides, No Balls, Byes, Leg Byes, Penalties).
-  - Dismissal modes (Bowled, Caught, Run Out, Stumped, LBW, Hit Wicket).
-  - Real-time striker & non-striker rotation and end-of-over bowler transitions.
-  - Undo ball functionality for instant scoring correction.
-  - Instant Player of the Match (POTM) nomination upon match completion.
+The **WasaCricket Platform** is a full-stack, real-time, multi-tenant Cricket Tournament Management & Live Scoring ecosystem. It serves three distinct user personas: **General Public & Fans**, **Tournament Organizers**, and **Ground Scorers**.
 
 ---
 
-## 🌟 Core Features & Modules
+## 👥 1. Three-Persona Onboarding & Navigation UX
 
-### 1. ⚡ Live Match Center & Real-Time Scorecard
-- **Real-Time Live Scoreboard**:
-  - Team scores, wickets, overs, current run rate (CRR), and required run rate (RRR) in chase scenarios.
-  - Remaining runs needed and balls remaining calculations.
-- **At the Crease (Live Batsmen)**:
-  - Displays the active striker with `*` indicator and non-striker with runs, balls, 4s, 6s, and strike rates.
-- **Current Bowling (Single Active Bowler)**:
-  - Live bowler card showing exact spell figures (`W-R`), overs bowled, and current over economy.
-- **Over-by-Over Live Delivery Feed**:
-  - Visual ball-by-ball breakdown badge chips (`0`, `1`, `2`, `4`, `6`, `W`, `Wd`, `Nb`) separated clearly by completed overs.
-- **Celebration & Milestone Animations**:
-  - Dynamic on-screen overlay animations for **4s**, **6s**, **Wickets**, **50s**, **Centuries**, and **Match Victories**.
-- **Interactive Manhattan Over Graphs**:
-  - Side-by-side comparative bar chart comparing Innings 1 vs. Innings 2 run progression and wicket dots.
-- **Dedicated Batting Partnerships Section**:
-  - Separate tab with visual split progress bars showing run and ball contributions for each wicket partnership.
-- **Fall of Wickets (FOW)**:
-  - Summary text banner and individual wicket milestone cards with exact score and over of dismissal.
-- **Squad & Playing Lineup Confirmations**:
-  - Pre-match rosters and official Starting Playing VI (6) + Match Reserve (1) confirmed at toss.
+```
+                               ┌────────────────────────────────┐
+                               │     WasaCricket Platform       │
+                               └────────────────┬───────────────┘
+                     ┌──────────────────────────┼──────────────────────────┐
+                     ▼                          ▼                          ▼
+           [ 1. General Public ]     [ 2. Tournament Organizer ]   [ 3. Ground Scorer ]
+           • Zero login required     • 2-minute setup wizard       • 4-digit Match PIN access
+           • Live scores & tickers   • Custom rules & formats      • Dedicated Scorer Dashboard
+           • Public tournament hubs  • Auto-fixture generator      • Rapid ball-by-ball console
+           • Universal player search • Multi-tournament switcher   • Instant Undo/Redo
+```
 
----
+### A. General Public & Fan Experience
+- **Zero Login Required**: Fans and players can view all live matches, tournament standings, complete ball-by-ball scorecards, player career statistics, and rulebooks without creating an account.
+- **Top-Level Public Navigation**:
+  - **Home (`/`)**: Dynamic sports landing page with live match pulse badges, hero stats, and featured tournaments.
+  - **Live Scores (`/live-scores`)**: Auto-refreshing feed of all active, upcoming, and completed matches across tournaments with filter tabs (*All, Live, Upcoming, Completed*).
+  - **Tournaments Catalog (`/tournaments`)**: Search and filter public tournaments by format (*Tape-Ball/Indoor, T10, T20, ODI*).
+  - **About (`/about`)**: Complete platform capability overview and tournament organizer guides.
+- **Public Tournament Micro-Sites (`/t/:tournamentSlug`)**: Dedicated branding, custom colors, and contextual sub-navigation (*Overview, Schedule, Teams, Points Table, Results, Statistics, Rules*).
+- **Universal Player Search Modal**: Search any player across all teams by name, role, or jersey number from the header.
 
-### 2. 👤 Universal Player Profiles & Global Search
-- **Universal Click-to-Profile**:
-  - **Every player name anywhere in the app is interactive** — in scorecards, live crease, bowling cards, partnerships, fall of wickets, squad rosters, leaderboards, top performer cards, and search results.
-- **Player Performance Modal**:
-  - **Hero Header**: Player avatar, jersey number (`#`), official role (Batter, Bowler, All-Rounder, Wicket-Keeper), Captain `(C)` and Wicket-Keeper `(WK)` badges, and Player of the Match awards counter.
-  - **Tournament Batting Summary**: Matches, Innings, Total Runs, Balls Faced, Highest Score (`*` for not out), Batting Average, Strike Rate, 4s, 6s, 30+ scores, 50+ scores, and Ducks.
-  - **Tournament Bowling Summary**: Innings, Overs, Maidens, Runs Conceded, Total Wickets, Best Bowling Figures (`W/R`), Economy Rate, Bowling Average, Strike Rate, 3-Wicket Hauls, and Extras (Wides/No-Balls).
-  - **Match-by-Match History Log**: Chronological breakdown of every tournament fixture played, opponent badge/name, date & time, player's individual batting figures, bowling figures, match result, and POTM badge.
-  - **Squad Teammates Browser**: View teammates and jump directly to their performance records.
-- **Global Player Search (`Search Players`)**:
-  - Instant searchable modal in the navbar and mobile drawer.
-  - Search by **Player Name**, **Team Name** (e.g., *Wolves*, *Lions*), **Playing Role**, or **Jersey Number**.
-  - Quick filter chips: *All Roles*, *🏏 Batters*, *🎯 Bowlers*, *⚡ All-Rounders*, *🧤 Wicket-Keepers*.
-  - Live tournament stats (Runs & Wickets) displayed right on search cards.
+### B. Tournament Organizer Experience
+- **Dedicated Entry**: Header button **"Create Tournament"**.
+- **Organizer Onboarding (`/organizer/signup` & `/organizer/login`)**:
+  - Clear messaging: *"Create and manage your own cricket tournaments."*
+  - Automatically designates the creator as the Owner of the tournament.
+  - Redirects immediately into the **5-Step Tournament Creation Wizard**.
+- **Tournaments Hub & Workspace Switcher (`/admin/tournaments`)**:
+  - Manage multiple simultaneous tournaments.
+  - 1-click active tournament workspace switcher.
+  - Direct links to public fan micro-portals and one-tap link sharing.
+- **Role Permissions**: Tournament Owners can invite and manage additional tournament administrators and designated match scorers.
 
----
-
-### 3. 📸 Shareable Story & Highlight Cards Generator
-- **Auto-Generated Instagram Story Cards (9:16) & Square Posts (1:1)**:
-  - **Match Result & Final Scorecard Story**: Team head-to-head showdown, team logos, match scores/wickets/overs, official match result banner, and top batter/bowler micro-cards.
-  - **Player of the Match (POTM) Tribute Card**: Big spotlight player avatar with glowing MVP badge, player role, team badge, batting figures, and bowling figures.
-  - **Big Moment Highlight Cards**: One-click generation for **💥 MAXIMUM 6!**, **🎯 TIMBER! WICKET!**, **🏏 SMASHING 50!**, and **🏆 VICTORY MOMENT**.
-  - **Player Spotlight Story Card**: Instant social share card from any player's profile with their tournament runs, wickets, high score, and strike rate.
-- **Direct Export & Sharing**:
-  - **Download High-Resolution PNG**: Crisp 2.5x retina-rendered image download.
-  - **One-Tap Social Share**: Uses Web Share API on mobile to share directly to Instagram Stories, WhatsApp Status, Twitter, or Facebook.
-  - **Copy Image to Clipboard**: Direct one-click clipboard copy.
+### C. Match Scorer Experience
+- **Dedicated Entry**: Header button **"Scorer Login"**.
+- **Scorer Portal (`/scorer/login`)**:
+  - **Option 1: Quick 4-Digit Match PIN**: Ground scorers and casual match volunteers enter the tournament PIN for instant live score access without needing full admin credentials.
+  - **Option 2: Scorer Account Login**: For designated registered scorers.
+- **Scorer Dashboard (`/scorer/dashboard`)**:
+  - Ground-focused workspace categorized into **Live Matches**, **Upcoming Matches** (ready for Toss & Lineups), and **Completed Matches**.
+  - 1-click launch into the live ball-by-ball scoring console.
 
 ---
 
-### 4. 📅 Interactive Calendar & Clock Fixture Scheduler
-- **Interactive Popover Calendar Picker**:
-  - Date selection using a graphical calendar with automatic day-of-the-week calculation (Monday, Tuesday, etc.).
-- **Interactive Clock Time Picker**:
-  - Hour grid (1–12), minute grid (`:00`, `:15`, `:30`, `:45`), AM/PM toggle, and quick-select presets (`9:00 PM`, `9:45 PM`, `10:30 PM`, `11:15 PM`, `12:00 AM`).
-- **Dynamic Universal Date & Time Propagation**:
-  - Selected date and time dynamically update across Match Cards, Header Badges, Match Schedule, Match Detail, Live Match screens, and Admin tables.
-- **Schedule Grouping**:
-  - Fixtures grouped dynamically by tournament days with time span chips and venue tags.
+## 🏢 2. Multi-Tenant Architecture & Custom Branding
+
+- **Tenant Data Isolation**: Teams, players, matches, innings deliveries, standings, and tournament rules are scoped per `tournamentId`.
+- **Flagship Showcase Tournament**: The WASA Premier League (`tournamentId = 'main'`) is preserved as the default flagship showcase tournament.
+- **Custom Brand Theming**:
+  - Dynamic primary and accent color pickers.
+  - Custom tournament logo and banner URLs.
+  - Unique public URL slug for every event (e.g. `wasacricket.vercel.app/t/lahore-corporate-cup-2026`).
 
 ---
 
-### 4. 🏆 Standings & Automatic Net Run Rate (NRR) Table
-- **Group Stage Division**: Group A and Group B standings tables.
-- **Automated Calculation**: Matches Played (`P`), Won (`W`), Lost (`L`), Tied/No Result (`NR`), Points (`Pts`), and Net Run Rate (`NRR`) calculated to 3 decimal places.
-- **Tournament Qualification System**:
-  - **Rank 1 Direct Finalist**: The top-ranked team at the end of the league stage qualifies directly for the **Grand Final**.
-  - **Playoff Match (Rank 2 vs Rank 3)**: Teams ranked 2nd and 3rd play in the **Playoff Eliminator**.
-  - **Championship Grand Final**: The winner of the Playoff advances to play the **Rank 1 Team** in the Grand Final for the WPL Championship Trophy.
+## ⚡ 3. 5-Step Interactive Tournament Wizard (`/admin/tournaments/new`)
+
+```
+[1. Identity & Branding] ➔ [2. Format & Rules] ➔ [3. Playoff Structure] ➔ [4. Teams & Rosters] ➔ [5. Fixtures Auto-Gen]
+```
+
+### Step 1: Identity & Custom Branding
+- Tournament Name, Short Code (3–4 letters), URL Slug, Venue Name, and Google Maps venue link.
+- Organizer notes/description.
+- Primary and Accent theme colors.
+- 4-Digit Scorer PIN configuration.
+
+### Step 2: Format Presets & Match Rules Engine
+- **Pre-Configured Format Presets**:
+  - **Tape-Ball / Indoor Cricket**: 4–8 Overs, 1 over/bowler limit, 6 players per team, Last-Man-Standing option, Box Cricket rules.
+  - **T10 League**: 10 Overs, 2 overs/bowler, 11 players per team.
+  - **T20 Standard**: 20 Overs, 4 overs/bowler, ICC T20 rules.
+  - **ODI Standard**: 50 Overs, 10 overs/bowler, 11 players per team.
+  - **Custom Engine**: Configure overs (1–50), bowler over quotas (1–10), squad sizes (2–11), and max dismissals.
+- **Granular Match Parameters**:
+  - Last-Man-Standing (LMS) toggle.
+  - Free hit on no-ball toggle.
+  - Penalty runs for wides and no-balls (+1 run or custom).
+
+### Step 3: Playoff & Knockout Structures
+- 🥇 **Direct Top 2 Final**: Top 2 teams from league play advance straight to the Grand Final.
+- ⚔️ **Top 3 Page Playoff**: Rank 1 qualifies for Final. Rank 2 vs Rank 3 play a Playoff Match for the 2nd finalist spot.
+- 🏆 **IPL-Style Top 4**: Qualifier 1 (1 vs 2), Eliminator (3 vs 4), Qualifier 2, and Grand Final.
+- 🎯 **Top 4 Semi-Finals**: Semi 1 (1 vs 4), Semi 2 (2 vs 3), and Grand Final.
+
+### Step 4: Participating Teams & Squad Builder
+- Quick Add teams with custom colors and short codes.
+- Automatic division into Group A and Group B for multi-group tournaments.
+
+### Step 5: Automated Schedule & Fixture Generator
+- Polygon round-robin pairing algorithm (single or double round-robin).
+- Configurable start date, daily start times, match durations, and matches per day.
+- Automatic time-slot and rest-day calculation.
+- Instant 1-click publish of the full tournament fixture schedule.
 
 ---
 
-### 5. 📊 Tournament Statistics & Leaderboards
-- **Individual Honors**:
-  - 🟠 **Top Run Scorer** (Tournament Orange Cap / Golden Bat).
-  - 🟣 **Top Wicket Taker** (Tournament Purple Cap / Golden Ball).
-  - ⚡ **Boundary King** (Most 4s & 6s combined).
-  - 🛡️ **Best Economy Rate** (Lowest runs conceded per over).
-- **Comprehensive Leaderboard Tables**:
-  - Full sortable batting leaderboard (Runs, Inns, Balls, Avg, SR, HS, 4s, 6s).
-  - Full sortable bowling leaderboard (Wickets, Inns, Overs, Maidens, Runs, Econ, Avg, Best Figures).
-- **Team-by-Team Filtering**:
-  - Filter stats by specific team to view internal team top performers.
-- **Tournament High-Level KPIs**:
-  - Total runs scored, total wickets taken, highest team total, and match completion progress.
+## 🏏 4. Live Match Center & Scoring Engine
+
+### On-Field Live Scoring Console (`/admin/matches/:id`)
+- **Toss & Lineup Selection**: Record toss winner, toss decision (Batting/Bowling), and starting lineups.
+- **Ball-by-Ball Live Scoring Grid**:
+  - Quick run buttons (`0`, `1`, `2`, `3`, `4`, `6`).
+  - Extras tracking: Wides (`+1 Wd`), No-Balls (`+1 Nb`), Byes (`B`), Leg Byes (`LB`), Penalty runs.
+  - Free hit tracking with visual banner indicators.
+  - Dismissal types: Bowled, Caught, Run Out (striker/non-striker selection), Stumped, LBW, Hit Wicket.
+- **Instant Strike Rotation & Bowler Quota Enforcement**:
+  - Automatic striker rotation on odd singles and end of overs.
+  - Bowler quota tracking (prevents exceeding maximum overs per bowler).
+- **Undo / Redo Engine**:
+  - Instant one-click **Undo Ball** with automatic rollback of runs, wickets, bowler stats, and batsman scores.
+- **Match Finalization & POTM**:
+  - Automated winner determination, margin calculation (e.g. *"Won by 14 runs"* or *"Won by 4 wickets"*).
+  - Player of the Match (POTM) nomination.
+
+### Public Live Broadcast Experience (`/live/:id`)
+- **Real-Time Scoreboard**: Team scores, wickets, overs, current run rate (CRR), required run rate (RRR), runs needed, and balls remaining.
+- **At the Crease (Live Batsmen)**: Active striker indicator (`*`), non-striker, runs, balls, 4s, 6s, and strike rate.
+- **Current Bowling**: Live bowler card with exact spell figures (`W-R`), overs, and economy rate.
+- **Over-by-Over Delivery Badges**: Colored visual ball chips (`0`, `1`, `2`, `4`, `6`, `W`, `Wd`, `Nb`).
+- **Interactive Manhattan Over Graphs**: Comparative bar charts comparing Innings 1 vs. Innings 2 run progression and wicket fall.
+- **Batting Partnerships**: Visual progress bars showing run and ball contributions for each wicket partnership.
+- **Fall of Wickets (FOW)**: Score and over of dismissal for every wicket.
+- **Milestone Animations**: Dynamic on-screen overlays for **4s**, **6s**, **Wickets**, **50s**, **100s**, and **Match Victories**.
 
 ---
 
-### 6. 🛡️ Teams & Squad Roster
-- **6 Competing Teams**:
-  - **Group A**: Ravi Raptors (RR), Shalimar Strikers (SS), Badshahi Blasters (BB)
-  - **Group B**: Gulberg Gladiators (GG), Iqbal Inswingers (II), Lahore Lions (LL)
-- **Team Profile Pages**:
-  - Team logo, group details, points standing, tournament matches, and 7-member player rosters with playing roles, batting/bowling styles, Captain `(C)`, and Vice Captain `(VC)` indicators.
-- **Dynamic Pre-Match & Live Squad Additions**:
-  - Players can be added to any squad directly before the match (at Toss & Lineup confirmation) or during the match via the quick-add player modal in Match Control.
-  - Direct 1-click **Add Player** shortcuts on Team and Player management consoles.
+## 📐 5. Mathematical Scenario & Net Run Rate (NRR) Engine
+
+- **Automated Standings Computation**: Matches Played (`P`), Won (`W`), Lost (`L`), Tied/No Result (`NR`), Points (`Pts`), and Net Run Rate (`NRR`) computed to 3 decimal places.
+- **16-Scenario Mathematical Qualification Matrix**:
+  - Evaluates all remaining permutations across upcoming fixtures.
+  - Categorizes teams into:
+    - 🟢 **Top 3 Qualified** / **Top 2 Qualified**
+    - 🔵 **Grand Final Contender**
+    - 🟣 **Playoff Contender**
+    - 🔴 **Mathematically Eliminated**
 
 ---
 
-### 7. 🔒 Admin Portal & Scorer Management
-- **Role-Based Access Control (RBAC)**:
-  - **Administrators**: Full system control (tournaments, teams, players, schedule, standings overrides, user accounts, system settings).
-  - **Scorers**: Direct access to match scoring console to conduct live games.
-- **Match Management & Reset**:
-  - Create, reschedule, edit venue, and set match status (Upcoming, Live, Completed, Abandoned).
-  - Full match reset function to roll back test matches to fresh state.
-  - Pre-match Playing VI (6 starters) and 1 Reserve player configuration with instant squad expansion.
-- **User Account Management**:
-  - Create scorer and admin accounts, assign roles, and manage credentials.
+## 📲 6. WhatsApp Sharing & Matchday QR Growth Suite
+
+- **1-Click WhatsApp Direct Share**:
+  - Pre-formatted rich WhatsApp message generator with tournament name, live score links, and schedule.
+  - Integrated into tournament headers, hero banners, and match scorecards.
+- **High-Res Printable Matchday QR Poster (PNG)**:
+  - Generates a branded printable flyer with tournament name, venue, high-contrast QR code, and tagline (*"Scan to Follow Live Scores & Standings"*).
+  - Designed for clubhouse notice boards, pavilion stalls, and ground banners.
+- **Viral Referral Hook**:
+  - Embedded *"Host Your Own Tournament Free"* badge inside share dialogs directing new organizers to the setup wizard.
 
 ---
 
-### 8. 🎨 Design Aesthetics & Performance
-- **Modern Responsive Design**:
-  - Dark Mode & Light Mode support with smooth theme toggle.
-  - Tailored color palette: Emerald (`#10b981`), Amber Gold (`#f59e0b`), Sky Blue (`#0ea5e9`), and Slate Dark theme.
-  - Mobile-first responsive navigation with drawer and touch gestures.
-- **Optimized Performance**:
-  - Fast client-side routing with optimistic caching via TanStack React Query.
-  - Cloud Firestore real-time listeners for live updates without manual page refreshes.
+## 👤 7. Universal Player Profiles & Statistics
+
+- **Universal Click-to-Profile**: Every player name anywhere in the app is clickable.
+- **Career & Tournament Batting**: Total runs, balls faced, high score, batting average, strike rate, 4s, 6s, 30+ scores, 50+ scores, ducks.
+- **Career & Tournament Bowling**: Overs, maidens, runs conceded, wickets, best bowling figures (`W/R`), economy rate, bowling average, 3-wicket hauls.
+- **Match-by-Match Log**: Historical breakdown of every tournament fixture played, opponent name, date, player's individual score/figures, and POTM badges.
+
+---
+
+## 🎨 8. Media & Certificate Export Suite
+
+- **Instagram Story (9:16) & Square (1:1) Cards**:
+  - Auto-generated graphics for Final Match Results, POTM Tributes, and Big Moments (Maximum 6, Timber Wicket, Smashing 50).
+- **Printable Tournament Rulebook PDF**: Clean PDF export of all tournament rules, bowler limits, and scoring guidelines.
+- **Printable Match Schedule PDF**: Formatted schedule sheet with date, time, teams, and venue details.
+- **Champion & Runner-Up Certificates**: Printable certificates for winning teams and tournament MVPs.
+- **Confetti Celebration**: Dynamic canvas confetti animation upon tournament completion.
+
+---
+
+## 🔐 9. Authentication & Role Management
+
+- **Firebase Authentication**: Email/Password and Google OAuth.
+- **Role Hierarchy**:
+  - `ADMIN` / `OWNER`: Full administrative access to tournament settings, teams, players, schedule, rules, and user roles.
+  - `SCORER`: Ground access to toss, ball-by-ball live scoring, and match finalization.
+  - `PUBLIC`: Unrestricted browsing of scores, standings, and statistics.
+- **User Role Management Screen (`/admin/users`)**: Search registered users and promote/demote roles instantly.
+
+---
+
+## 🛠️ 10. Technology Stack & Performance
+
+- **Frontend**: React 19, TypeScript, Vite, TailwindCSS, Radix UI, Lucide Icons, Recharts.
+- **Backend & Database**: Firebase Firestore with sub-second real-time snapshot listeners.
+- **QR Engine**: `qrcode` canvas rendering.
+- **Automated Testing**: `vitest` unit test suite (47 tests passing).
