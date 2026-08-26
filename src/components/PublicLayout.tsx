@@ -22,9 +22,11 @@ import {
   ListOrdered,
   BookOpen,
   Users,
+  Share2,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 
 export function PublicLayout() {
   const { theme, toggle } = useTheme();
@@ -32,6 +34,7 @@ export function PublicLayout() {
   const { openPlayerSearch } = usePlayerModal();
   const { tournament, activeTournamentSlug, isFlagshipWasa } = useTournament();
   const [open, setOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const location = useLocation();
 
   const isTournamentSubpage = !!activeTournamentSlug;
@@ -227,11 +230,29 @@ export function PublicLayout() {
                     </NavLink>
                   );
                 })}
+
+                {/* WhatsApp & QR Share Button */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShareOpen(true)}
+                  className="h-7 px-2.5 text-[11px] font-bold rounded-lg gap-1.5 border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 ml-1 shrink-0"
+                >
+                  <Share2 className="h-3 w-3" />
+                  <span>Share / QR</span>
+                </Button>
               </div>
             </div>
           </div>
         )}
       </header>
+
+      {/* Share & QR Code Modal */}
+      <ShareTournamentModal
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        tournament={tournament}
+      />
 
       <main className="flex-1">
         <Outlet />

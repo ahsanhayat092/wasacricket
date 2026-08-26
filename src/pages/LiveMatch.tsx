@@ -44,6 +44,7 @@ import {
   Activity,
   Crown,
   PartyPopper,
+  MessageCircle,
 } from "lucide-react";
 
 type LiveData = {
@@ -236,7 +237,21 @@ export default function LiveMatch() {
                     className="h-7 text-xs font-bold gap-1.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 rounded-lg px-2.5"
                   >
                     <Camera className="h-3.5 w-3.5" />
-                    <span>Share Story</span>
+                    <span>Story Card</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const shareUrl = window.location.href;
+                      const text = encodeURIComponent(
+                        `🏏 *${teamA?.name ?? "Team A"} vs ${teamB?.name ?? "Team B"}*\n${match.resultText ? `🏆 *Result:* ${match.resultText}\n` : ""}\n👉 *Follow Live Ball-by-Ball Scorecard:* ${shareUrl}`
+                      );
+                      window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+                    }}
+                    className="h-7 text-xs font-bold gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg px-2.5 shadow-sm"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 fill-white" />
+                    <span>WhatsApp</span>
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-2">

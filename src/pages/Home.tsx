@@ -23,11 +23,14 @@ import {
   PartyPopper,
   Medal,
   ArrowRight,
+  Share2,
 } from "lucide-react";
 import { Link } from "react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 
 export default function Home() {
+  const [shareOpen, setShareOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["overview"],
     queryFn: getOverview,
@@ -243,11 +246,19 @@ export default function Home() {
               </a>
             </div>
 
-            {/* Slogan Banner */}
-            <div className="mt-6 inline-block">
+            {/* Slogan & Share Banner */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <p className="font-extrabold text-xs sm:text-sm tracking-widest uppercase text-emerald-300/90 italic bg-emerald-500/10 px-4 py-1.5 rounded-full border border-emerald-500/20">
                 ⚡ PLAY HARD, WIN TOGETHER! ⚡
               </p>
+              <Button
+                onClick={() => setShareOpen(true)}
+                size="sm"
+                className="h-8 px-3 rounded-full text-xs font-bold bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-md gap-1.5"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span>Share on WhatsApp & QR</span>
+              </Button>
             </div>
           </div>
         </section>
@@ -409,6 +420,12 @@ export default function Home() {
           </div>
         </section>
       </div>
+
+      <ShareTournamentModal
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        tournament={tournament}
+      />
     </div>
   );
 }
