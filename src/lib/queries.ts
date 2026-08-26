@@ -22,11 +22,14 @@ import {
   bowlingScoresCol,
   standingsCol,
   usersCol,
+  tournamentMembersCol,
   teamDoc,
   matchDoc,
   playerDoc,
   TOURNAMENT_ID,
   type Tournament,
+  type TournamentMember,
+  type TournamentRole,
   type Team,
   type Player,
   type Match,
@@ -1044,5 +1047,17 @@ export async function getUserRole(email: string): Promise<UserRole | null> {
   } catch (err) {
     console.error("Error getting user role:", err);
     return null;
+  }
+}
+
+export async function getTournamentMembers(tournamentId: string): Promise<TournamentMember[]> {
+  try {
+    const snap = await getDocs(
+      query(tournamentMembersCol(), where("tournamentId", "==", tournamentId)),
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TournamentMember);
+  } catch (err) {
+    console.error("Error loading tournament members:", err);
+    return [];
   }
 }

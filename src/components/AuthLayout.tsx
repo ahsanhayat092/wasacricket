@@ -54,7 +54,7 @@ const adminMenuItems = [
   { icon: ClipboardList, label: "Matches & Scoring", path: "/admin/matches" },
   { icon: ListOrdered, label: "Points Table", path: "/admin/points-table" },
   { icon: BookOpen, label: "Tournament Rules", path: "/admin/rules" },
-  { icon: UserCheck, label: "User Roles & Scorers", path: "/admin/users" },
+  { icon: UserCheck, label: "People & Permissions", path: "/admin/users" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 

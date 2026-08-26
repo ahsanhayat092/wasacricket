@@ -31,8 +31,12 @@ import {
   standingDoc,
   usersCol,
   userDoc,
+  tournamentMembersCol,
+  tournamentMemberDoc,
   TOURNAMENT_ID,
   type Tournament,
+  type TournamentMember,
+  type TournamentRole,
   type Team,
   type Player,
   type Match,
@@ -1034,4 +1038,51 @@ export async function upsertUser(input: {
 
 export async function deleteUser(userId: string) {
   await deleteDoc(userDoc(userId));
+}
+
+// ---------------------------------------------------------------------------
+// Tournament-Scoped Members & Permissions (User -> Tournament Membership -> Role)
+// ---------------------------------------------------------------------------
+
+export async function inviteTournamentMember(input: {
+  tournamentId: string;
+  userEmail: string;
+  userName?: string;
+  role: TournamentRole;
+  invitedBy?: string;
+}) {
+  const cleanEmail = input.userEmail.toLowerCase().trim();
+  const memberDocId = `${input.tournamentId}_${cleanEmail.replace(/[^a-z0-9]/g, "_")}`;
+
+  const memberData: Omit<TournamentMember, "id"> = {
+    tournamentId: input.tournamentId,
+    userId: cleanEmail,
+    userEmail: cleanEmail,
+    userName: input.userName?.trim() || cleanEmail.split("@")[0],
+    role: input.role,
+    invitedBy: input.invitedBy || null,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  await setDoc(tournamentMemberDoc(memberDocId), memberData, { merge: true });
+  return { id: memberDocId, ...memberData };
+}
+
+export async function updateTournamentMemberRole(memberId: string, role: TournamentRole) {
+  await updateDoc(tournamentMemberDoc(memberId), {
+    role,
+    updatedAt: now(),
+  });
+}
+
+export async function removeTournamentMember(memberId: string) {
+  await deleteDoc(tournamentMemberDoc(memberId));
+}
+
+export async function updateTournamentScorerPin(tournamentId: string, scorerPin: string) {
+  await updateDoc(tournamentDoc(tournamentId), {
+    scorerPin: scorerPin.trim(),
+    updatedAt: now(),
+  });
 }
