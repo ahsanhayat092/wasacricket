@@ -20,6 +20,29 @@ export default function OrganizerAuth() {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
+  const formatAuthError = (err: any): string => {
+    const code = err?.code;
+    if (code === "auth/email-already-in-use") {
+      return "This email is already registered. Please click 'Log In' below.";
+    }
+    if (code === "auth/weak-password") {
+      return "Password is too weak. Please use at least 6 characters.";
+    }
+    if (code === "auth/invalid-email") {
+      return "Please enter a valid email address.";
+    }
+    if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential") {
+      return "Invalid email or password. Please check your credentials.";
+    }
+    if (code === "auth/operation-not-allowed") {
+      return "Email/Password sign up is disabled in Firebase console. Please click 'Continue with Google'.";
+    }
+    if (err?.message?.includes("closing/hidden") || code === "failed-precondition") {
+      return "Browser session re-established. Please try submitting again or click 'Continue with Google'.";
+    }
+    return err?.message || "Authentication failed. Please check your credentials.";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
@@ -39,7 +62,7 @@ export default function OrganizerAuth() {
         navigate("/admin/tournaments");
       }
     } catch (err: any) {
-      toast.error(err?.message || "Authentication failed. Please check your credentials.");
+      toast.error(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -52,7 +75,7 @@ export default function OrganizerAuth() {
       toast.success("Signed in with Google!");
       navigate(mode === "signup" ? "/admin/tournaments/new" : "/admin/tournaments");
     } catch (err: any) {
-      toast.error(err?.message || "Google sign in failed.");
+      toast.error(formatAuthError(err));
     } finally {
       setLoading(false);
     }
