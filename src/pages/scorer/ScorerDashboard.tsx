@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getSchedule, getTournaments } from "@/lib/queries";
@@ -20,6 +20,7 @@ import {
   Activity,
   Layers,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 
@@ -27,6 +28,19 @@ export default function ScorerDashboard() {
   const navigate = useNavigate();
   const { tournamentId, tournament, setTournamentId } = useTournament();
   const [tab, setTab] = useState<"live" | "upcoming" | "completed">("live");
+
+  const { user, isScorer, isAdmin, isLoading: isAuthLoading } = useAuth();
+  const hasPinSession = typeof window !== "undefined" && sessionStorage.getItem("scorer_global_pin_auth") === "true";
+
+  // Strict route authorization guard: require active PIN session or logged in Scorer/Admin
+  useEffect(() => {
+    if (!isAuthLoading) {
+      const isAuthorized = hasPinSession || isScorer || isAdmin || !!user;
+      if (!isAuthorized) {
+        navigate("/scorer/login", { replace: true });
+      }
+    }
+  }, [isAuthLoading, hasPinSession, isScorer, isAdmin, user, navigate]);
 
   const { data: tournaments } = useQuery({
     queryKey: ["tournaments"],
@@ -37,10 +51,21 @@ export default function ScorerDashboard() {
     queryKey: ["schedule", tournamentId],
     queryFn: () => getSchedule(tournamentId),
     refetchInterval: 5000,
+    enabled: hasPinSession || isScorer || isAdmin || !!user,
   });
 
-  const { user } = useAuth();
-  const hasPinSession = typeof window !== "undefined" && sessionStorage.getItem("scorer_global_pin_auth") === "true";
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        <p className="text-sm font-semibold text-muted-foreground">Verifying Scorer Authorization...</p>
+      </div>
+    );
+  }
+
+  if (!hasPinSession && !isScorer && !isAdmin && !user) {
+    return null;
+  }
 
   const liveMatches = matches?.filter((m) => m.status === "LIVE") ?? [];
   const upcomingMatches = matches?.filter((m) => m.status === "UPCOMING") ?? [];
