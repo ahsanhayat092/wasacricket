@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import {
   onAuthStateChanged,
+  getRedirectResult,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -33,6 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // Process any pending redirect auth credentials
+    getRedirectResult(auth).catch(() => {});
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user || !user.email) {
         // Check if there is an active PIN session in sessionStorage

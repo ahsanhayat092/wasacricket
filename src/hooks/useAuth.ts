@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   signInWithPopup,
+  signInWithRedirect,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { LOGIN_PATH } from "@/const";
@@ -61,7 +62,18 @@ export function useAuth(options?: UseAuthOptions) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    return await signInWithPopup(auth, googleProvider);
+    try {
+      return await signInWithPopup(auth, googleProvider);
+    } catch (err: any) {
+      if (
+        err?.code === "auth/popup-blocked" ||
+        err?.message?.includes("Cross-Origin-Opener-Policy") ||
+        err?.message?.includes("closing/hidden")
+      ) {
+        return await signInWithRedirect(auth, googleProvider);
+      }
+      throw err;
+    }
   }, []);
 
   useEffect(() => {
