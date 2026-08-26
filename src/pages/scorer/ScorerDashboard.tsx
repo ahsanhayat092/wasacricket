@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getSchedule, getTournaments } from "@/lib/queries";
@@ -30,28 +30,55 @@ export default function ScorerDashboard() {
   const [tab, setTab] = useState<"live" | "upcoming" | "completed">("live");
 
   const { user, isScorer, isAdmin, isLoading: isAuthLoading } = useAuth();
-  const hasPinSession = typeof window !== "undefined" && sessionStorage.getItem("scorer_global_pin_auth") === "true";
-
-  // Strict route authorization guard: require active PIN session or logged in Scorer/Admin
-  useEffect(() => {
-    if (!isAuthLoading) {
-      const isAuthorized = hasPinSession || isScorer || isAdmin || !!user;
-      if (!isAuthorized) {
-        navigate("/scorer/login", { replace: true });
-      }
-    }
-  }, [isAuthLoading, hasPinSession, isScorer, isAdmin, user, navigate]);
 
   const { data: tournaments } = useQuery({
     queryKey: ["tournaments"],
     queryFn: getTournaments,
   });
 
+  // Get list of tournament IDs unlocked via PIN in this session
+  const pinUnlockedTourneys: string[] = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = sessionStorage.getItem("scorer_auth_tournaments");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Allowed tournaments for this scorer:
+  // - If user is Admin: all tournaments
+  // - If user unlocked specific tournament via PIN: ONLY those specific tournaments
+  const allowedTournaments = useMemo(() => {
+    if (!tournaments) return [];
+    if (isAdmin) return tournaments;
+    return tournaments.filter((t) => pinUnlockedTourneys.includes(t.id));
+  }, [tournaments, isAdmin, pinUnlockedTourneys]);
+
+  const hasPinSession = pinUnlockedTourneys.length > 0;
+  const isAuthorizedForActive = Boolean(
+    isAdmin || (tournamentId && pinUnlockedTourneys.includes(tournamentId))
+  );
+
+  // Strict route authorization guard: require active PIN session or logged in Scorer/Admin
+  useEffect(() => {
+    if (!isAuthLoading) {
+      if (!isAdmin && !hasPinSession && !user) {
+        navigate("/scorer/login", { replace: true });
+        return;
+      }
+      if (!isAdmin && allowedTournaments.length > 0 && !isAuthorizedForActive) {
+        setTournamentId(allowedTournaments[0].id);
+      }
+    }
+  }, [isAuthLoading, isAdmin, hasPinSession, user, allowedTournaments, isAuthorizedForActive, navigate, setTournamentId]);
+
   const { data: matches, isLoading } = useQuery({
     queryKey: ["schedule", tournamentId],
     queryFn: () => getSchedule(tournamentId),
     refetchInterval: 5000,
-    enabled: hasPinSession || isScorer || isAdmin || !!user,
+    enabled: isAuthorizedForActive,
   });
 
   if (isAuthLoading) {
@@ -63,7 +90,7 @@ export default function ScorerDashboard() {
     );
   }
 
-  if (!hasPinSession && !isScorer && !isAdmin && !user) {
+  if (!isAdmin && !hasPinSession && !user) {
     return null;
   }
 
@@ -100,7 +127,7 @@ export default function ScorerDashboard() {
 
         {/* Tournament Switcher & Actions */}
         <div className="flex flex-wrap items-center gap-2">
-          {tournaments && tournaments.length > 1 && (
+          {allowedTournaments && allowedTournaments.length > 1 && (
             <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border">
               <span className="text-xs font-semibold text-muted-foreground px-2 flex items-center gap-1">
                 <Layers className="h-3.5 w-3.5 text-emerald-500" /> Event:
@@ -110,7 +137,7 @@ export default function ScorerDashboard() {
                 onChange={(e) => setTournamentId(e.target.value)}
                 className="h-8 px-2.5 text-xs font-bold rounded-lg border-0 bg-card text-foreground cursor-pointer"
               >
-                {tournaments.map((t) => (
+                {allowedTournaments.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
@@ -125,7 +152,7 @@ export default function ScorerDashboard() {
               size="sm"
               className="h-9 text-xs font-bold gap-1.5 rounded-xl border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
             >
-              <KeyRound className="h-3.5 w-3.5" /> Enter Different PIN
+              <KeyRound className="h-3.5 w-3.5" /> Unlock Another Event
             </Button>
           </Link>
         </div>

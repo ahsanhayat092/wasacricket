@@ -66,10 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch {}
         }
 
-        // Check if there is an active PIN session in sessionStorage
-        const hasPinSession =
-          typeof window !== "undefined" &&
-          sessionStorage.getItem("scorer_global_pin_auth") === "true";
+        // Check if there is an active tournament-scoped PIN session in sessionStorage
+        let hasPinSession = false;
+        if (typeof window !== "undefined") {
+          try {
+            const raw = sessionStorage.getItem("scorer_auth_tournaments");
+            const parsed = raw ? JSON.parse(raw) : [];
+            hasPinSession = Array.isArray(parsed) && parsed.length > 0;
+          } catch {}
+        }
+
         setState({
           firebaseUser: null,
           role: hasPinSession ? "scorer" : null,

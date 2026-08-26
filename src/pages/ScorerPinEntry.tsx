@@ -24,14 +24,38 @@ export default function ScorerPinEntry() {
 
   const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
-    const validPin = tournament?.scorerPin || "1234";
+    const validPin = tournament?.scorerPin;
 
-    if (pin.trim() === validPin || pin.trim() === "1234" || pin.trim() === "0000") {
+    if (!validPin) {
+      toast.error("Tournament scorer PIN is not configured by the organizer.");
+      return;
+    }
+
+    const attemptsKey = `scorer_failed_attempts_match_${id}`;
+    const lockoutKey = `scorer_lockout_match_${id}`;
+    const lockoutTime = sessionStorage.getItem(lockoutKey);
+    if (lockoutTime && Date.now() < Number(lockoutTime)) {
+      const remainingSecs = Math.ceil((Number(lockoutTime) - Date.now()) / 1000);
+      toast.error(`Too many incorrect attempts. Please wait ${remainingSecs}s.`);
+      return;
+    }
+
+    if (pin.trim() === validPin) {
+      sessionStorage.removeItem(attemptsKey);
+      sessionStorage.removeItem(lockoutKey);
       toast.success("Scorer PIN Verified! Accessing Match Live Scoring Console...");
       sessionStorage.setItem(`scorer_pin_auth_${id}`, "true");
       navigate(`/admin/matches/${id}`);
     } else {
-      toast.error("Incorrect PIN. Please ask tournament organizers for the 4-digit Scorer PIN.");
+      const currentAttempts = Number(sessionStorage.getItem(attemptsKey) || "0") + 1;
+      sessionStorage.setItem(attemptsKey, String(currentAttempts));
+      if (currentAttempts >= 5) {
+        const lockUntil = Date.now() + 5 * 60 * 1000;
+        sessionStorage.setItem(lockoutKey, String(lockUntil));
+        toast.error("5 incorrect attempts. Access locked for 5 minutes.");
+      } else {
+        toast.error(`Incorrect PIN. (${5 - currentAttempts} attempts remaining)`);
+      }
     }
   };
 

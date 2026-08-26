@@ -22,11 +22,12 @@ export default function ScorerAuth() {
   const [tab, setTab] = useState<"pin" | "login">("pin");
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [pin, setPin] = useState("");
+  const [selectedTournamentId, setSelectedTournamentId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { setTournamentId } = useTournament();
+  const { tournamentId, setTournamentId } = useTournament();
   const navigate = useNavigate();
 
   const { data: tournaments } = useQuery({
@@ -34,37 +35,67 @@ export default function ScorerAuth() {
     queryFn: getTournaments,
   });
 
+  const activeTourneyId = selectedTournamentId || tournamentId || tournaments?.[0]?.id || "";
+
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPin = pin.trim();
     if (!cleanPin) {
-      toast.error("Please enter a 4-digit Scorer PIN.");
+      toast.error("Please enter the tournament Scorer PIN.");
       return;
     }
 
-    // 1. Check if PIN matches any tournament
-    const matchedTournament = tournaments?.find(
-      (t) => t.scorerPin === cleanPin
-    );
+    const targetTourney = tournaments?.find((t) => t.id === activeTourneyId);
+    if (!targetTourney) {
+      toast.error("Please select a tournament event to score.");
+      return;
+    }
 
-    if (matchedTournament) {
-      setTournamentId(matchedTournament.id);
-      sessionStorage.setItem("scorer_global_pin_auth", "true");
-      sessionStorage.setItem(`scorer_pin_${matchedTournament.id}`, "true");
-      toast.success(`🎉 PIN Verified! Unlocked scoring for "${matchedTournament.name}"`);
+    // Rate-limit lockout check
+    const attemptsKey = `scorer_failed_attempts_${targetTourney.id}`;
+    const lockoutKey = `scorer_lockout_${targetTourney.id}`;
+    const lockoutTime = sessionStorage.getItem(lockoutKey);
+    if (lockoutTime && Date.now() < Number(lockoutTime)) {
+      const remainingSecs = Math.ceil((Number(lockoutTime) - Date.now()) / 1000);
+      toast.error(`Too many incorrect attempts. Please wait ${remainingSecs}s before trying again.`);
+      return;
+    }
+
+    const correctPin = targetTourney.scorerPin;
+
+    if (correctPin && cleanPin === correctPin) {
+      // Clear failed attempts
+      sessionStorage.removeItem(attemptsKey);
+      sessionStorage.removeItem(lockoutKey);
+
+      // Authorize strictly for THIS tournament only
+      const existingStr = sessionStorage.getItem("scorer_auth_tournaments");
+      let existing: string[] = [];
+      try {
+        existing = existingStr ? JSON.parse(existingStr) : [];
+      } catch {}
+      if (!existing.includes(targetTourney.id)) {
+        existing.push(targetTourney.id);
+      }
+      sessionStorage.setItem("scorer_auth_tournaments", JSON.stringify(existing));
+      sessionStorage.setItem(`scorer_pin_auth_${targetTourney.id}`, "true");
+      setTournamentId(targetTourney.id);
+
+      toast.success(`🎉 PIN Verified! Scoring unlocked for "${targetTourney.name}"`);
       navigate("/scorer/dashboard");
       return;
     }
 
-    // Fallback universal development PINs
-    if (cleanPin === "1234" || cleanPin === "0000") {
-      sessionStorage.setItem("scorer_global_pin_auth", "true");
-      toast.success("Scorer PIN Verified! Accessing Scorer Dashboard...");
-      navigate("/scorer/dashboard");
-      return;
+    // Track failed attempts
+    const currentAttempts = Number(sessionStorage.getItem(attemptsKey) || "0") + 1;
+    sessionStorage.setItem(attemptsKey, String(currentAttempts));
+    if (currentAttempts >= 5) {
+      const lockUntil = Date.now() + 5 * 60 * 1000;
+      sessionStorage.setItem(lockoutKey, String(lockUntil));
+      toast.error(`5 incorrect attempts. Scorer entry locked for 5 minutes.`);
+    } else {
+      toast.error(`Incorrect PIN for "${targetTourney.name}". (${5 - currentAttempts} attempts remaining)`);
     }
-
-    toast.error("Invalid Scorer PIN. Please verify the 4-digit PIN with your tournament organizer.");
   };
 
   const handleEmailAuthSubmit = async (e: React.FormEvent) => {
@@ -142,8 +173,23 @@ export default function ScorerAuth() {
         <CardContent className="space-y-6">
           {tab === "pin" ? (
             <form onSubmit={handlePinSubmit} className="space-y-4">
+              <div className="space-y-1.5 text-left">
+                <Label className="text-xs font-bold">Select Tournament Event</Label>
+                <select
+                  value={selectedTournamentId || activeTourneyId}
+                  onChange={(e) => setSelectedTournamentId(e.target.value)}
+                  className="w-full h-10 px-3 text-xs font-bold rounded-xl border bg-background text-foreground"
+                >
+                  {tournaments?.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-1.5 text-center">
-                <Label className="text-xs font-bold">Enter 4-Digit Tournament Scorer PIN</Label>
+                <Label className="text-xs font-bold">Enter Tournament Scorer PIN</Label>
                 <Input
                   type="password"
                   maxLength={6}
@@ -154,7 +200,7 @@ export default function ScorerAuth() {
                   autoFocus
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Ask your tournament organizer for the matchday scorer PIN.
+                  Enter the access code set by your tournament organizer for this event.
                 </p>
               </div>
 
@@ -162,7 +208,7 @@ export default function ScorerAuth() {
                 type="submit"
                 className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl gap-2 shadow-md shadow-amber-500/20"
               >
-                Access Scorer Dashboard <ArrowRight className="h-4 w-4" />
+                Access Match Center <ArrowRight className="h-4 w-4" />
               </Button>
             </form>
           ) : (
