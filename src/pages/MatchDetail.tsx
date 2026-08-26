@@ -676,9 +676,10 @@ export default function MatchDetail() {
         open={storyModalOpen}
         onOpenChange={setStoryModalOpen}
         match={match}
-        innings={innings}
-        teams={[teamA, teamB].filter((t): t is Team => t !== null && t !== undefined)}
-        players={players}
+        teamA={teamA}
+        teamB={teamB}
+        inn1={inn1}
+        inn2={inn2}
       />
     </div>
   );
