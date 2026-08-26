@@ -138,6 +138,31 @@ export function PublicLayout() {
               </Button>
             </Link>
 
+            {/* Organizer Login / Admin Workspace CTA */}
+            {user || isAdmin ? (
+              <Link to="/admin">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs font-bold rounded-xl bg-primary/10 text-primary hover:bg-primary/20 h-9 border border-primary/20 shadow-sm"
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Organizer Workspace</span>
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/organizer/login">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs font-bold rounded-xl border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 h-9"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Organizer Login</span>
+                </Button>
+              </Link>
+            )}
+
             {/* Create Tournament CTA */}
             <Link to={isAdmin ? "/admin/tournaments/new" : "/organizer/signup"}>
               <Button
@@ -145,7 +170,7 @@ export function PublicLayout() {
                 className="gap-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm h-9"
               >
                 <Trophy className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Create Tournament</span>
+                <span className="hidden md:inline">Create Tournament</span>
               </Button>
             </Link>
 
@@ -182,23 +207,35 @@ export function PublicLayout() {
                   ))}
 
                   <div className="pt-4 border-t space-y-2">
-                    <Link to="/organizer/signup" onClick={() => setOpen(false)} className="block">
-                      <Button size="sm" className="w-full bg-emerald-600 text-white font-bold text-xs">
-                        Create Tournament
-                      </Button>
-                    </Link>
+                    {user || isAdmin ? (
+                      <Link to="/admin" onClick={() => setOpen(false)} className="block">
+                        <Button size="sm" className="w-full bg-emerald-600 text-white font-bold text-xs gap-1.5">
+                          <Shield className="h-3.5 w-3.5" />
+                          Organizer Workspace
+                        </Button>
+                      </Link>
+                    ) : (
+                      <>
+                        <Link to="/organizer/login" onClick={() => setOpen(false)} className="block">
+                          <Button variant="outline" size="sm" className="w-full border-emerald-500/40 text-emerald-600 font-bold text-xs gap-1.5">
+                            <LogIn className="h-3.5 w-3.5" />
+                            Organizer Login
+                          </Button>
+                        </Link>
+                        <Link to="/organizer/signup" onClick={() => setOpen(false)} className="block">
+                          <Button size="sm" className="w-full bg-emerald-600 text-white font-bold text-xs gap-1.5">
+                            <Trophy className="h-3.5 w-3.5" />
+                            Create Tournament
+                          </Button>
+                        </Link>
+                      </>
+                    )}
                     <Link to="/scorer/login" onClick={() => setOpen(false)} className="block">
-                      <Button variant="outline" size="sm" className="w-full text-amber-500 border-amber-500/40 text-xs font-bold">
+                      <Button variant="outline" size="sm" className="w-full text-amber-500 border-amber-500/40 text-xs font-bold gap-1.5">
+                        <KeyRound className="h-3.5 w-3.5" />
                         Scorer Access
                       </Button>
                     </Link>
-                    {isAdmin && (
-                      <Link to="/admin" onClick={() => setOpen(false)} className="block">
-                        <Button variant="secondary" size="sm" className="w-full text-xs font-bold">
-                          Admin Portal
-                        </Button>
-                      </Link>
-                    )}
                   </div>
                 </div>
               </SheetContent>
@@ -230,6 +267,19 @@ export function PublicLayout() {
                     </NavLink>
                   );
                 })}
+
+                {/* Manage Tournament Shortcut */}
+                <Link to={user || isAdmin ? "/admin" : "/organizer/login"}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2.5 text-[11px] font-bold rounded-lg gap-1 text-muted-foreground hover:text-emerald-500 shrink-0"
+                    title="Manage this tournament"
+                  >
+                    <Shield className="h-3 w-3" />
+                    <span>Manage</span>
+                  </Button>
+                </Link>
 
                 {/* WhatsApp & QR Share Button */}
                 <Button

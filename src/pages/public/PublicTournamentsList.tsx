@@ -144,8 +144,12 @@ export default function PublicTournamentsList() {
                     {t.description || "Official match schedules, ball-by-ball scorecards, tournament standings, and player awards."}
                   </p>
 
-                  <div className="pt-2 flex items-center justify-between border-t">
-                    <span className="text-[11px] text-muted-foreground font-semibold">Public Tournament Hub</span>
+                  <div className="pt-2 flex items-center justify-between border-t gap-2">
+                    <Link to={`/admin/tournaments`}>
+                      <span className="text-[11px] text-muted-foreground hover:text-emerald-500 font-semibold cursor-pointer">
+                        Organizer Access →
+                      </span>
+                    </Link>
                     <Link to={publicUrl}>
                       <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold gap-1.5 h-8 rounded-xl shadow-sm">
                         View Tournament <ArrowRight className="h-3 w-3" />
