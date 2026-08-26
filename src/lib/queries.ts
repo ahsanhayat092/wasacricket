@@ -89,18 +89,32 @@ export async function getUserTournaments(userEmail?: string | null, userUid?: st
     return await getTournaments();
   }
 
-  const [ownerSnap, ownerEmailSnap, memberSnap] = await Promise.all([
+  const map = new Map<string, Tournament>();
+
+  // Parallel lookup via ownerId, ownerEmail, and membership
+  const [ownerSnap, ownerEmailSnap, memberSnap, allTourneys] = await Promise.all([
     userUid ? getDocs(query(tournamentsCol(), where("ownerId", "==", userUid))) : { docs: [] },
     email ? getDocs(query(tournamentsCol(), where("ownerEmail", "==", email))) : { docs: [] },
     email ? getDocs(query(tournamentMembersCol(), where("userEmail", "==", email))) : { docs: [] },
+    getDocs(tournamentsCol()),
   ]);
 
-  const map = new Map<string, Tournament>();
   for (const d of ownerSnap.docs) {
     map.set(d.id, { id: d.id, ...d.data() } as Tournament);
   }
   for (const d of ownerEmailSnap.docs) {
     map.set(d.id, { id: d.id, ...d.data() } as Tournament);
+  }
+
+  // Scan all tournaments for case-insensitive email match or uid match
+  for (const d of allTourneys.docs) {
+    const t = { id: d.id, ...d.data() } as Tournament;
+    if (
+      (userUid && t.ownerId === userUid) ||
+      (email && t.ownerEmail && t.ownerEmail.toLowerCase().trim() === email)
+    ) {
+      map.set(t.id, t);
+    }
   }
 
   const memberTournamentIds = memberSnap.docs.map((d) => (d.data() as any).tournamentId);
@@ -135,29 +149,47 @@ export async function checkTournamentAccess(
     return { canManage: true, isOwner: true, role: "OWNER" };
   }
 
-  // Check tournament document
+  // Check tournament document directly
   const tSnap = await getDoc(tournamentDoc(tournamentId));
   if (tSnap.exists()) {
     const tData = tSnap.data() as Tournament;
     if (
       (userUid && tData.ownerId === userUid) ||
-      (email && tData.ownerEmail && tData.ownerEmail.toLowerCase() === email)
+      (email && tData.ownerEmail && tData.ownerEmail.toLowerCase().trim() === email)
     ) {
       return { canManage: true, isOwner: true, role: "OWNER" };
     }
   }
 
-  // Check tournamentMembers collection
+  // Check tournamentMembers collection by email and userId
+  const memberPromises: Promise<any>[] = [];
   if (email) {
-    const memberSnap = await getDocs(
-      query(
-        tournamentMembersCol(),
-        where("tournamentId", "==", tournamentId),
-        where("userEmail", "==", email),
+    memberPromises.push(
+      getDocs(
+        query(
+          tournamentMembersCol(),
+          where("tournamentId", "==", tournamentId),
+          where("userEmail", "==", email),
+        ),
       ),
     );
-    if (!memberSnap.empty) {
-      const member = memberSnap.docs[0].data() as any;
+  }
+  if (userUid) {
+    memberPromises.push(
+      getDocs(
+        query(
+          tournamentMembersCol(),
+          where("tournamentId", "==", tournamentId),
+          where("userId", "==", userUid),
+        ),
+      ),
+    );
+  }
+
+  const memberSnaps = await Promise.all(memberPromises);
+  for (const snap of memberSnaps) {
+    if (!snap.empty) {
+      const member = snap.docs[0].data() as any;
       const role = member.role || "ADMIN";
       return {
         canManage: role === "OWNER" || role === "ADMIN",

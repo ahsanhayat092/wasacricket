@@ -90,7 +90,7 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
     },
     status: input.status || "UPCOMING",
     ownerId: input.ownerId || null,
-    ownerEmail: input.ownerEmail || null,
+    ownerEmail: input.ownerEmail ? input.ownerEmail.toLowerCase().trim() : null,
     championTeamId: null,
     createdAt: now(),
     updatedAt: now(),
