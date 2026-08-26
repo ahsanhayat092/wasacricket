@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link, useSearchParams, useLocation } from "react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,15 +10,24 @@ import { toast } from "sonner";
 
 export default function OrganizerAuth() {
   const [searchParams] = useSearchParams();
-  const initialMode = searchParams.get("mode") === "login" ? "login" : "signup";
-  const [mode, setMode] = useState<"signup" | "login">(initialMode);
+  const location = useLocation();
+  const isLoginRoute = location.pathname.includes("login") || searchParams.get("mode") === "login";
+
+  const [mode, setMode] = useState<"signup" | "login">(isLoginRoute ? "login" : "signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
+  const { user, isLoading, signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  // If user is already authenticated, transition directly to the wizard/tournaments
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate(mode === "signup" ? "/admin/tournaments/new" : "/admin/tournaments", { replace: true });
+    }
+  }, [isLoading, user, mode, navigate]);
 
   const formatAuthError = (err: any): string => {
     const code = err?.code;

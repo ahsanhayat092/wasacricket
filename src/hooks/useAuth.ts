@@ -62,18 +62,7 @@ export function useAuth(options?: UseAuthOptions) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    try {
-      return await signInWithPopup(auth, googleProvider);
-    } catch (err: any) {
-      if (
-        err?.code === "auth/popup-blocked" ||
-        err?.message?.includes("Cross-Origin-Opener-Policy") ||
-        err?.message?.includes("closing/hidden")
-      ) {
-        return await signInWithRedirect(auth, googleProvider);
-      }
-      throw err;
-    }
+    return await signInWithPopup(auth, googleProvider);
   }, []);
 
   useEffect(() => {
