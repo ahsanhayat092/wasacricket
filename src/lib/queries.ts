@@ -468,26 +468,62 @@ export async function getMatchById(matchId: string): Promise<{
 export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[]> {
   const tournamentId = resolveTournamentId(idOrContext);
   try {
-    let [standingSnap, teams] = await Promise.all([
+    const [standingSnap, teams] = await Promise.all([
       getDocs(query(standingsCol(), where("tournamentId", "==", tournamentId))),
       getTeams(tournamentId),
     ]);
 
-    if (standingSnap.empty && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
-      const allStandingsSnap = await getDocs(standingsCol());
-      const filteredDocs = allStandingsSnap.docs.filter((d) => {
-        const data = d.data();
-        return !data.tournamentId || data.tournamentId === "main" || data.tournamentId === TOURNAMENT_ID;
-      });
-      standingSnap = { docs: filteredDocs } as any;
+    if (teams.length === 0) return [];
+    const teamMap = new Map(teams.map((t) => [t.id, t]));
+
+    if (standingSnap.empty) {
+      if (tournamentId === TOURNAMENT_ID || tournamentId === "main") {
+        const allStandingsSnap = await getDocs(standingsCol());
+        const filteredDocs = allStandingsSnap.docs.filter((d) => {
+          const data = d.data();
+          return !data.tournamentId || data.tournamentId === "main" || data.tournamentId === TOURNAMENT_ID;
+        });
+        if (filteredDocs.length > 0) {
+          return filteredDocs
+            .map((d) => {
+              const s = { id: d.id, ...d.data() } as Standing;
+              return { ...s, team: teamMap.get(s.teamId) ?? null };
+            })
+            .filter((s): s is StandingWithTeam => s.team !== null)
+            .sort((a, b) => (a.position || 0) - (b.position || 0));
+        }
+      }
+
+      // Synthesize clean initial standings for teams in this tournament
+      return teams.map((team, idx) => ({
+        id: `init_${team.id}`,
+        tournamentId,
+        teamId: team.id,
+        played: 0,
+        won: 0,
+        lost: 0,
+        tied: 0,
+        noResult: 0,
+        points: 0,
+        nrr: 0,
+        runsScored: 0,
+        oversFaced: 0,
+        runsConceded: 0,
+        oversBowled: 0,
+        adminTiebreak: 0,
+        position: idx + 1,
+        team,
+      }));
     }
 
     const standings = standingSnap.docs
       .map((d) => {
         const s = { id: d.id, ...d.data() } as Standing;
-        return { ...s, team: teams.find((t) => t.id === s.teamId) ?? null };
+        return { ...s, team: teamMap.get(s.teamId) ?? null };
       })
+      .filter((s): s is StandingWithTeam => s.team !== null)
       .sort((a, b) => (a.position || 0) - (b.position || 0));
+
     return standings;
   } catch (err) {
     console.error("Error loading standings:", err);

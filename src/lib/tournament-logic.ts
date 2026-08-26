@@ -51,36 +51,53 @@ import {
 // Standings recalculation (from scratch, idempotent)
 // ---------------------------------------------------------------------------
 
-export async function recalculateStandings() {
+export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID) {
   const [tournamentSnap, teamsSnap, matchesSnap] = await Promise.all([
-    getDoc(tournamentDoc()),
-    getDocs(teamsCol()),
-    getDocs(matchesCol()),
+    getDoc(tournamentDoc(tournamentId)),
+    getDocs(query(teamsCol(), where("tournamentId", "==", tournamentId))),
+    getDocs(query(matchesCol(), where("tournamentId", "==", tournamentId))),
   ]);
 
   let tournament: Tournament;
   if (!tournamentSnap.exists()) {
-    const defaultData = {
-      name: "WASA Premier League",
-      shortName: "WPL",
-      winPoints: 2,
-      tiePoints: 1,
-      noResultPoints: 1,
-      lossPoints: 0,
-      oversPerSide: 4,
-      championTeamId: null,
-      createdAt: now(),
-      updatedAt: now(),
-    };
-    await setDoc(tournamentDoc(), defaultData);
-    tournament = { id: TOURNAMENT_ID, ...defaultData };
+    if (tournamentId === TOURNAMENT_ID || tournamentId === "main") {
+      const defaultData = {
+        name: "WASA Premier League",
+        shortName: "WPL",
+        winPoints: 2,
+        tiePoints: 1,
+        noResultPoints: 1,
+        lossPoints: 0,
+        oversPerSide: 4,
+        championTeamId: null,
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      await setDoc(tournamentDoc(tournamentId), defaultData);
+      tournament = { id: tournamentId, ...defaultData };
+    } else {
+      return;
+    }
   } else {
     tournament = { id: tournamentSnap.id, ...tournamentSnap.data() } as Tournament;
   }
   const quotaBalls = (tournament.oversPerSide || 4) * 6;
 
-  const teams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
-  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
+  let teams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+  if (teams.length === 0 && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
+    const allTeams = await getDocs(teamsCol());
+    teams = allTeams.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as Team)
+      .filter((t) => !t.tournamentId || t.tournamentId === "main" || t.tournamentId === TOURNAMENT_ID);
+  }
+
+  let allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
+  if (allMatches.length === 0 && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
+    const allM = await getDocs(matchesCol());
+    allMatches = allM.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as Match)
+      .filter((m) => !m.tournamentId || m.tournamentId === "main" || m.tournamentId === TOURNAMENT_ID);
+  }
   const leagueMatches = allMatches.filter((m) => m.stage === "LEAGUE");
 
   const completedMatches = allMatches.filter((m) => m.status === "COMPLETED");
@@ -96,11 +113,13 @@ export async function recalculateStandings() {
     : [];
 
   // Preserve admin tiebreak values
-  const existingStandingsSnap = await getDocs(standingsCol());
+  const existingStandingsSnap = await getDocs(
+    query(standingsCol(), where("tournamentId", "==", tournamentId)),
+  );
   const tiebreakByTeam = new Map(
     existingStandingsSnap.docs.map((d) => {
-      const s = d.data() as { adminTiebreak?: number };
-      return [d.id, s.adminTiebreak ?? 0];
+      const s = d.data() as { teamId?: string; adminTiebreak?: number };
+      return [s.teamId || d.id, s.adminTiebreak ?? 0];
     }),
   );
 
@@ -301,7 +320,8 @@ export async function recalculateStandings() {
   const batch = writeBatch(db);
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const standingRef = standingDoc(r.teamId);
+    const docId = tournamentId === TOURNAMENT_ID ? r.teamId : `${tournamentId}_${r.teamId}`;
+    const standingRef = doc(standingsCol(), docId);
     const scenario = scenarioResults.get(r.teamId);
 
     const qualificationStatus = scenario?.qualificationStatus ?? "IN_CONTENTION";
@@ -311,7 +331,7 @@ export async function recalculateStandings() {
       qualificationStatus === "QUALIFIED_TOP3";
 
     batch.set(standingRef, {
-      tournamentId: TOURNAMENT_ID,
+      tournamentId,
       teamId: r.teamId,
       position: i + 1,
       played: r.played,
@@ -881,14 +901,16 @@ export async function finalizeMatch(matchId: string) {
     updatedAt: now(),
   });
 
+  const tId = match.tournamentId || TOURNAMENT_ID;
+
   if (match.stage === "FINAL" && winningTeamId) {
-    await updateDoc(tournamentDoc(), {
+    await updateDoc(tournamentDoc(tId), {
       championTeamId: winningTeamId,
       updatedAt: now(),
     });
   }
 
-  await recalculateStandings();
+  await recalculateStandings(tId);
   return { status, winningTeamId, resultText };
 }
 
