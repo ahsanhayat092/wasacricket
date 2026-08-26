@@ -37,10 +37,10 @@ export default function OrganizerAuth() {
     if (code === "auth/operation-not-allowed") {
       return "Email/Password sign up is disabled in Firebase console. Please click 'Continue with Google'.";
     }
-    if (err?.message?.includes("closing/hidden") || code === "failed-precondition") {
-      return "Browser session re-established. Please try submitting again or click 'Continue with Google'.";
+    if (code === "auth/popup-closed-by-user") {
+      return "Google sign-in was cancelled.";
     }
-    return err?.message || "Authentication failed. Please check your credentials.";
+    return err?.message ? err.message : (code || "Authentication failed. Please try again.");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
