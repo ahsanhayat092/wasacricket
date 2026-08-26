@@ -3,6 +3,7 @@ import { useTournament } from "@/context/TournamentContext";
 import { getUserTournaments } from "@/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
