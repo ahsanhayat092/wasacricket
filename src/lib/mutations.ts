@@ -16,6 +16,7 @@ import {
   where,
 } from "firebase/firestore";
 import {
+  tournamentsCol,
   tournamentDoc,
   teamsCol,
   teamDoc,
