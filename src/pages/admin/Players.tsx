@@ -75,7 +75,10 @@ export default function AdminPlayers() {
     queryKey: ["teams", tournamentId],
     queryFn: () => getTeams(tournamentId),
   });
-  const { data: allPlayers } = useQuery({ queryKey: ["players"], queryFn: getPlayers });
+  const { data: allPlayers } = useQuery({
+    queryKey: ["players", tournamentId],
+    queryFn: () => getPlayers(tournamentId),
+  });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<PlayerForm>(emptyForm);
   const [filterTeam, setFilterTeam] = useState<string>(teamParam || "all");

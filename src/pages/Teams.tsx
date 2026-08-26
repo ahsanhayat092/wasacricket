@@ -22,8 +22,8 @@ export default function Teams() {
     queryFn: () => getTeams(tournamentId),
   });
   const { data: players, isLoading: loadingPlayers } = useQuery({
-    queryKey: ["players"],
-    queryFn: getPlayers,
+    queryKey: ["players", tournamentId],
+    queryFn: () => getPlayers(tournamentId),
   });
 
   if (loadingTeams || loadingPlayers || !teams) {

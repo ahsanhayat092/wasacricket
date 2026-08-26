@@ -230,9 +230,22 @@ export async function getTeamById(teamId: string): Promise<Team | null> {
 // Players
 // ---------------------------------------------------------------------------
 
-export async function getPlayers(): Promise<Player[]> {
+export async function getPlayers(idOrContext?: any): Promise<Player[]> {
+  const tournamentId = idOrContext ? resolveTournamentId(idOrContext) : null;
+  if (!tournamentId) {
+    const snap = await getDocs(playersCol());
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
+  }
+
+  // Find teams for this tournament
+  const teams = await getTeams(tournamentId);
+  if (teams.length === 0) return [];
+  const teamIds = new Set(teams.map((t) => t.id));
+
   const snap = await getDocs(playersCol());
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Player)
+    .filter((p) => p.teamId && teamIds.has(p.teamId));
 }
 
 export async function getPlayersByTeam(teamId: string): Promise<Player[]> {
@@ -991,7 +1004,7 @@ export async function getAdminDashboard(tournamentId: string = TOURNAMENT_ID) {
   const [tournament, teams, players, schedule, standings] = await Promise.all([
     getTournament(tournamentId),
     getTeams(tournamentId),
-    getPlayers(),
+    getPlayers(tournamentId),
     getSchedule(tournamentId),
     getStandings(tournamentId),
   ]);
