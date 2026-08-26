@@ -405,7 +405,7 @@ export default function LandingHome() {
               </Button>
             </Link>
             <Link to="/tournaments">
-              <Button size="lg" variant="outline" className="border-emerald-500/40 text-white hover:bg-white/10 font-bold text-sm h-11 px-6 rounded-xl">
+              <Button size="lg" variant="outline" className="bg-white/10 border-white/30 text-white hover:bg-white/20 hover:text-white font-bold text-sm h-11 px-6 rounded-xl backdrop-blur-sm shadow-md">
                 Explore Public Tournaments
               </Button>
             </Link>
