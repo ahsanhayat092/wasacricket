@@ -81,11 +81,8 @@ export default function OrganizerAuth() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      toast.success("Signed in with Google!");
-      navigate(mode === "signup" ? "/admin/tournaments/new" : "/admin/tournaments");
     } catch (err: any) {
       toast.error(formatAuthError(err));
-    } finally {
       setLoading(false);
     }
   };
