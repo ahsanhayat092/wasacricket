@@ -140,18 +140,18 @@ export default function AuthLayout({
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full">
             <Button
+              variant="default"
+              onClick={() => (window.location.href = "/admin/tournaments/new")}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+            >
+              <Trophy className="h-4 w-4 mr-1.5" /> Create Tournament
+            </Button>
+            <Button
               variant="outline"
               onClick={() => (window.location.href = "/")}
               className="flex-1"
             >
               Public Site
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => (window.location.href = LOGIN_PATH)}
-              className="flex-1"
-            >
-              Switch Account
             </Button>
           </div>
         </div>

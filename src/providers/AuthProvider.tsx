@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const email = user.email.toLowerCase().trim();
+      const isSuperAdmin = email === "ahsanhayat092@gmail.com";
 
       try {
         // Query users collection & tournament members collection for this email
@@ -58,8 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
 
         let role: UserRole | null = null;
-        let isTournamentAdmin = false;
-        let isTournamentScorer = false;
+        let isTournamentAdmin = isSuperAdmin;
+        let isTournamentScorer = isSuperAdmin;
 
         // Check Tournament Memberships
         if (!memberSnap.empty) {
@@ -72,7 +73,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (!userSnap.empty) {
+        if (isSuperAdmin) {
+          role = "admin";
+          isTournamentAdmin = true;
+          isTournamentScorer = true;
+
+          if (userSnap.empty) {
+            await addDoc(usersCol(), {
+              email,
+              name: user.displayName ?? "Platform Owner & Administrator",
+              role: "admin",
+              createdBy: "system",
+              createdAt: now(),
+              updatedAt: now(),
+            });
+          }
+        } else if (!userSnap.empty) {
           const userData = userSnap.docs[0].data() as UserAccount;
           role = userData.role;
         } else if (allUsersSnap.empty) {
@@ -90,8 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role = isTournamentAdmin ? "admin" : isTournamentScorer ? "scorer" : null;
         }
 
-        const isAdmin = role === "admin" || isTournamentAdmin;
-        const isScorer = role === "scorer" || isAdmin || isTournamentScorer;
+        const isAdmin = isSuperAdmin || role === "admin" || isTournamentAdmin;
+        const isScorer = isSuperAdmin || role === "scorer" || isAdmin || isTournamentScorer;
 
         setState({
           firebaseUser: user,
@@ -102,11 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       } catch (err) {
         console.error("Error resolving user role:", err);
+        // Even if Firestore fails, grant Super Admin to owner
+        const fallbackAdmin = email === "ahsanhayat092@gmail.com";
         setState({
           firebaseUser: user,
-          role: null,
-          isAdmin: false,
-          isScorer: false,
+          role: fallbackAdmin ? "admin" : null,
+          isAdmin: fallbackAdmin,
+          isScorer: fallbackAdmin,
           isLoading: false,
         });
       }
