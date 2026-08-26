@@ -5,19 +5,31 @@ import { TournamentProvider } from "@/context/TournamentContext";
 import { PlayerModalProvider } from "@/context/PlayerModalContext";
 import AuthLayout from "@/components/AuthLayout";
 import { PublicLayout } from "@/components/PublicLayout";
+
+// Public Pages
+import LandingHome from "./pages/public/LandingHome";
+import PublicLiveScores from "./pages/public/PublicLiveScores";
+import PublicTournamentsList from "./pages/public/PublicTournamentsList";
+import AboutPage from "./pages/public/AboutPage";
 import Home from "./pages/Home";
-import Login from "./pages/Login";
-import NotFound from "./pages/NotFound";
 import Schedule from "./pages/Schedule";
 import Teams from "./pages/Teams";
 import TeamDetail from "./pages/TeamDetail";
 import PointsTable from "./pages/PointsTable";
 import Results from "./pages/Results";
 import Statistics from "./pages/Statistics";
-import MatchDetail from "./pages/MatchDetail";
 import LiveMatch from "./pages/LiveMatch";
 import TournamentRules from "./pages/TournamentRules";
+import NotFound from "./pages/NotFound";
+
+// Auth & Role Portals
+import Login from "./pages/Login";
+import OrganizerAuth from "./pages/auth/OrganizerAuth";
+import ScorerAuth from "./pages/auth/ScorerAuth";
 import ScorerPinEntry from "./pages/ScorerPinEntry";
+import ScorerDashboard from "./pages/scorer/ScorerDashboard";
+
+// Organizer / Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminTeams from "./pages/admin/Teams";
 import AdminPlayers from "./pages/admin/Players";
@@ -37,8 +49,14 @@ export default function App() {
       <TournamentProvider>
         <PlayerModalProvider>
           <Routes>
-            {/* Scorer PIN quick entry */}
+            {/* Scorer Auth & Quick PIN */}
+            <Route path="/scorer/login" element={<ScorerAuth />} />
             <Route path="/scorer/:id" element={<ScorerPinEntry />} />
+            <Route path="/scorer/dashboard" element={<ScorerDashboard />} />
+
+            {/* Organizer Auth */}
+            <Route path="/organizer/login" element={<OrganizerAuth />} />
+            <Route path="/organizer/signup" element={<OrganizerAuth />} />
 
             {/* Public tenant micro-portal (/t/:slug/...) */}
             <Route path="/t/:slug" element={<PublicLayout />}>
@@ -54,9 +72,14 @@ export default function App() {
               <Route path="live/:id" element={<LiveMatch />} />
             </Route>
 
-            {/* Public flagship site */}
+            {/* Main Public Sports Experience (Zero login required) */}
             <Route element={<PublicLayout />}>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<LandingHome />} />
+              <Route path="/live-scores" element={<PublicLiveScores />} />
+              <Route path="/tournaments" element={<PublicTournamentsList />} />
+              <Route path="/about" element={<AboutPage />} />
+
+              {/* Direct access to flagship WASA subpages */}
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/teams" element={<Teams />} />
               <Route path="/teams/:id" element={<TeamDetail />} />
@@ -68,7 +91,7 @@ export default function App() {
               <Route path="/live/:id" element={<LiveMatch />} />
             </Route>
 
-            {/* Admin & Scorers Workspace (Auth required) */}
+            {/* Organizer / Admin Workspace (Auth required) */}
             <Route
               path="/admin"
               element={

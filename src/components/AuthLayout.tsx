@@ -59,6 +59,7 @@ const adminMenuItems = [
 ];
 
 const scorerMenuItems = [
+  { icon: KeyRound, label: "Scorer Dashboard", path: "/scorer/dashboard" },
   { icon: ClipboardList, label: "Matches & Scoring", path: "/admin/matches" },
 ];
 
@@ -71,15 +72,16 @@ export default function AuthLayout({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Redirect scorer away from admin-only pages to matches
+  // Redirect scorer away from admin-only pages to scorer dashboard or matches
   useEffect(() => {
     if (!isLoading && user && isScorer && !isAdmin) {
-      const allowedPaths = ["/admin/matches"];
+      const allowedPaths = ["/scorer/dashboard", "/admin/matches"];
       const isAllowed =
+        location.pathname === "/scorer/dashboard" ||
         location.pathname === "/admin/matches" ||
         location.pathname.startsWith("/admin/matches/");
       if (!isAllowed) {
-        navigate("/admin/matches", { replace: true });
+        navigate("/scorer/dashboard", { replace: true });
       }
     }
   }, [isLoading, user, isScorer, isAdmin, location.pathname, navigate]);
