@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getSchedule } from "@/lib/queries";
+import { useTournament } from "@/context/TournamentContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,24 +16,30 @@ import {
   MapPin,
   Trophy,
   Filter,
+  Radio,
+  CalendarDays,
+  CheckCircle2,
 } from "lucide-react";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 
 export default function PublicLiveScores() {
-  const [filter, setFilter] = useState<"ALL" | "LIVE" | "UPCOMING" | "COMPLETED">("ALL");
+  const { tournamentId } = useTournament();
+  const [filter, setFilter] = useState<"LIVE" | "UPCOMING" | "ALL">("LIVE");
 
   const { data: matches, isLoading } = useQuery({
-    queryKey: ["schedule"],
-    queryFn: () => getSchedule(),
+    queryKey: ["schedule", tournamentId],
+    queryFn: () => getSchedule(tournamentId),
     refetchInterval: 5000, // auto-refresh live scores
   });
 
-  const filteredMatches = matches?.filter((m) => {
-    if (filter === "ALL") return true;
-    return m.status === filter;
-  });
+  const liveMatches = matches?.filter((m) => m.status === "LIVE") ?? [];
+  const upcomingMatches = matches?.filter((m) => m.status === "SCHEDULED" || m.status === "UPCOMING") ?? [];
 
-  const liveCount = matches?.filter((m) => m.status === "LIVE").length ?? 0;
+  const filteredMatches = matches?.filter((m) => {
+    if (filter === "LIVE") return m.status === "LIVE";
+    if (filter === "UPCOMING") return m.status === "SCHEDULED" || m.status === "UPCOMING";
+    return true;
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 sm:py-12 space-y-8">
@@ -41,19 +48,19 @@ export default function PublicLiveScores() {
         <div>
           <div className="flex items-center gap-2.5">
             <span className="p-2 rounded-2xl bg-emerald-500/10 text-emerald-500">
-              <Activity className="h-6 w-6 animate-pulse" />
+              <Radio className="h-6 w-6 animate-pulse" />
             </span>
             <div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
-                Live Scores & Match Center
-                {liveCount > 0 && (
+                Live Scores & In-Play
+                {liveMatches.length > 0 && (
                   <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-bold animate-pulse text-[11px]">
-                    {liveCount} LIVE
+                    {liveMatches.length} LIVE NOW
                   </Badge>
                 )}
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Real-time ball-by-ball updates, live scorecards, and tournament match results.
+                Real-time ball-by-ball scoring, wagon wheels, and live match commentary.
               </p>
             </div>
           </div>
@@ -62,10 +69,9 @@ export default function PublicLiveScores() {
         {/* Filter Controls */}
         <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-2xl border">
           {[
+            { key: "LIVE", label: `Live Now (${liveMatches.length})` },
+            { key: "UPCOMING", label: `Upcoming (${upcomingMatches.length})` },
             { key: "ALL", label: "All Matches" },
-            { key: "LIVE", label: `Live (${liveCount})` },
-            { key: "UPCOMING", label: "Upcoming" },
-            { key: "COMPLETED", label: "Completed" },
           ].map((tab) => (
             <Button
               key={tab.key}
@@ -85,7 +91,7 @@ export default function PublicLiveScores() {
       {/* Matches Grid */}
       {isLoading ? (
         <div className="text-center py-16 text-muted-foreground text-sm">
-          Loading match scores...
+          Loading live match scores...
         </div>
       ) : filteredMatches && filteredMatches.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -184,17 +190,28 @@ export default function PublicLiveScores() {
           })}
         </div>
       ) : (
-        <Card className="p-12 text-center space-y-4 border-dashed">
-          <Activity className="h-10 w-10 text-muted-foreground mx-auto" />
-          <div className="space-y-1">
-            <h3 className="text-base font-bold">No Matches in this Category</h3>
-            <p className="text-xs text-muted-foreground">
-              There are currently no matches with status "{filter}".
+        <Card className="p-12 text-center space-y-6 border-dashed border-2 bg-muted/10 rounded-3xl max-w-xl mx-auto">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
+            <Radio className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold tracking-tight">No Matches Currently Live</h3>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+              There are no matches in-play at the moment. Check back during scheduled match times, or browse upcoming fixtures and recent results below.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setFilter("ALL")}>
-            View All Matches
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <Link to="/schedule">
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 rounded-xl">
+                <CalendarDays className="h-4 w-4" /> View Schedule
+              </Button>
+            </Link>
+            <Link to="/results">
+              <Button size="sm" variant="outline" className="font-bold gap-1.5 rounded-xl">
+                <CheckCircle2 className="h-4 w-4" /> View Completed Results
+              </Button>
+            </Link>
+          </div>
         </Card>
       )}
     </div>
