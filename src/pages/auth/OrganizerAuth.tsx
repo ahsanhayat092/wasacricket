@@ -46,8 +46,11 @@ export default function OrganizerAuth() {
     if (code === "auth/operation-not-allowed") {
       return "Email/Password sign up is disabled in Firebase console. Please click 'Continue with Google'.";
     }
+    if (code === "auth/unauthorized-domain") {
+      return "wasacricket.vercel.app is not added to Firebase Authorized Domains. Please add 'wasacricket.vercel.app' in Firebase Console > Authentication > Settings > Authorized domains.";
+    }
     if (code === "auth/popup-closed-by-user") {
-      return "Google sign-in was cancelled.";
+      return "Google sign-in popup was closed before completing.";
     }
     return err?.message ? err.message : (code || "Authentication failed. Please try again.");
   };
@@ -102,9 +105,34 @@ export default function OrganizerAuth() {
   const handleGoogleAuth = async () => {
     setLoading(true);
     try {
-      await signInWithGoogle();
+      let cred: any = null;
+      try {
+        cred = await signInWithPopup(auth, googleProvider);
+      } catch (popErr: any) {
+        if (popErr?.code === "auth/popup-closed-by-user" || popErr?.code === "auth/unauthorized-domain") {
+          throw popErr;
+        }
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+
+      if (cred?.user?.email) {
+        const cleanEmail = cred.user.email.toLowerCase().trim();
+        const cleanName = cred.user.displayName || cleanEmail.split("@")[0];
+        const orgSession = {
+          uid: cred.user.uid,
+          email: cleanEmail,
+          name: cleanName,
+          createdAt: new Date().toISOString(),
+        };
+        localStorage.setItem("wasa_organizer_session", JSON.stringify(orgSession));
+
+        toast.success(`Welcome ${cleanName}! Starting Tournament Wizard...`);
+        navigate(mode === "signup" ? "/admin/tournaments/new" : "/admin/tournaments", { replace: true });
+      }
     } catch (err: any) {
-      toast.error(formatAuthError(err), { duration: 6000 });
+      toast.error(formatAuthError(err), { duration: 8000 });
+    } finally {
       setLoading(false);
     }
   };
