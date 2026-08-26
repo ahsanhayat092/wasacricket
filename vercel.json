@@ -12,6 +12,10 @@
   ],
   "rewrites": [
     {
+      "source": "/__/auth/(.*)",
+      "destination": "https://wasacricket-4bb6c.firebaseapp.com/__/auth/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

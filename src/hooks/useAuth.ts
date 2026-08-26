@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  signInWithPopup,
   signInWithRedirect,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
@@ -65,7 +66,7 @@ export function useAuth(options?: UseAuthOptions) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    return await signInWithRedirect(auth, googleProvider);
+    return await signInWithPopup(auth, googleProvider);
   }, []);
 
   useEffect(() => {
