@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
-import { getAdminDashboard } from "@/lib/queries";
+import { getAdminDashboard, getTournaments } from "@/lib/queries";
+import { useTournament } from "@/context/TournamentContext";
 import { seedTournament } from "@/lib/mutations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TeamBadge } from "@/components/TeamBadge";
 import { triggerChampionConfetti } from "@/lib/confetti";
-import { Link } from "react-router";
+import { ShareTournamentModal } from "@/components/ShareTournamentModal";
+import { Link, useNavigate } from "react-router";
 import {
   CalendarDays,
   CheckCircle2,
@@ -20,13 +23,28 @@ import {
   Crown,
   PartyPopper,
   Sparkles,
+  Layers,
+  Zap,
+  Plus,
+  Share2,
+  ExternalLink,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+  const { tournamentId, tournament, setTournamentId } = useTournament();
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  const { data: tournaments } = useQuery({
+    queryKey: ["tournaments"],
+    queryFn: getTournaments,
+  });
+
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["adminDashboard"],
-    queryFn: getAdminDashboard,
+    queryKey: ["adminDashboard", tournamentId],
+    queryFn: () => getAdminDashboard(tournamentId),
     refetchInterval: 20000,
   });
 
@@ -48,13 +66,14 @@ export default function AdminDashboard() {
     return (
       <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} className="h-28" />
+          <Skeleton key={i} className="h-28 rounded-2xl" />
         ))}
       </div>
     );
   }
 
   const { champion, finalMatch } = data;
+  const isZeroTeams = data.totalTeams === 0;
 
   const cards = [
     { label: "Total Teams", value: data.totalTeams, icon: Trophy },
@@ -68,10 +87,97 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Top Header & Workspace Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-6">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <span className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-500 font-bold">
+              <Trophy className="h-6 w-6" />
+            </span>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
+                Organizer Workspace
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Active Tournament: <strong className="text-foreground">{tournament?.name || "WASA Premier League 2026"}</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions & Workspace Switcher */}
+        <div className="flex flex-wrap items-center gap-2">
+          {tournaments && tournaments.length > 1 && (
+            <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border">
+              <span className="text-xs font-semibold text-muted-foreground px-2 flex items-center gap-1">
+                <Layers className="h-3.5 w-3.5 text-emerald-500" /> Event:
+              </span>
+              <select
+                value={tournamentId}
+                onChange={(e) => setTournamentId(e.target.value)}
+                className="h-8 px-2.5 text-xs font-bold rounded-lg border-0 bg-card text-foreground cursor-pointer"
+              >
+                {tournaments.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShareModalOpen(true)}
+            className="h-9 text-xs font-bold gap-1.5 border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 rounded-xl"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Share / QR</span>
+          </Button>
+
+          <Link to="/admin/tournaments/new">
+            <Button size="sm" className="h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 rounded-xl shadow-sm">
+              <Plus className="h-3.5 w-3.5" /> Create Tournament
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Empty State Onboarding Card (If no teams in current tournament) */}
+      {isZeroTeams && (
+        <Card className="p-8 sm:p-10 text-center space-y-5 border-2 border-dashed border-emerald-500/40 bg-emerald-500/[0.02] rounded-3xl">
+          <div className="mx-auto w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shadow-inner">
+            <Sparkles className="h-8 w-8" />
+          </div>
+          <div className="space-y-1.5 max-w-md mx-auto">
+            <h2 className="text-xl font-black tracking-tight">Welcome to Your Tournament Workspace!</h2>
+            <p className="text-xs text-muted-foreground">
+              You haven't added teams or fixtures to this tournament yet. Use our 5-step wizard to auto-generate fixtures or seed sample data.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <Link to="/admin/tournaments/new">
+              <Button className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-6 rounded-xl gap-2 shadow-md">
+                <Trophy className="h-4 w-4" /> Launch 5-Step Tournament Wizard
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              disabled={seed.isPending}
+              onClick={() => seed.mutate()}
+              className="text-xs font-bold h-10 px-4 rounded-xl gap-2"
+            >
+              <Database className="h-4 w-4" /> Seed Sample Teams & Matches
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Tournament Champions Spotlight (When Final is completed) */}
       {champion && (
-        <Card className="border-2 border-amber-500/50 bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/60 shadow-xl overflow-hidden">
+        <Card className="border-2 border-amber-500/50 bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/60 shadow-xl overflow-hidden rounded-2xl">
           <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4 text-center sm:text-left">
               <div className="relative">
@@ -125,40 +231,83 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        {data.totalTeams === 0 && (
-          <Button
-            variant="outline"
-            disabled={seed.isPending}
-            onClick={() => seed.mutate()}
-          >
-            <Database className="h-4 w-4 mr-2" /> Seed Tournament Data
-          </Button>
-        )}
+      {/* Quick Access Tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Link to="/admin/matches" className="group">
+          <Card className="p-4 border-2 hover:border-emerald-500 transition-all bg-card/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 group-hover:scale-105 transition-transform">
+                  <Zap className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">Matches & Live Scoring</h3>
+                  <p className="text-[11px] text-muted-foreground">Toss, ball-by-ball scoring & results</p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
+            </div>
+          </Card>
+        </Link>
+
+        <Link to="/admin/teams" className="group">
+          <Card className="p-4 border-2 hover:border-emerald-500 transition-all bg-card/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 rounded-xl bg-sky-500/10 text-sky-500 group-hover:scale-105 transition-transform">
+                  <Users className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">Teams & Rosters</h3>
+                  <p className="text-[11px] text-muted-foreground">Player squads, captains & roles</p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
+            </div>
+          </Card>
+        </Link>
+
+        <Link to={`/t/${tournament?.slug || tournament?.id || "wasa-2026"}`} target="_blank" className="group">
+          <Card className="p-4 border-2 hover:border-emerald-500 transition-all bg-card/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 group-hover:scale-105 transition-transform">
+                  <ExternalLink className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">Public Fan Portal</h3>
+                  <p className="text-[11px] text-muted-foreground">View live web scorecard & standings</p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
+            </div>
+          </Card>
+        </Link>
       </div>
 
+      {/* Metric Cards Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <Card key={c.label}>
+          <Card key={c.label} className="border-border/60">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 {c.label}
               </CardTitle>
               <c.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-extrabold">{c.value}</p>
+              <p className="text-3xl font-black">{c.value}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
+      {/* Standings Top 2 Leader */}
       <div className="grid gap-4 md:grid-cols-2">
         {[data.rank1, data.rank2].map((r, i) => (
-          <Card key={i}>
+          <Card key={i} className="border-border/60">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Current Rank {i + 1} {i === 0 ? "🥇" : "🥈"}
               </CardTitle>
             </CardHeader>
@@ -167,20 +316,27 @@ export default function AdminDashboard() {
                 <>
                   <TeamBadge shortName={r.team.shortName} logoUrl={r.team.logoUrl} />
                   <div>
-                    <p className="font-bold">{r.team.name}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="font-bold text-sm">{r.team.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {r.points} pts · NRR {r.nrr >= 0 ? "+" : ""}
                       {r.nrr.toFixed(3)}
                     </p>
                   </div>
                 </>
               ) : (
-                <p className="text-muted-foreground">—</p>
+                <p className="text-muted-foreground text-xs">—</p>
               )}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Share & QR Code Modal */}
+      <ShareTournamentModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        tournament={tournament}
+      />
     </div>
   );
 }

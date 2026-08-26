@@ -36,9 +36,24 @@ import {
 } from "@/lib/fixture-generator";
 import type { TournamentFormatType, PlayoffFormatType, MatchDay } from "@/lib/firestore";
 
+import { useAuth } from "@/hooks/useAuth";
+import { useTournament } from "@/context/TournamentContext";
+import { ShareTournamentModal } from "@/components/ShareTournamentModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+
 export default function TournamentWizard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { setTournamentId } = useTournament();
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [createdTournament, setCreatedTournament] = useState<any | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Step 1: Basics & Branding
   const [name, setName] = useState("");
@@ -137,7 +152,7 @@ export default function TournamentWizard() {
   // Complete Tournament Creation Mutation
   const createMutation = useMutation({
     mutationFn: async () => {
-      // 1. Create Tournament doc
+      // 1. Create Tournament doc with ownerId
       const newTourney = await createTournament({
         name: name.trim(),
         shortName: shortName.trim(),
@@ -156,6 +171,7 @@ export default function TournamentWizard() {
         scorerPin: scorerPin.trim() || "1234",
         venueName: venueName.trim(),
         venueMapsUrl: venueMapsUrl.trim() || null,
+        ownerId: user?.uid || null,
         branding: {
           primaryColor,
           accentColor,
@@ -165,21 +181,21 @@ export default function TournamentWizard() {
 
       const tourneyId = newTourney.id;
 
-      // 2. Create Teams
+      // 2. Create Teams properly scoped to tourneyId
       const createdTeams: Array<{ id: string; name: string }> = [];
       for (let i = 0; i < teams.length; i++) {
         const t = teams[i];
         const groupName: "A" | "B" = i < Math.ceil(teams.length / 2) ? "A" : "B";
         const savedTeam = await upsertTeam({
+          tournamentId: tourneyId,
           name: t.name,
           shortName: t.shortName,
           groupName,
         });
-        // Note: upsertTeam by default sets TOURNAMENT_ID, but let's associate with tourneyId
         createdTeams.push({ id: savedTeam.id, name: t.name });
       }
 
-      // 3. Generate and Save Schedule Fixtures
+      // 3. Generate and Save Schedule Fixtures properly scoped to tourneyId
       const generatedFixtures = generateTournamentSchedule({
         teams: createdTeams,
         startDate,
@@ -192,6 +208,7 @@ export default function TournamentWizard() {
 
       for (const fix of generatedFixtures) {
         await createMatch({
+          tournamentId: tourneyId,
           matchNumber: fix.matchNumber,
           stage: fix.stage,
           day: fix.day,
@@ -209,8 +226,9 @@ export default function TournamentWizard() {
     onSuccess: (newTourney) => {
       queryClient.invalidateQueries({ queryKey: ["tournaments"] });
       queryClient.invalidateQueries({ queryKey: ["schedule"] });
+      setTournamentId(newTourney.id);
+      setCreatedTournament(newTourney);
       toast.success(`🎉 Tournament "${name}" successfully created!`);
-      navigate(`/admin/tournaments`);
     },
     onError: (e: any) => {
       toast.error(e?.message || "Failed to create tournament.");
@@ -802,6 +820,91 @@ export default function TournamentWizard() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Post-Publish Launchpad Dialog */}
+      {createdTournament && (
+        <Dialog open={!!createdTournament} onOpenChange={(open) => !open && navigate("/admin/tournaments")}>
+          <DialogContent className="max-w-lg p-6 bg-card border-emerald-500/40">
+            <DialogHeader className="text-center space-y-2 pb-2">
+              <div className="mx-auto w-14 h-14 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shadow-inner">
+                <Trophy className="h-7 w-7 text-amber-400" />
+              </div>
+              <DialogTitle className="text-2xl font-black tracking-tight text-foreground">
+                🎉 Tournament Live & Ready!
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                "{createdTournament.name}" has been initialized with round-robin fixtures and dedicated public URLs.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              {/* Quick Details Chips */}
+              <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-muted/20 border text-center text-xs">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Format</span>
+                  <strong className="text-emerald-500 font-bold">{oversPerSide} Overs</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Teams</span>
+                  <strong className="font-bold">{teams.length} Teams</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Scorer PIN</span>
+                  <strong className="font-mono font-bold text-amber-500">{scorerPin}</strong>
+                </div>
+              </div>
+
+              {/* Share & QR Trigger Button */}
+              <Button
+                onClick={() => setShareModalOpen(true)}
+                className="w-full h-11 bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-xs gap-2 rounded-xl shadow-md"
+              >
+                <span>📲 Share on WhatsApp & Download QR Poster</span>
+              </Button>
+
+              {/* Next Steps Launchpad */}
+              <div className="space-y-2 pt-2 border-t">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Organizer Next Steps:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button
+                    onClick={() => navigate("/admin/matches")}
+                    variant="outline"
+                    className="h-10 text-xs font-bold justify-start gap-2 rounded-xl hover:bg-emerald-500/10 border-emerald-500/40 text-emerald-500"
+                  >
+                    <Zap className="h-4 w-4" /> Go to Live Scoring
+                  </Button>
+                  <Button
+                    onClick={() => navigate("/admin/teams")}
+                    variant="outline"
+                    className="h-10 text-xs font-bold justify-start gap-2 rounded-xl"
+                  >
+                    <Users className="h-4 w-4" /> Manage Team Rosters
+                  </Button>
+                </div>
+
+                <Button
+                  onClick={() => navigate(`/t/${createdTournament.slug || createdTournament.id}`)}
+                  variant="secondary"
+                  className="w-full h-10 text-xs font-bold gap-2 rounded-xl mt-1"
+                >
+                  <span>🌐 View Public Tournament Portal</span>
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Share & QR Code Modal */}
+      {createdTournament && (
+        <ShareTournamentModal
+          open={shareModalOpen}
+          onOpenChange={setShareModalOpen}
+          tournament={createdTournament}
+        />
       )}
     </div>
   );

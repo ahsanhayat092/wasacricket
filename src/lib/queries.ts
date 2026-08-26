@@ -851,13 +851,13 @@ export async function getAllPlayersWithStats(): Promise<PlayerSearchItem[]> {
 // Admin — dashboard
 // ---------------------------------------------------------------------------
 
-export async function getAdminDashboard() {
+export async function getAdminDashboard(tournamentId: string = TOURNAMENT_ID) {
   const [tournament, teams, players, schedule, standings] = await Promise.all([
-    getTournament(),
-    getTeams(),
+    getTournament(tournamentId),
+    getTeams(tournamentId),
     getPlayers(),
-    getSchedule(),
-    getStandings(),
+    getSchedule(tournamentId),
+    getStandings(tournamentId),
   ]);
   const summary = getTournamentSummarySync(schedule);
   const top = standings.slice(0, 2);

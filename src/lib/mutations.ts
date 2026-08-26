@@ -142,7 +142,7 @@ export async function updateTournamentSettings(input: {
     },
     { merge: true },
   );
-  await recalculateStandings();
+  await recalculateStandings(tId);
 }
 
 // ---------------------------------------------------------------------------
@@ -151,13 +151,15 @@ export async function updateTournamentSettings(input: {
 
 export async function upsertTeam(input: {
   id?: string;
+  tournamentId?: string;
   name: string;
   shortName: string;
   groupName: "A" | "B";
   logoUrl?: string;
 }) {
+  const tId = input.tournamentId || TOURNAMENT_ID;
   const data = {
-    tournamentId: TOURNAMENT_ID,
+    tournamentId: tId,
     name: input.name,
     shortName: input.shortName,
     groupName: input.groupName,
@@ -167,12 +169,12 @@ export async function upsertTeam(input: {
 
   if (input.id) {
     await updateDoc(teamDoc(input.id), data);
-    await recalculateStandings();
+    await recalculateStandings(tId);
     return { id: input.id };
   }
 
   const ref = await addDoc(teamsCol(), { ...data, createdAt: now() });
-  await recalculateStandings();
+  await recalculateStandings(tId);
   return { id: ref.id };
 }
 
@@ -186,17 +188,13 @@ export async function deleteTeam(teamId: string) {
     return m.teamAId === teamId || m.teamBId === teamId;
   });
   if (referenced) {
-    throw new Error("Team is referenced by fixtures and cannot be deleted.");
+    throw new Error(
+      "Cannot delete this team because it is referenced by existing matches. Delete or reassign the matches first.",
+    );
   }
-
-  // Delete all players on this team
-  const playersSnap = await getDocs(
-    query(playersCol(), where("teamId", "==", teamId)),
-  );
-  const batch = writeBatch(db);
-  playersSnap.docs.forEach((d) => batch.delete(d.ref));
-  batch.delete(teamDoc(teamId));
-  await batch.commit();
+  await deleteDoc(teamDoc(teamId));
+  await deleteDoc(standingDoc(teamId));
+  await recalculateStandings();
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +262,7 @@ export async function deletePlayer(playerId: string) {
 // ---------------------------------------------------------------------------
 
 export async function createMatch(input: {
+  tournamentId?: string;
   matchNumber: number;
   stage: "LEAGUE" | "PLAYOFF" | "FINAL";
   day: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
@@ -272,9 +271,11 @@ export async function createMatch(input: {
   date?: string | null;
   time?: string | null;
   venue?: string | null;
+  oversPerSide?: number | null;
 }) {
+  const tId = input.tournamentId || TOURNAMENT_ID;
   const ref = await addDoc(matchesCol(), {
-    tournamentId: TOURNAMENT_ID,
+    tournamentId: tId,
     matchNumber: input.matchNumber,
     stage: input.stage,
     day: input.day,
@@ -283,6 +284,7 @@ export async function createMatch(input: {
     date: input.date ?? null,
     time: input.time ?? null,
     venue: input.venue ?? "Askari XI, Lahore",
+    oversPerSide: input.oversPerSide ?? 4,
     status: "UPCOMING" as const,
     tossWinnerId: null,
     tossDecision: null,
@@ -293,7 +295,7 @@ export async function createMatch(input: {
     createdAt: now(),
     updatedAt: now(),
   });
-  await recalculateStandings();
+  await recalculateStandings(tId);
   return { id: ref.id };
 }
 
