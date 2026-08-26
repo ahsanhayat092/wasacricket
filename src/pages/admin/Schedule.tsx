@@ -7,7 +7,7 @@ import {
   deleteMatch,
   autoGenerateSchedule,
 } from "@/lib/mutations";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +38,8 @@ import { statusBadgeClass, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
 import { Plus, Sparkles, Trash2, Calendar, Clock, MapPin, FileDown, Loader2 } from "lucide-react";
 import { downloadSchedulePDF } from "@/lib/pdf-export";
-import { DatePicker } from "@/components/DatePicker";
+import { DatePicker, parseCustomDate } from "@/components/DatePicker";
+import { format } from "date-fns";
 import { TimePicker } from "@/components/TimePicker";
 import type { HydratedMatch, Team } from "@/lib/firestore";
 
@@ -232,6 +233,7 @@ export default function AdminSchedule() {
                 key={m.id}
                 match={m}
                 teams={teams ?? []}
+                allMatches={matches ?? []}
                 saving={update.isPending}
                 deleting={del.isPending}
                 onSave={(v) => update.mutate({ matchId: m.id, ...v })}
@@ -423,9 +425,55 @@ export default function AdminSchedule() {
   );
 }
 
+export function computeDayLabel(
+  matchDate: string | undefined | null,
+  allMatches: Array<{ date?: string | null }>
+): string {
+  if (!matchDate || !matchDate.trim()) return "Day 1";
+
+  const uniqueDatesMap = new Map<number, { timestamp: number; formatted: string }>();
+
+  for (const m of allMatches) {
+    if (!m.date) continue;
+    const parsed = parseCustomDate(m.date);
+    if (parsed) {
+      const midnight = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()).getTime();
+      if (!uniqueDatesMap.has(midnight)) {
+        uniqueDatesMap.set(midnight, {
+          timestamp: midnight,
+          formatted: format(parsed, "d MMM"),
+        });
+      }
+    }
+  }
+
+  const currentParsed = parseCustomDate(matchDate);
+  if (currentParsed) {
+    const midnight = new Date(currentParsed.getFullYear(), currentParsed.getMonth(), currentParsed.getDate()).getTime();
+    if (!uniqueDatesMap.has(midnight)) {
+      uniqueDatesMap.set(midnight, {
+        timestamp: midnight,
+        formatted: format(currentParsed, "d MMM"),
+      });
+    }
+  }
+
+  const sortedDates = Array.from(uniqueDatesMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+
+  if (!currentParsed) return "Day 1";
+
+  const currentMidnight = new Date(currentParsed.getFullYear(), currentParsed.getMonth(), currentParsed.getDate()).getTime();
+  const dayIdx = sortedDates.findIndex((d) => d.timestamp === currentMidnight);
+  const dayNumber = dayIdx !== -1 ? dayIdx + 1 : 1;
+  const dateFormatted = format(currentParsed, "d MMM");
+
+  return `Day ${dayNumber} (${dateFormatted})`;
+}
+
 function ScheduleRow({
   match,
   teams,
+  allMatches,
   saving,
   deleting,
   onSave,
@@ -433,6 +481,7 @@ function ScheduleRow({
 }: {
   match: HydratedMatch;
   teams: Team[];
+  allMatches: HydratedMatch[];
   saving: boolean;
   deleting: boolean;
   onSave: (v: {
@@ -469,6 +518,10 @@ function ScheduleRow({
     setTeamBId(match.teamB?.id ?? null);
   }, [match.id, match.matchNumber, match.stage, match.day, match.date, match.time, match.venue, match.teamA?.id, match.teamB?.id]);
 
+  const computedDayLabel = useMemo(() => {
+    return computeDayLabel(date, allMatches);
+  }, [date, allMatches]);
+
   const isPlayoff = stage === "PLAYOFF";
   const isFinal = stage === "FINAL";
   const teamsEditable = match.status === "UPCOMING";
@@ -486,35 +539,16 @@ function ScheduleRow({
       </TableCell>
       <TableCell className="min-w-44">
         <div className="flex flex-col gap-1.5">
-          <Select
-            value={day}
-            onValueChange={(v) => {
-              const newDay = v as "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
-              setDay(newDay);
-              if (!date || date === "24 August" || date === "25 August" || date === "26 August" || date === "27 August") {
-                setDate((newDay === "MONDAY" || newDay === "WEDNESDAY" || newDay === "FRIDAY") ? "24 August" : "25 August");
-              }
-            }}
-          >
-            <SelectTrigger className="w-36 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="MONDAY">Day 1 (Mon 24 Aug)</SelectItem>
-              <SelectItem value="TUESDAY">Day 2 (Tue 25 Aug)</SelectItem>
-              <SelectItem value="WEDNESDAY">Day 1 (24 Aug)</SelectItem>
-              <SelectItem value="THURSDAY">Day 2 (25 Aug)</SelectItem>
-              <SelectItem value="FRIDAY">Friday</SelectItem>
-              <SelectItem value="SATURDAY">Saturday</SelectItem>
-              <SelectItem value="SUNDAY">Sunday (Finals)</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/60 border text-xs font-bold text-foreground w-fit shadow-xs">
+            <Calendar className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            <span>{computedDayLabel}</span>
+          </div>
 
           <Select
             value={stage}
             onValueChange={(v) => setStage(v as "LEAGUE" | "PLAYOFF" | "FINAL")}
           >
-            <SelectTrigger className="w-36 h-7 text-[11px] text-muted-foreground">
+            <SelectTrigger className="w-36 h-7 text-[11px] font-medium text-muted-foreground">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
