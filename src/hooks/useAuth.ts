@@ -29,13 +29,33 @@ export function useAuth(options?: UseAuthOptions) {
   }, [navigate, redirectPath]);
 
   const signInWithEmail = useCallback(async (email: string, pass: string) => {
-    return await signInWithEmailAndPassword(auth, email.trim(), pass);
+    try {
+      return await signInWithEmailAndPassword(auth, email.trim(), pass);
+    } catch (err: any) {
+      if (err?.message?.includes("closing/hidden") || err?.code === "failed-precondition") {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return await signInWithEmailAndPassword(auth, email.trim(), pass);
+      }
+      throw err;
+    }
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, pass: string, displayName?: string) => {
-    const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    let cred;
+    try {
+      cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    } catch (err: any) {
+      if (err?.message?.includes("closing/hidden") || err?.code === "failed-precondition") {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+      } else {
+        throw err;
+      }
+    }
     if (displayName && cred.user) {
-      await updateProfile(cred.user, { displayName: displayName.trim() });
+      try {
+        await updateProfile(cred.user, { displayName: displayName.trim() });
+      } catch {}
     }
     return cred;
   }, []);
