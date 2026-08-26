@@ -61,7 +61,7 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "embla-carousel-react": "^8.6.0",
-    "firebase": "^12.17.1",
+    "firebase": "^12.18.0",
     "hono": "^4.8.3",
     "html-to-image": "^1.11.13",
     "input-otp": "^1.4.2",
