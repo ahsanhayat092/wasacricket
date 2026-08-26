@@ -82,37 +82,46 @@ export async function getTournaments(): Promise<Tournament[]> {
 
 export async function getUserTournaments(userEmail?: string | null, userUid?: string | null): Promise<Tournament[]> {
   if (!userEmail && !userUid) return [];
-  const isSuperAdmin = userEmail?.toLowerCase() === "ahsanhayat092@gmail.com";
+  const email = userEmail?.toLowerCase().trim();
+  const isSuperAdmin = email === "ahsanhayat092@gmail.com";
 
   if (isSuperAdmin) {
     return await getTournaments();
   }
 
-  const [ownerSnap, memberSnap] = await Promise.all([
+  const [ownerSnap, ownerEmailSnap, memberSnap] = await Promise.all([
     userUid ? getDocs(query(tournamentsCol(), where("ownerId", "==", userUid))) : { docs: [] },
-    userEmail ? getDocs(query(tournamentMembersCol(), where("userEmail", "==", userEmail.toLowerCase().trim()))) : { docs: [] },
+    email ? getDocs(query(tournamentsCol(), where("ownerEmail", "==", email))) : { docs: [] },
+    email ? getDocs(query(tournamentMembersCol(), where("userEmail", "==", email))) : { docs: [] },
   ]);
 
-  const ownerTournaments = ownerSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Tournament);
-  const memberTournamentIds = memberSnap.docs.map((d) => (d.data() as any).tournamentId);
-
-  const missingIds = memberTournamentIds.filter((tId) => tId && !ownerTournaments.some((t) => t.id === tId));
-
-  if (missingIds.length === 0) {
-    return ownerTournaments;
+  const map = new Map<string, Tournament>();
+  for (const d of ownerSnap.docs) {
+    map.set(d.id, { id: d.id, ...d.data() } as Tournament);
+  }
+  for (const d of ownerEmailSnap.docs) {
+    map.set(d.id, { id: d.id, ...d.data() } as Tournament);
   }
 
-  const memberTournaments = await Promise.all(
-    missingIds.map(async (tId) => {
-      const snap = await getDoc(tournamentDoc(tId));
-      if (snap.exists()) {
-        return { id: snap.id, ...snap.data() } as Tournament;
-      }
-      return null;
-    }),
-  );
+  const memberTournamentIds = memberSnap.docs.map((d) => (d.data() as any).tournamentId);
+  const missingIds = memberTournamentIds.filter((tId) => tId && !map.has(tId));
 
-  return [...ownerTournaments, ...memberTournaments.filter((t): t is Tournament => t !== null)];
+  if (missingIds.length > 0) {
+    const memberTournaments = await Promise.all(
+      missingIds.map(async (tId) => {
+        const snap = await getDoc(tournamentDoc(tId));
+        if (snap.exists()) {
+          return { id: snap.id, ...snap.data() } as Tournament;
+        }
+        return null;
+      }),
+    );
+    for (const t of memberTournaments) {
+      if (t) map.set(t.id, t);
+    }
+  }
+
+  return Array.from(map.values());
 }
 
 export async function checkTournamentAccess(
@@ -130,7 +139,10 @@ export async function checkTournamentAccess(
   const tSnap = await getDoc(tournamentDoc(tournamentId));
   if (tSnap.exists()) {
     const tData = tSnap.data() as Tournament;
-    if (tData.ownerId && tData.ownerId === userUid) {
+    if (
+      (userUid && tData.ownerId === userUid) ||
+      (email && tData.ownerEmail && tData.ownerEmail.toLowerCase() === email)
+    ) {
       return { canManage: true, isOwner: true, role: "OWNER" };
     }
   }

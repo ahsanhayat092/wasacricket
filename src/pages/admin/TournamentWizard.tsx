@@ -172,6 +172,7 @@ export default function TournamentWizard() {
         venueName: venueName.trim(),
         venueMapsUrl: venueMapsUrl.trim() || null,
         ownerId: user?.uid || null,
+        ownerEmail: user?.email || null,
         branding: {
           primaryColor,
           accentColor,
@@ -224,8 +225,10 @@ export default function TournamentWizard() {
       return newTourney;
     },
     onSuccess: (newTourney) => {
+      queryClient.invalidateQueries({ queryKey: ["user_tournaments"] });
       queryClient.invalidateQueries({ queryKey: ["tournaments"] });
       queryClient.invalidateQueries({ queryKey: ["schedule"] });
+      localStorage.setItem("wasa_active_tournament_id", newTourney.id);
       setTournamentId(newTourney.id);
       setCreatedTournament(newTourney);
       toast.success(`🎉 Tournament "${name}" successfully created!`);

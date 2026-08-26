@@ -90,12 +90,29 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
     },
     status: input.status || "UPCOMING",
     ownerId: input.ownerId || null,
+    ownerEmail: input.ownerEmail || null,
     championTeamId: null,
     createdAt: now(),
     updatedAt: now(),
   };
 
   await setDoc(docRef, newTournament);
+
+  // Automatically record creator as OWNER in tournamentMembers collection
+  if (input.ownerId || input.ownerEmail) {
+    const memberId = `${tournamentId}_${input.ownerId || input.ownerEmail?.replace(/[^a-z0-9]/gi, "_")}`;
+    const memberDocRef = doc(tournamentMembersCol(), memberId);
+    await setDoc(memberDocRef, {
+      tournamentId,
+      userId: input.ownerId || "",
+      userEmail: (input.ownerEmail || "").toLowerCase().trim(),
+      userName: "Tournament Creator",
+      role: "OWNER" as TournamentRole,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+  }
+
   return { id: tournamentId, ...newTournament };
 }
 

@@ -56,6 +56,7 @@ export type Tournament = {
   branding?: TournamentBranding;
   status?: TournamentStatus;
   ownerId?: string | null;
+  ownerEmail?: string | null;
   championTeamId?: string | null;
   createdAt: string;
   updatedAt: string;
