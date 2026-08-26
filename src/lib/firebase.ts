@@ -3,15 +3,9 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
-const isBrowser = typeof window !== "undefined";
-const authDomain =
-  isBrowser && window.location.hostname.includes("vercel.app")
-    ? window.location.hostname
-    : "wasacricket-4bb6c.firebaseapp.com";
-
 const firebaseConfig = {
   apiKey: "AIzaSyDAWfUvvBF-8SGrA6ENwtz1nNMnSIwU2Z8",
-  authDomain,
+  authDomain: "wasacricket-4bb6c.firebaseapp.com",
   projectId: "wasacricket-4bb6c",
   storageBucket: "wasacricket-4bb6c.firebasestorage.app",
   messagingSenderId: "833020376717",
