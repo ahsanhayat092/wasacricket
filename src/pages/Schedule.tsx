@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSchedule } from "@/lib/queries";
+import { useTournament } from "@/context/TournamentContext";
 import { MatchCard, type HydratedMatch } from "@/components/MatchCard";
 import { useState, useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,12 +12,13 @@ import { toast } from "sonner";
 import { Calendar, MapPin, Clock, Trophy, FileDown, Loader2 } from "lucide-react";
 
 export default function Schedule() {
+  const { tournamentId, tournament } = useTournament();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [stageFilter, setStageFilter] = useState<"ALL" | "LEAGUE" | "PLAYOFF" | "FINAL">("ALL");
 
   const { data: matches, isLoading } = useQuery({
-    queryKey: ["schedule"],
-    queryFn: getSchedule,
+    queryKey: ["schedule", tournamentId],
+    queryFn: () => getSchedule(tournamentId),
     refetchInterval: 15000,
   });
 

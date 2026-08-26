@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getTeams, getPlayers, getTournament } from "@/lib/queries";
+import { useTournament } from "@/context/TournamentContext";
 import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLink } from "@/components/PlayerLink";
@@ -10,13 +11,15 @@ import { Users, ArrowRight, Crown } from "lucide-react";
 import { Link } from "react-router";
 
 export default function Teams() {
+  const { tournamentId, tournament: currentTourney } = useTournament();
+
   const { data: tournament } = useQuery({
-    queryKey: ["tournament"],
-    queryFn: getTournament,
+    queryKey: ["tournament", tournamentId],
+    queryFn: () => getTournament(tournamentId),
   });
   const { data: teams, isLoading: loadingTeams } = useQuery({
-    queryKey: ["teams"],
-    queryFn: getTeams,
+    queryKey: ["teams", tournamentId],
+    queryFn: () => getTeams(tournamentId),
   });
   const { data: players, isLoading: loadingPlayers } = useQuery({
     queryKey: ["players"],

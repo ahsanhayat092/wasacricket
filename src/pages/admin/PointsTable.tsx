@@ -20,17 +20,23 @@ import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 
+import { useTournament } from "@/context/TournamentContext";
+
 export default function AdminPointsTable() {
+  const { tournamentId } = useTournament();
   const { data: rows, isLoading } = useQuery({
-    queryKey: ["standings"],
-    queryFn: getStandings,
+    queryKey: ["standings", tournamentId],
+    queryFn: () => getStandings(tournamentId),
   });
   const [tiebreaks, setTiebreaks] = useState<Record<string, string>>({});
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["standings"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["standings", tournamentId] });
+    queryClient.invalidateQueries({ queryKey: ["standings"] });
+  };
 
   const recalc = useMutation({
-    mutationFn: () => recalculateStandings(),
+    mutationFn: () => recalculateStandings(tournamentId),
     onSuccess: () => { toast.success("Standings recalculated"); invalidate(); },
     onError: (e) => toast.error(e.message),
   });

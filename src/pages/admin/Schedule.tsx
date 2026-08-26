@@ -64,14 +64,18 @@ const defaultForm: MatchForm = {
   venue: "Askari XI, Lahore",
 };
 
+import { useTournament } from "@/context/TournamentContext";
+
 export default function AdminSchedule() {
+  const { tournamentId } = useTournament();
+
   const { data: matches, isLoading } = useQuery({
-    queryKey: ["schedule"],
-    queryFn: getSchedule,
+    queryKey: ["schedule", tournamentId],
+    queryFn: () => getSchedule(tournamentId),
   });
   const { data: teams } = useQuery({
-    queryKey: ["teams"],
-    queryFn: getTeams,
+    queryKey: ["teams", tournamentId],
+    queryFn: () => getTeams(tournamentId),
   });
 
   const [openCreate, setOpenCreate] = useState(false);
@@ -79,7 +83,9 @@ export default function AdminSchedule() {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["schedule", tournamentId] });
     queryClient.invalidateQueries({ queryKey: ["schedule"] });
+    queryClient.invalidateQueries({ queryKey: ["standings", tournamentId] });
     queryClient.invalidateQueries({ queryKey: ["standings"] });
     queryClient.invalidateQueries({ queryKey: ["overview"] });
   };
@@ -88,12 +94,13 @@ export default function AdminSchedule() {
     mutationFn: (args: MatchForm) =>
       createMatch({
         ...args,
-        teamAId: args.teamAId || null,
-        teamBId: args.teamBId || null,
+        tournamentId,
+        matchNumber: Number(args.matchNumber),
       }),
     onSuccess: () => {
-      toast.success("Match fixture created");
+      toast.success("Match created");
       setOpenCreate(false);
+      setForm(defaultForm);
       invalidate();
     },
     onError: (e) => toast.error(e.message),

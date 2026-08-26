@@ -80,7 +80,15 @@ export async function getTournaments(): Promise<Tournament[]> {
   return list;
 }
 
-export async function getTournament(tournamentId: string = TOURNAMENT_ID): Promise<Tournament> {
+function resolveTournamentId(idOrContext?: any): string {
+  if (typeof idOrContext === "string" && idOrContext.trim()) {
+    return idOrContext.trim();
+  }
+  return TOURNAMENT_ID;
+}
+
+export async function getTournament(idOrContext?: any): Promise<Tournament> {
+  const tournamentId = resolveTournamentId(idOrContext);
   const snap = await getDoc(tournamentDoc(tournamentId));
   if (!snap.exists()) {
     return {
@@ -91,7 +99,7 @@ export async function getTournament(tournamentId: string = TOURNAMENT_ID): Promi
       tiePoints: 1,
       noResultPoints: 1,
       lossPoints: 0,
-      oversPerSide: 10,
+      oversPerSide: 4,
       championTeamId: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -104,11 +112,22 @@ export async function getTournament(tournamentId: string = TOURNAMENT_ID): Promi
 // Teams
 // ---------------------------------------------------------------------------
 
-export async function getTeams(tournamentId: string = TOURNAMENT_ID): Promise<Team[]> {
+export async function getTeams(idOrContext?: any): Promise<Team[]> {
+  const tournamentId = resolveTournamentId(idOrContext);
   const snap = await getDocs(
     query(teamsCol(), where("tournamentId", "==", tournamentId)),
   );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+  if (!snap.empty) {
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+  }
+  // Fallback for default WASA teams
+  if (tournamentId === TOURNAMENT_ID || tournamentId === "main") {
+    const allSnap = await getDocs(teamsCol());
+    return allSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as Team)
+      .filter((t) => !t.tournamentId || t.tournamentId === "main" || t.tournamentId === TOURNAMENT_ID);
+  }
+  return [];
 }
 
 export async function getTeamById(teamId: string): Promise<Team | null> {
@@ -180,14 +199,25 @@ function hydrateMatch(
   };
 }
 
-export async function getSchedule(): Promise<HydratedMatch[]> {
+export async function getSchedule(idOrContext?: any): Promise<HydratedMatch[]> {
+  const tournamentId = resolveTournamentId(idOrContext);
   try {
-    const [matchSnap, teams, inningsSnap, standingsSnap] = await Promise.all([
-      getDocs(query(matchesCol(), where("tournamentId", "==", TOURNAMENT_ID))),
-      getTeams(),
+    let [matchSnap, teams, inningsSnap, standingsSnap] = await Promise.all([
+      getDocs(query(matchesCol(), where("tournamentId", "==", tournamentId))),
+      getTeams(tournamentId),
       getDocs(inningsCol()),
-      getDocs(query(standingsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
+      getDocs(query(standingsCol(), where("tournamentId", "==", tournamentId))),
     ]);
+
+    if (matchSnap.empty && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
+      const allMatchesSnap = await getDocs(matchesCol());
+      const filteredDocs = allMatchesSnap.docs.filter((d) => {
+        const data = d.data();
+        return !data.tournamentId || data.tournamentId === "main" || data.tournamentId === TOURNAMENT_ID;
+      });
+      matchSnap = { docs: filteredDocs } as any;
+    }
+
     const allInnings = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
     const standings = standingsSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Standing)
@@ -231,8 +261,8 @@ export async function getSchedule(): Promise<HydratedMatch[]> {
   }
 }
 
-export async function getResults(): Promise<HydratedMatch[]> {
-  const all = await getSchedule();
+export async function getResults(idOrContext?: any): Promise<HydratedMatch[]> {
+  const all = await getSchedule(idOrContext);
   return all.filter(
     (m) =>
       m.status === "COMPLETED" ||
@@ -332,12 +362,23 @@ export async function getMatchById(matchId: string): Promise<{
 // Standings
 // ---------------------------------------------------------------------------
 
-export async function getStandings(): Promise<StandingWithTeam[]> {
+export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[]> {
+  const tournamentId = resolveTournamentId(idOrContext);
   try {
-    const [standingSnap, teams] = await Promise.all([
-      getDocs(query(standingsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
-      getTeams(),
+    let [standingSnap, teams] = await Promise.all([
+      getDocs(query(standingsCol(), where("tournamentId", "==", tournamentId))),
+      getTeams(tournamentId),
     ]);
+
+    if (standingSnap.empty && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
+      const allStandingsSnap = await getDocs(standingsCol());
+      const filteredDocs = allStandingsSnap.docs.filter((d) => {
+        const data = d.data();
+        return !data.tournamentId || data.tournamentId === "main" || data.tournamentId === TOURNAMENT_ID;
+      });
+      standingSnap = { docs: filteredDocs } as any;
+    }
+
     const standings = standingSnap.docs
       .map((d) => {
         const s = { id: d.id, ...d.data() } as Standing;
@@ -355,11 +396,12 @@ export async function getStandings(): Promise<StandingWithTeam[]> {
 // Overview (home page)
 // ---------------------------------------------------------------------------
 
-export async function getOverview() {
+export async function getOverview(idOrContext?: any) {
+  const tournamentId = resolveTournamentId(idOrContext);
   const [tournament, schedule, standingsWithTeams] = await Promise.all([
-    getTournament(),
-    getSchedule(),
-    getStandings(),
+    getTournament(tournamentId),
+    getSchedule(tournamentId),
+    getStandings(tournamentId),
   ]);
   if (!tournament) return null;
 
@@ -437,8 +479,9 @@ export async function getTeamDetail(teamId: string) {
 // Statistics
 // ---------------------------------------------------------------------------
 
-export async function getStatistics() {
-  const [schedule, teams] = await Promise.all([getSchedule(), getTeams()]);
+export async function getStatistics(idOrContext?: any) {
+  const tournamentId = resolveTournamentId(idOrContext);
+  const [schedule, teams] = await Promise.all([getSchedule(tournamentId), getTeams(tournamentId)]);
   const [batting, bowling, summary] = await Promise.all([
     getTournamentBattingStats(schedule),
     getTournamentBowlingStats(schedule),

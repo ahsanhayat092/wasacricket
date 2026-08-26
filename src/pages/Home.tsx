@@ -32,14 +32,14 @@ import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 export default function Home() {
   const [shareOpen, setShareOpen] = useState(false);
   const { data, isLoading } = useQuery({
-    queryKey: ["overview"],
-    queryFn: getOverview,
+    queryKey: ["overview", tournamentId],
+    queryFn: () => getOverview(tournamentId),
     refetchInterval: 15000,
   });
 
   const { data: scheduleMatches } = useQuery({
-    queryKey: ["schedule"],
-    queryFn: getSchedule,
+    queryKey: ["schedule", tournamentId],
+    queryFn: () => getSchedule(tournamentId),
   });
 
   // Trigger celebration confetti once on load if tournament champion is crowned

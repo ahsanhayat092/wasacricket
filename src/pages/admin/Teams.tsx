@@ -2,6 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
 import { getTeams, getPlayers } from "@/lib/queries";
 import { upsertTeam } from "@/lib/mutations";
+import { useTournament } from "@/context/TournamentContext";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,9 +45,11 @@ type TeamForm = {
 const emptyForm: TeamForm = { name: "", shortName: "", groupName: "A", logoUrl: "" };
 
 export default function AdminTeams() {
+  const { tournamentId, tournament } = useTournament();
+
   const { data: teams, isLoading } = useQuery({
-    queryKey: ["teams"],
-    queryFn: getTeams,
+    queryKey: ["teams", tournamentId],
+    queryFn: () => getTeams(tournamentId),
   });
   const { data: players } = useQuery({
     queryKey: ["players"],
@@ -57,11 +60,13 @@ export default function AdminTeams() {
   const [form, setForm] = useState<TeamForm>(emptyForm);
 
   const upsert = useMutation({
-    mutationFn: (args: Parameters<typeof upsertTeam>[0]) => upsertTeam(args),
+    mutationFn: (args: Parameters<typeof upsertTeam>[0]) =>
+      upsertTeam({ ...args, tournamentId }),
     onSuccess: () => {
       toast.success("Team saved");
       setOpen(false);
       setForm(emptyForm);
+      queryClient.invalidateQueries({ queryKey: ["teams", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["teams"] });
     },
     onError: (e) => toast.error(e.message),

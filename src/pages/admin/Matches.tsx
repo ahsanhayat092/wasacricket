@@ -17,14 +17,20 @@ import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricke
 import { toast } from "sonner";
 import { RotateCcw, Trophy, Trash2 } from "lucide-react";
 
+import { useTournament } from "@/context/TournamentContext";
+
 export default function AdminMatches() {
+  const { tournamentId } = useTournament();
+
   const { data: matches, isLoading } = useQuery({
-    queryKey: ["schedule"],
-    queryFn: getSchedule,
+    queryKey: ["schedule", tournamentId],
+    queryFn: () => getSchedule(tournamentId),
   });
 
   const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["schedule", tournamentId] });
     queryClient.invalidateQueries({ queryKey: ["schedule"] });
+    queryClient.invalidateQueries({ queryKey: ["standings", tournamentId] });
     queryClient.invalidateQueries({ queryKey: ["standings"] });
     queryClient.invalidateQueries({ queryKey: ["statistics"] });
     queryClient.invalidateQueries({ queryKey: ["overview"] });

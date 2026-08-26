@@ -1,13 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { getStandings } from "@/lib/queries";
+import { useTournament } from "@/context/TournamentContext";
 import { StandingsTable } from "@/components/StandingsTable";
 import { NRRExplanation } from "@/components/NRRExplanation";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PointsTable() {
+  const { tournamentId } = useTournament();
   const { data: rows, isLoading } = useQuery({
-    queryKey: ["standings"],
-    queryFn: getStandings,
+    queryKey: ["standings", tournamentId],
+    queryFn: () => getStandings(tournamentId),
     refetchInterval: 20000,
   });
 

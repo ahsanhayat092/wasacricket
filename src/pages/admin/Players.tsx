@@ -63,12 +63,18 @@ const emptyForm: PlayerForm = {
   photoUrl: "",
 };
 
+import { useTournament } from "@/context/TournamentContext";
+
 export default function AdminPlayers() {
+  const { tournamentId } = useTournament();
   const [searchParams] = useSearchParams();
   const teamParam = searchParams.get("team");
   const addParam = searchParams.get("add");
 
-  const { data: teams } = useQuery({ queryKey: ["teams"], queryFn: getTeams });
+  const { data: teams } = useQuery({
+    queryKey: ["teams", tournamentId],
+    queryFn: () => getTeams(tournamentId),
+  });
   const { data: allPlayers } = useQuery({ queryKey: ["players"], queryFn: getPlayers });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<PlayerForm>(emptyForm);
