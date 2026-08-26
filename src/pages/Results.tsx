@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { getResults } from "@/lib/queries";
+import { useTournament } from "@/context/TournamentContext";
 import { MatchCard, type HydratedMatch } from "@/components/MatchCard";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Results() {
+  const { tournamentId } = useTournament();
   const { data: matches, isLoading } = useQuery({
-    queryKey: ["results"],
-    queryFn: getResults,
+    queryKey: ["results", tournamentId],
+    queryFn: () => getResults(tournamentId),
   });
 
   return (

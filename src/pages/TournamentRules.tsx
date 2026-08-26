@@ -27,19 +27,17 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+import { useTournament } from "@/context/TournamentContext";
+
 export default function TournamentRules() {
+  const { tournamentId, tournament } = useTournament();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: rules = [], isLoading } = useQuery({
-    queryKey: ["tournament_rules"],
-    queryFn: getTournamentRules,
-  });
-
-  const { data: tournament } = useQuery({
-    queryKey: ["tournament"],
-    queryFn: getTournament,
+    queryKey: ["tournament_rules", tournamentId],
+    queryFn: () => getTournamentRules(tournamentId),
   });
 
   const tournamentName = tournament?.name || "WASA Premier League 2026";

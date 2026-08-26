@@ -27,9 +27,11 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import { useEffect, useState } from "react";
+import { useTournament } from "@/context/TournamentContext";
 import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 
 export default function Home() {
+  const { tournamentId } = useTournament();
   const [shareOpen, setShareOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["overview", tournamentId],

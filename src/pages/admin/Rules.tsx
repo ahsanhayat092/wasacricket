@@ -9,6 +9,7 @@ import {
 } from "@/lib/tournament-rules";
 import { downloadRulesPDF } from "@/lib/pdf-export";
 import { getTournament } from "@/lib/queries";
+import { useTournament } from "@/context/TournamentContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +74,7 @@ const CATEGORIES: RuleCategory[] = [
 
 export default function AdminRules() {
   const queryClient = useQueryClient();
+  const { tournamentId, tournament } = useTournament();
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -85,13 +87,8 @@ export default function AdminRules() {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: rules = [], isLoading } = useQuery({
-    queryKey: ["tournament_rules"],
-    queryFn: getTournamentRules,
-  });
-
-  const { data: tournament } = useQuery({
-    queryKey: ["tournament"],
-    queryFn: getTournament,
+    queryKey: ["tournament_rules", tournamentId],
+    queryFn: () => getTournamentRules(tournamentId),
   });
 
   const tournamentName = tournament?.name || "WASA Premier League 2026";
@@ -100,6 +97,7 @@ export default function AdminRules() {
   const saveMutation = useMutation({
     mutationFn: (updated: TournamentRuleItem[]) => saveTournamentRules(updated),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tournament_rules", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament_rules"] });
       toast.success("Tournament rules saved successfully!");
     },

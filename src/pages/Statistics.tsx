@@ -27,10 +27,13 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLink } from "@/components/PlayerLink";
 import { Trophy, Zap, Target, Award, Flame, Shield, Users, Rocket } from "lucide-react";
 
+import { useTournament } from "@/context/TournamentContext";
+
 export default function Statistics() {
+  const { tournamentId } = useTournament();
   const { data, isLoading } = useQuery({
-    queryKey: ["statistics"],
-    queryFn: getStatistics,
+    queryKey: ["statistics", tournamentId],
+    queryFn: () => getStatistics(tournamentId),
     refetchInterval: 20000,
   });
 

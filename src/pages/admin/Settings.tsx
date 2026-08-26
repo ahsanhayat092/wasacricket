@@ -10,11 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
+import { useTournament } from "@/context/TournamentContext";
+
 export default function AdminSettings() {
-  const { data: tournament, isLoading } = useQuery({
-    queryKey: ["tournament"],
-    queryFn: getTournament,
-  });
+  const { tournamentId, tournament } = useTournament();
+
   const [form, setForm] = useState({
     name: "",
     shortName: "",
@@ -41,11 +41,15 @@ export default function AdminSettings() {
 
   const save = useMutation({
     mutationFn: (args: Parameters<typeof updateTournamentSettings>[0]) =>
-      updateTournamentSettings(args),
+      updateTournamentSettings({ ...args, tournamentId }),
     onSuccess: () => {
-      toast.success("Settings saved — standings recalculated with new values");
+      toast.success("Settings updated — standings recalculated with new values");
+      queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament"] });
+      queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+      queryClient.invalidateQueries({ queryKey: ["standings", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["standings"] });
+      queryClient.invalidateQueries({ queryKey: ["overview"] });
     },
     onError: (e) => toast.error(e.message),
   });
