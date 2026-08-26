@@ -50,10 +50,12 @@ export default function AdminTeams() {
   const { data: teams, isLoading } = useQuery({
     queryKey: ["teams", tournamentId],
     queryFn: () => getTeams(tournamentId),
+    staleTime: 30 * 1000,
   });
   const { data: players } = useQuery({
     queryKey: ["players"],
     queryFn: getPlayers,
+    staleTime: 60 * 1000,
   });
 
   const [open, setOpen] = useState(false);

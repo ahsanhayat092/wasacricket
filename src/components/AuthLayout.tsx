@@ -186,6 +186,7 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
     queryKey: ["user_tournaments", user?.uid, user?.email],
     queryFn: () => getUserTournaments(user?.email, user?.uid),
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   });
 
   const isGlobalPath =

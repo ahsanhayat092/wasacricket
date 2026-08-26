@@ -88,29 +88,31 @@ export async function getUserTournaments(userEmail?: string | null, userUid?: st
     return await getTournaments();
   }
 
-  // Find tournaments where ownerId == userUid
-  const ownerSnap = userUid
-    ? await getDocs(query(tournamentsCol(), where("ownerId", "==", userUid)))
-    : { docs: [] };
-  const ownerTournaments = ownerSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Tournament);
+  const [ownerSnap, memberSnap] = await Promise.all([
+    userUid ? getDocs(query(tournamentsCol(), where("ownerId", "==", userUid))) : { docs: [] },
+    userEmail ? getDocs(query(tournamentMembersCol(), where("userEmail", "==", userEmail.toLowerCase().trim()))) : { docs: [] },
+  ]);
 
-  // Find tournaments where userEmail is in tournamentMembers
-  const memberSnap = userEmail
-    ? await getDocs(query(tournamentMembersCol(), where("userEmail", "==", userEmail.toLowerCase().trim())))
-    : { docs: [] };
+  const ownerTournaments = ownerSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Tournament);
   const memberTournamentIds = memberSnap.docs.map((d) => (d.data() as any).tournamentId);
 
-  const additionalTournaments: Tournament[] = [];
-  for (const tId of memberTournamentIds) {
-    if (tId && !ownerTournaments.some((t) => t.id === tId)) {
-      const snap = await getDoc(tournamentDoc(tId));
-      if (snap.exists()) {
-        additionalTournaments.push({ id: snap.id, ...snap.data() } as Tournament);
-      }
-    }
+  const missingIds = memberTournamentIds.filter((tId) => tId && !ownerTournaments.some((t) => t.id === tId));
+
+  if (missingIds.length === 0) {
+    return ownerTournaments;
   }
 
-  return [...ownerTournaments, ...additionalTournaments];
+  const memberTournaments = await Promise.all(
+    missingIds.map(async (tId) => {
+      const snap = await getDoc(tournamentDoc(tId));
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data() } as Tournament;
+      }
+      return null;
+    }),
+  );
+
+  return [...ownerTournaments, ...memberTournaments.filter((t): t is Tournament => t !== null)];
 }
 
 export async function checkTournamentAccess(
