@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { useTournament } from "@/context/TournamentContext";
 
 export default function AdminSettings() {
-  const { tournamentId, tournament } = useTournament();
+  const { tournamentId, tournament, isLoading } = useTournament();
 
   const [form, setForm] = useState({
     name: "",
