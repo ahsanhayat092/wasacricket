@@ -99,13 +99,13 @@ export function StandingsTable({
                 <TableCell className="text-center">{s.lost}</TableCell>
                 {!compact && <TableCell className="text-center">{s.tied}</TableCell>}
                 {!compact && <TableCell className="text-center">{s.noResult}</TableCell>}
-                <TableCell className="text-center font-bold">{s.points}</TableCell>
+                <TableCell className="text-center font-bold">{s.points ?? 0}</TableCell>
                 <TableCell
                   className={cn(
                     "text-center font-mono",
-                    s.nrr > 0
+                    (s.nrr ?? 0) > 0
                       ? "text-emerald-500"
-                      : s.nrr < 0
+                      : (s.nrr ?? 0) < 0
                         ? "text-red-500"
                         : "text-muted-foreground",
                   )}

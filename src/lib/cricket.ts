@@ -127,7 +127,10 @@ export function determineOutcome(score: MatchScoreInput): MatchOutcome {
 export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED" | "NO_RESULT";
 
 /** Format NRR with a leading + for positive values. */
-export function fmtNrr(nrr: number): string {
+export function fmtNrr(nrr?: number | null): string {
+  if (typeof nrr !== "number" || isNaN(nrr)) {
+    return "+0.000";
+  }
   const sign = nrr >= 0 ? "+" : "";
   return `${sign}${nrr.toFixed(3)}`;
 }

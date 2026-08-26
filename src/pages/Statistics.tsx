@@ -218,7 +218,7 @@ export default function Statistics() {
                     {bestBatsman.runs} <span className="text-xs font-normal text-muted-foreground">runs</span>
                   </span>
                   <span className="text-xs text-muted-foreground font-mono">
-                    Avg: {bestBatsman.average ? bestBatsman.average.toFixed(1) : "—"} · SR: {bestBatsman.strikeRate.toFixed(1)}
+                    Avg: {bestBatsman.average != null ? bestBatsman.average.toFixed(1) : "—"} · SR: {(bestBatsman.strikeRate ?? 0).toFixed(1)}
                   </span>
                 </div>
               </div>
@@ -258,7 +258,7 @@ export default function Statistics() {
                     {bestBowler.wickets} <span className="text-xs font-normal text-muted-foreground">wkts</span>
                   </span>
                   <span className="text-xs text-muted-foreground font-mono">
-                    Best: {bestBowler.bestFigures} · Econ: {bestBowler.economy.toFixed(2)}
+                    Best: {bestBowler.bestFigures} · Econ: {(bestBowler.economy ?? 0).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -297,7 +297,7 @@ export default function Statistics() {
                     {mostSixesPlayer.sixes} <span className="text-xs font-normal text-muted-foreground">sixes</span>
                   </span>
                   <span className="text-xs text-muted-foreground font-mono">
-                    {mostSixesPlayer.runs} runs · SR {mostSixesPlayer.strikeRate.toFixed(1)}
+                    {mostSixesPlayer.runs} runs · SR {(mostSixesPlayer.strikeRate ?? 0).toFixed(1)}
                   </span>
                 </div>
               </div>
@@ -333,7 +333,7 @@ export default function Statistics() {
                 </div>
                 <div className="mt-3 flex items-baseline justify-between border-t border-indigo-500/20 pt-2">
                   <span className="text-2xl font-black text-indigo-400 font-mono">
-                    {bestEconomy.economy.toFixed(2)}
+                    {(bestEconomy.economy ?? 0).toFixed(2)}
                   </span>
                   <span className="text-xs text-muted-foreground font-mono">
                     {ballsToOversText(bestEconomy.balls)} ov · {bestEconomy.wickets} wkts
