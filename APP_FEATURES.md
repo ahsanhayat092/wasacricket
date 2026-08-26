@@ -178,6 +178,22 @@ The **WasaCricket Platform** is a full-stack, real-time, multi-tenant Cricket To
 - **Printable Tournament Rulebook PDF**: Clean PDF export of all tournament rules, bowler limits, and scoring guidelines.
 - **Printable Match Schedule PDF**: Formatted schedule sheet with date, time, teams, and venue details.
 - **Champion & Runner-Up Certificates**: Printable certificates for winning teams and tournament MVPs.
+
+---
+
+## 📺 9. TV-Style OBS Live Broadcast Overlay Suite
+
+- **1080p Transparent Canvas (`/broadcast/:matchId`)**:
+  - Pure transparent background optimized for OBS Studio, Streamlabs, and vMix Browser Sources.
+  - Zero login required for livestream operators.
+- **3 Broadcast Layout Themes**:
+  - 📺 **TV Lower-Third (`?theme=tv_classic`)**: Full professional international television bar with Batting/Bowling team badges, Live score, Overs, CRR/RRR, Striker & Non-Striker figures (runs, balls, 4s, 6s, SR), Bowler figures (O-M-R-W, Econ), and This-Over ball-by-ball pill indicators.
+  - ⚡ **Bottom Ticker (`?theme=ticker`)**: Minimalist 60px bottom ticker bar designed for portrait/mobile streams.
+  - 🗂️ **Top Scorebox (`?theme=scorebox`)**: Compact top-left scoreboard widget for single-camera angles.
+- **Dynamic Broadcast Flash Alerts**:
+  - Automated pop-up TV broadcast celebration banners on screen for **FOUR (4)**, **SIX (6)**, **WICKET (OUT)**, **50**, **100**, and **MATCH VICTORY**.
+- **1-Click OBS Streaming Hub**:
+  - Built-in OBS modal on Match Control, Live Match, and Match Details with 1-click URL copy, theme previews, and step-by-step OBS setup guides.
 - **Confetti Celebration**: Dynamic canvas confetti animation upon tournament completion.
 
 ---

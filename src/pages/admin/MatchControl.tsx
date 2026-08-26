@@ -60,6 +60,7 @@ import {
   type MatchStatus,
 } from "@/lib/cricket";
 import { toast } from "sonner";
+import { BroadcastModal } from "@/components/BroadcastModal";
 import {
   ArrowLeft,
   ArrowRight,
@@ -77,6 +78,7 @@ import {
   UserCheck,
   RefreshCw,
   Trash2,
+  Tv,
 } from "lucide-react";
 import type {
   Match,
@@ -108,6 +110,7 @@ export default function AdminMatchControl() {
   });
 
   const [activeInningsTab, setActiveInningsTab] = useState<string>("1");
+  const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["matchWorkspace", id] });
@@ -257,8 +260,16 @@ export default function AdminMatchControl() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setBroadcastModalOpen(true)}
+            className="text-xs gap-1.5 border-red-500/40 text-red-500 hover:bg-red-500/10 font-bold"
+          >
+            <Tv className="h-3.5 w-3.5" /> OBS Stream Overlay
+          </Button>
           <Link to={`/live/${match.id}`} target="_blank">
-            <Button variant="outline" size="sm" className="text-xs gap-1.5 border-emerald-500/40 text-emerald-500">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5 border-emerald-500/40 text-emerald-500 font-semibold">
               <Zap className="h-3.5 w-3.5" /> View Live Public Screen
             </Button>
           </Link>
@@ -4267,6 +4278,13 @@ function PlayingVIEditor({
           </CardContent>
         </Card>
       </div>
+
+      <BroadcastModal
+        open={broadcastModalOpen}
+        onOpenChange={setBroadcastModalOpen}
+        matchId={id!}
+        matchTitle={`${teamA?.name ?? "Team A"} vs ${teamB?.name ?? "Team B"}`}
+      />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   type MatchStatus,
 } from "@/lib/cricket";
 import { StoryCardModal } from "@/components/StoryCardModal";
+import { BroadcastModal } from "@/components/BroadcastModal";
 import { Button } from "@/components/ui/button";
 import { triggerChampionConfetti } from "@/lib/confetti";
 import {
@@ -38,6 +39,7 @@ import {
   Flame,
   Activity,
   PartyPopper,
+  Tv,
 } from "lucide-react";
 import type { Player } from "@/lib/firestore";
 import { useState, useEffect } from "react";
@@ -45,6 +47,7 @@ import { useState, useEffect } from "react";
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const [storyModalOpen, setStoryModalOpen] = useState(false);
+  const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
   const [manualEvent, setManualEvent] = useState<EventData | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["match", id],
@@ -155,6 +158,15 @@ export default function MatchDetail() {
                   >
                     <Camera className="h-3.5 w-3.5" />
                     <span>Share Story</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBroadcastModalOpen(true)}
+                    className="h-7 text-xs font-bold gap-1.5 border-red-500/40 text-red-500 hover:bg-red-500/10 rounded-lg px-2.5"
+                  >
+                    <Tv className="h-3.5 w-3.5" />
+                    <span>OBS Overlay</span>
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-2">
@@ -680,6 +692,13 @@ export default function MatchDetail() {
         teamB={teamB}
         inn1={inn1}
         inn2={inn2}
+      />
+
+      <BroadcastModal
+        open={broadcastModalOpen}
+        onOpenChange={setBroadcastModalOpen}
+        matchId={id!}
+        matchTitle={`${match.teamA?.name ?? "Team A"} vs ${match.teamB?.name ?? "Team B"}`}
       />
     </div>
   );

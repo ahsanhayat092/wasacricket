@@ -42,6 +42,7 @@ import AdminUsers from "./pages/admin/Users";
 import AdminSettings from "./pages/admin/Settings";
 import TournamentsList from "./pages/admin/TournamentsList";
 import TournamentWizard from "./pages/admin/TournamentWizard";
+import BroadcastOverlay from "./pages/broadcast/BroadcastOverlay";
 
 export default function App() {
   return (
@@ -49,6 +50,9 @@ export default function App() {
       <TournamentProvider>
         <PlayerModalProvider>
           <Routes>
+            {/* Dedicated Transparent OBS Live Broadcast Overlay */}
+            <Route path="/broadcast/:id" element={<BroadcastOverlay />} />
+
             {/* Scorer Auth & Quick PIN */}
             <Route path="/scorer/login" element={<ScorerAuth />} />
             <Route path="/scorer/:id" element={<ScorerPinEntry />} />

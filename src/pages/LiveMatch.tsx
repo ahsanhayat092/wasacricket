@@ -25,6 +25,7 @@ import {
   getInningsPartnerships,
 } from "@/lib/cricket";
 import { StoryCardModal } from "@/components/StoryCardModal";
+import { BroadcastModal } from "@/components/BroadcastModal";
 import { Button } from "@/components/ui/button";
 import type { Match, Innings, BattingScore, BowlingScore, Team, Player } from "@/lib/firestore";
 import { getSchedule } from "@/lib/queries";
@@ -45,6 +46,7 @@ import {
   Crown,
   PartyPopper,
   MessageCircle,
+  Tv,
 } from "lucide-react";
 
 type LiveData = {
@@ -59,6 +61,7 @@ export default function LiveMatch() {
   const { id } = useParams<{ id: string }>();
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [storyModalOpen, setStoryModalOpen] = useState(false);
+  const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
   const [manualEvent, setManualEvent] = useState<EventData | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -238,6 +241,15 @@ export default function LiveMatch() {
                   >
                     <Camera className="h-3.5 w-3.5" />
                     <span>Story Card</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBroadcastModalOpen(true)}
+                    className="h-7 text-xs font-bold gap-1.5 border-red-500/40 text-red-500 hover:bg-red-500/10 rounded-lg px-2.5"
+                  >
+                    <Tv className="h-3.5 w-3.5" />
+                    <span>OBS Overlay</span>
                   </Button>
                   <Button
                     size="sm"
@@ -823,6 +835,13 @@ export default function LiveMatch() {
         innings={innings}
         teams={teams}
         players={allPlayers ?? []}
+      />
+
+      <BroadcastModal
+        open={broadcastModalOpen}
+        onOpenChange={setBroadcastModalOpen}
+        matchId={id!}
+        matchTitle={`${teamA?.name ?? "Team A"} vs ${teamB?.name ?? "Team B"}`}
       />
     </div>
   );
