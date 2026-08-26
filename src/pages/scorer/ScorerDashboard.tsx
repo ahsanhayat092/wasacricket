@@ -38,6 +38,9 @@ export default function ScorerDashboard() {
     refetchInterval: 5000,
   });
 
+  const { user } = useAuth();
+  const hasPinSession = typeof window !== "undefined" && sessionStorage.getItem("scorer_global_pin_auth") === "true";
+
   const liveMatches = matches?.filter((m) => m.status === "LIVE") ?? [];
   const upcomingMatches = matches?.filter((m) => m.status === "UPCOMING") ?? [];
   const completedMatches = matches?.filter((m) => m.status === "COMPLETED" || m.status === "NO_RESULT" || m.status === "ABANDONED") ?? [];
@@ -51,42 +54,55 @@ export default function ScorerDashboard() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-6">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-2xl bg-amber-500/10 text-amber-500">
+            <span className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-500 font-bold">
               <KeyRound className="h-6 w-6" />
             </span>
             <div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
-                Scorer Console
+                Scorer Match Center
                 <Badge className="bg-amber-500 text-white font-bold text-[10px]">
-                  MATCH SCORER
+                  {hasPinSession ? "PIN UNLOCKED" : "OFFICIAL SCORER"}
                 </Badge>
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Active Tournament: <strong className="text-foreground">{tournament?.name || "WASA Premier League 2026"}</strong>
+                {user?.email && <span className="ml-2">· Signed in as <span className="font-mono text-foreground">{user.email}</span></span>}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Tournament Switcher */}
-        {tournaments && tournaments.length > 1 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-              <Layers className="h-3.5 w-3.5 text-emerald-500" /> Switch Event:
-            </span>
-            <select
-              value={tournamentId}
-              onChange={(e) => setTournamentId(e.target.value)}
-              className="h-9 px-3 text-xs font-bold rounded-xl border border-border bg-card text-foreground cursor-pointer"
+        {/* Tournament Switcher & Actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          {tournaments && tournaments.length > 1 && (
+            <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border">
+              <span className="text-xs font-semibold text-muted-foreground px-2 flex items-center gap-1">
+                <Layers className="h-3.5 w-3.5 text-emerald-500" /> Event:
+              </span>
+              <select
+                value={tournamentId}
+                onChange={(e) => setTournamentId(e.target.value)}
+                className="h-8 px-2.5 text-xs font-bold rounded-lg border-0 bg-card text-foreground cursor-pointer"
+              >
+                {tournaments.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <Link to="/scorer/login">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs font-bold gap-1.5 rounded-xl border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
             >
-              {tournaments.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+              <KeyRound className="h-3.5 w-3.5" /> Enter Different PIN
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Quick Cards */}
