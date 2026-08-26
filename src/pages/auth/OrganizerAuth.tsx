@@ -105,17 +105,7 @@ export default function OrganizerAuth() {
   const handleGoogleAuth = async () => {
     setLoading(true);
     try {
-      let cred: any = null;
-      try {
-        cred = await signInWithPopup(auth, googleProvider);
-      } catch (popErr: any) {
-        if (popErr?.code === "auth/popup-closed-by-user" || popErr?.code === "auth/unauthorized-domain") {
-          throw popErr;
-        }
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      }
-
+      const cred = await signInWithGoogle();
       if (cred?.user?.email) {
         const cleanEmail = cred.user.email.toLowerCase().trim();
         const cleanName = cred.user.displayName || cleanEmail.split("@")[0];
