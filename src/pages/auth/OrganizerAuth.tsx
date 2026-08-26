@@ -71,7 +71,7 @@ export default function OrganizerAuth() {
         navigate("/admin/tournaments");
       }
     } catch (err: any) {
-      toast.error(formatAuthError(err));
+      toast.error(formatAuthError(err), { duration: 6000 });
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ export default function OrganizerAuth() {
     try {
       await signInWithGoogle();
     } catch (err: any) {
-      toast.error(formatAuthError(err));
+      toast.error(formatAuthError(err), { duration: 6000 });
       setLoading(false);
     }
   };
