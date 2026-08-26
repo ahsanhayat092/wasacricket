@@ -128,18 +128,28 @@ export async function updateTournament(tournamentId: string, input: Partial<Tour
 }
 
 export async function deleteTournament(tournamentId: string) {
-  // Delete tournament document and its teams, players, matches
+  // Delete tournament document and its teams, players, matches, standings, and members
   const batch = writeBatch(db);
   batch.delete(tournamentDoc(tournamentId));
 
-  const tTeams = await getDocs(query(teamsCol(), where("tournamentId", "==", tournamentId)));
+  const [tTeams, tMatches, tStandings, tMembers] = await Promise.all([
+    getDocs(query(teamsCol(), where("tournamentId", "==", tournamentId))),
+    getDocs(query(matchesCol(), where("tournamentId", "==", tournamentId))),
+    getDocs(query(standingsCol(), where("tournamentId", "==", tournamentId))),
+    getDocs(query(tournamentMembersCol(), where("tournamentId", "==", tournamentId))),
+  ]);
+
   tTeams.docs.forEach((d) => batch.delete(d.ref));
-
-  const tMatches = await getDocs(query(matchesCol(), where("tournamentId", "==", tournamentId)));
   tMatches.docs.forEach((d) => batch.delete(d.ref));
-
-  const tStandings = await getDocs(query(standingsCol(), where("tournamentId", "==", tournamentId)));
   tStandings.docs.forEach((d) => batch.delete(d.ref));
+  tMembers.docs.forEach((d) => batch.delete(d.ref));
+
+  // Also clean up match innings
+  const matchIds = tMatches.docs.map((d) => d.id);
+  if (matchIds.length > 0) {
+    const tInnings = await getDocs(query(inningsCol(), where("matchId", "in", matchIds.slice(0, 30))));
+    tInnings.docs.forEach((d) => batch.delete(d.ref));
+  }
 
   await batch.commit();
 }

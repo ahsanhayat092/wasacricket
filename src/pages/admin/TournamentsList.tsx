@@ -189,7 +189,7 @@ export default function TournamentsList() {
                     </Button>
                   </div>
 
-                  {t.id !== "main" && (isSuperAdmin || t.ownerId === user?.uid) && (
+                  {(isSuperAdmin || (t.id !== "main" && (t.ownerId === user?.uid || (t.ownerEmail && t.ownerEmail.toLowerCase() === user?.email?.toLowerCase())))) && (
                     <Button
                       size="icon"
                       variant="ghost"
@@ -197,7 +197,7 @@ export default function TournamentsList() {
                       title="Delete Tournament"
                       disabled={deleteMutation.isPending}
                       onClick={() => {
-                        if (confirm(`Are you sure you want to permanently delete tournament "${t.name}"?`)) {
+                        if (confirm(`Are you sure you want to permanently delete tournament "${t.name}"? This action will remove all fixtures, squads, and standings.`)) {
                           deleteMutation.mutate(t.id);
                         }
                       }}
