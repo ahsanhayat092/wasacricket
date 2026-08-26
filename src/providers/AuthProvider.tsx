@@ -52,79 +52,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         // Query users collection & tournament members collection for this email
-        const [userSnap, memberSnap, allUsersSnap] = await Promise.all([
+        const [userSnap, memberSnap] = await Promise.all([
           getDocs(query(usersCol(), where("email", "==", email))),
           getDocs(query(tournamentMembersCol(), where("userEmail", "==", email))),
-          getDocs(usersCol()),
         ]);
 
-        let role: UserRole | null = null;
-        let isTournamentAdmin = isSuperAdmin;
-        let isTournamentScorer = isSuperAdmin;
+        let isTournamentAdmin = true;
+        let isTournamentScorer = true;
 
-        // Check Tournament Memberships
-        if (!memberSnap.empty) {
-          const memberships = memberSnap.docs.map((d) => d.data() as TournamentMember);
-          if (memberships.some((m) => m.role === "OWNER" || m.role === "ADMIN")) {
-            isTournamentAdmin = true;
-          }
-          if (memberships.some((m) => m.role === "SCORER" || m.role === "ADMIN" || m.role === "OWNER")) {
-            isTournamentScorer = true;
-          }
-        }
-
-        if (isSuperAdmin) {
-          role = "admin";
-          isTournamentAdmin = true;
-          isTournamentScorer = true;
-
-          if (userSnap.empty) {
-            await addDoc(usersCol(), {
-              email,
-              name: user.displayName ?? "Platform Owner & Administrator",
-              role: "admin",
-              createdBy: "system",
-              createdAt: now(),
-              updatedAt: now(),
-            });
-          }
-        } else if (!userSnap.empty) {
-          const userData = userSnap.docs[0].data() as UserAccount;
-          role = userData.role;
-        } else if (allUsersSnap.empty) {
-          // First user in system is automatically registered as Admin
-          role = "admin";
+        // Ensure user account is saved in Firestore
+        if (userSnap.empty) {
           await addDoc(usersCol(), {
             email,
-            name: user.displayName ?? "Initial Administrator",
+            name: user.displayName ?? email.split("@")[0],
             role: "admin",
-            createdBy: "system",
+            createdBy: isSuperAdmin ? "system" : "self_signup",
             createdAt: now(),
             updatedAt: now(),
           });
-        } else {
-          role = isTournamentAdmin ? "admin" : isTournamentScorer ? "scorer" : null;
         }
-
-        const isAdmin = isSuperAdmin || role === "admin" || isTournamentAdmin;
-        const isScorer = isSuperAdmin || role === "scorer" || isAdmin || isTournamentScorer;
 
         setState({
           firebaseUser: user,
-          role: isAdmin ? "admin" : isScorer ? "scorer" : null,
-          isAdmin,
-          isScorer,
+          role: "admin",
+          isAdmin: true,
+          isScorer: true,
           isLoading: false,
         });
       } catch (err) {
         console.error("Error resolving user role:", err);
-        // Even if Firestore fails, grant Super Admin to owner
-        const fallbackAdmin = email === "ahsanhayat092@gmail.com";
         setState({
           firebaseUser: user,
-          role: fallbackAdmin ? "admin" : null,
-          isAdmin: fallbackAdmin,
-          isScorer: fallbackAdmin,
+          role: "admin",
+          isAdmin: true,
+          isScorer: true,
           isLoading: false,
         });
       }
