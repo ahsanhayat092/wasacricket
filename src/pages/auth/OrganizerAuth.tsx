@@ -17,7 +17,7 @@ export default function OrganizerAuth() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { signInWithEmail, signUpWithEmail } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,6 +40,19 @@ export default function OrganizerAuth() {
       }
     } catch (err: any) {
       toast.error(err?.message || "Authentication failed. Please check your credentials.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      toast.success("Signed in with Google!");
+      navigate(mode === "signup" ? "/admin/tournaments/new" : "/admin/tournaments");
+    } catch (err: any) {
+      toast.error(err?.message || "Google sign in failed.");
     } finally {
       setLoading(false);
     }
@@ -71,6 +84,7 @@ export default function OrganizerAuth() {
                   placeholder="e.g. Ahsan Hayat (Lahore Sports Club)"
                   className="h-10 text-xs rounded-xl"
                   required
+                  autoFocus
                 />
               </div>
             )}
@@ -84,7 +98,7 @@ export default function OrganizerAuth() {
                 placeholder="organizer@example.com"
                 className="h-10 text-xs rounded-xl"
                 required
-                autoFocus
+                autoFocus={mode !== "signup"}
               />
             </div>
 
@@ -110,6 +124,25 @@ export default function OrganizerAuth() {
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
+
+          <div className="relative my-4 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <span className="relative bg-card px-2 text-[10px] text-muted-foreground uppercase">
+              Or continue with
+            </span>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGoogleAuth}
+            disabled={loading}
+            className="w-full h-10 text-xs font-bold gap-2 rounded-xl"
+          >
+            <span>Continue with Google</span>
+          </Button>
 
           {/* Toggle Mode */}
           <div className="text-center text-xs text-muted-foreground pt-2 border-t space-y-2">

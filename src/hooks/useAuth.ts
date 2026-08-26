@@ -1,8 +1,14 @@
 import { useFirebaseAuth } from "@/providers/AuthProvider";
 import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import {
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signInWithPopup,
+} from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase";
 import { LOGIN_PATH } from "@/const";
 
 type UseAuthOptions = {
@@ -21,6 +27,22 @@ export function useAuth(options?: UseAuthOptions) {
     await signOut(auth);
     navigate(redirectPath);
   }, [navigate, redirectPath]);
+
+  const signInWithEmail = useCallback(async (email: string, pass: string) => {
+    return await signInWithEmailAndPassword(auth, email.trim(), pass);
+  }, []);
+
+  const signUpWithEmail = useCallback(async (email: string, pass: string, displayName?: string) => {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    if (displayName && cred.user) {
+      await updateProfile(cred.user, { displayName: displayName.trim() });
+    }
+    return cred;
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    return await signInWithPopup(auth, googleProvider);
+  }, []);
 
   useEffect(() => {
     if (redirectOnUnauthenticated && !isLoading && !firebaseUser) {
@@ -53,8 +75,22 @@ export function useAuth(options?: UseAuthOptions) {
       isLoading,
       error: null,
       logout,
+      signInWithEmail,
+      signUpWithEmail,
+      signInWithGoogle,
       refresh: () => {},
     }),
-    [user, firebaseUser, isAdmin, isScorer, role, isLoading, logout],
+    [
+      user,
+      firebaseUser,
+      isAdmin,
+      isScorer,
+      role,
+      isLoading,
+      logout,
+      signInWithEmail,
+      signUpWithEmail,
+      signInWithGoogle,
+    ],
   );
 }
