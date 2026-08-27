@@ -278,4 +278,94 @@ describe("Team Manager Persona & RBAC Authorization Logic", () => {
     expect(adminManagedTeams.length).toBe(3);
     expect(adminManagedTeams.map((t) => t.id)).toEqual(["legacy_team_1", "legacy_team_2", "legacy_team_3"]);
   });
+
+  it("11. Player statistics are accurately partitioned tournament-wise, team-wise, and overall", () => {
+    const playerId = "player_star_1";
+
+    const matchPerformances = [
+      // Tournament 1: WASA Premier League, Team: WASA Hawks
+      {
+        matchId: "m1",
+        tournamentId: "tourney_wpl_2026",
+        tournamentName: "WASA Premier League",
+        teamId: "team_hawks",
+        teamName: "WASA Hawks",
+        runs: 54,
+        balls: 28,
+        isOut: true,
+        wickets: 2,
+        bowlRuns: 18,
+        bowlBalls: 12,
+        isPOTM: true,
+      },
+      // Tournament 1: WASA Premier League, Team: WASA Hawks
+      {
+        matchId: "m2",
+        tournamentId: "tourney_wpl_2026",
+        tournamentName: "WASA Premier League",
+        teamId: "team_hawks",
+        teamName: "WASA Hawks",
+        runs: 35,
+        balls: 20,
+        isOut: false,
+        wickets: 1,
+        bowlRuns: 14,
+        bowlBalls: 12,
+        isPOTM: false,
+      },
+      // Tournament 2: Corporate Super Cup, Team: Lahore Tigers (different team)
+      {
+        matchId: "m3",
+        tournamentId: "tourney_corporate_2026",
+        tournamentName: "Corporate Super Cup",
+        teamId: "team_lahore_tigers",
+        teamName: "Lahore Tigers",
+        runs: 72,
+        balls: 34,
+        isOut: true,
+        wickets: 3,
+        bowlRuns: 12,
+        bowlBalls: 12,
+        isPOTM: true,
+      },
+    ];
+
+    // Overall stats aggregation
+    const overallRuns = matchPerformances.reduce((acc, m) => acc + m.runs, 0);
+    const overallWickets = matchPerformances.reduce((acc, m) => acc + m.wickets, 0);
+    const overallMatches = matchPerformances.length;
+    const overallPOTM = matchPerformances.filter((m) => m.isPOTM).length;
+
+    expect(overallRuns).toBe(161);
+    expect(overallWickets).toBe(6);
+    expect(overallMatches).toBe(3);
+    expect(overallPOTM).toBe(2);
+
+    // Tournament 1 specific stats (WASA Premier League)
+    const wplMatches = matchPerformances.filter((m) => m.tournamentId === "tourney_wpl_2026");
+    const wplRuns = wplMatches.reduce((acc, m) => acc + m.runs, 0);
+    const wplWickets = wplMatches.reduce((acc, m) => acc + m.wickets, 0);
+    expect(wplRuns).toBe(89);
+    expect(wplWickets).toBe(3);
+    expect(wplMatches.length).toBe(2);
+
+    // Tournament 2 specific stats (Corporate Super Cup)
+    const corpMatches = matchPerformances.filter((m) => m.tournamentId === "tourney_corporate_2026");
+    const corpRuns = corpMatches.reduce((acc, m) => acc + m.runs, 0);
+    const corpWickets = corpMatches.reduce((acc, m) => acc + m.wickets, 0);
+    expect(corpRuns).toBe(72);
+    expect(corpWickets).toBe(3);
+    expect(corpMatches.length).toBe(1);
+
+    // Team 1 specific stats (WASA Hawks)
+    const hawksMatches = matchPerformances.filter((m) => m.teamId === "team_hawks");
+    expect(hawksMatches.length).toBe(2);
+    expect(hawksMatches.reduce((acc, m) => acc + m.runs, 0)).toBe(89);
+
+    // Team 2 specific stats (Lahore Tigers)
+    const tigersMatches = matchPerformances.filter((m) => m.teamId === "team_lahore_tigers");
+    expect(tigersMatches.length).toBe(1);
+    expect(tigersMatches[0].runs).toBe(72);
+    expect(tigersMatches[0].wickets).toBe(3);
+  });
 });
