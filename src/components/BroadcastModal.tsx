@@ -9,7 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tv,
   Copy,
@@ -20,6 +19,7 @@ import {
   MonitorPlay,
   Settings2,
   Video,
+  Radio,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,29 +43,39 @@ export function BroadcastModal({
   const overlayUrl = `${baseUrl}/broadcast/${matchId}?theme=${selectedTheme}`;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(overlayUrl);
-    setCopied(true);
-    toast.success("📺 OBS Browser Source URL copied to clipboard!");
-    setTimeout(() => setCopied(false), 2500);
+    try {
+      navigator.clipboard.writeText(overlayUrl);
+      setCopied(true);
+      toast.success("📺 OBS Browser Source URL copied to clipboard!");
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      toast.info(`OBS URL: ${overlayUrl}`);
+    }
   };
+
+  const handleOpenPreview = () => {
+    window.open(overlayUrl, "_blank");
+  };
+
+  if (!open) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl bg-card border-border/80 shadow-2xl p-6">
-        <DialogHeader className="space-y-2 pb-2">
+      <DialogContent className="sm:max-w-2xl w-full bg-card border border-border shadow-2xl p-6 z-[100]">
+        <DialogHeader className="space-y-2 pb-2 text-left">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20">
               <Tv className="h-6 w-6" />
             </div>
             <div>
-              <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
-                Live Broadcast Overlay (OBS / YouTube)
+              <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                Live Broadcast Overlay (OBS Studio)
                 <Badge className="bg-red-500 text-white font-bold text-[10px] uppercase tracking-wider">
                   STREAM READY
                 </Badge>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Stream professional TV-style cricket score graphics directly to YouTube, Facebook, and Twitch.
+                Stream real-time TV-style cricket scoreboard graphics directly into OBS Studio, vMix, or Streamlabs.
               </DialogDescription>
             </div>
           </div>
@@ -77,7 +87,7 @@ export function BroadcastModal({
             <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
               <Layers className="h-4 w-4 text-emerald-500" /> Choose Overlay Style
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div
                 onClick={() => setSelectedTheme("tv_classic")}
                 className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
@@ -140,11 +150,11 @@ export function BroadcastModal({
               <span className="text-[11px] text-emerald-500 font-bold">Transparent Canvas (Auto-Syncing)</span>
             </label>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
               <Input
                 readOnly
                 value={overlayUrl}
-                className="font-mono text-xs h-11 bg-muted/50 border-border select-all font-semibold"
+                className="font-mono text-xs h-11 bg-muted/50 border-border select-all font-semibold flex-1 min-w-[200px]"
               />
               <Button
                 onClick={handleCopy}
@@ -155,11 +165,15 @@ export function BroadcastModal({
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 {copied ? "Copied!" : "Copy URL"}
               </Button>
-              <a href={overlayUrl} target="_blank" rel="noreferrer">
-                <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl" title="Open Fullscreen Preview">
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </a>
+              <Button
+                onClick={handleOpenPreview}
+                variant="outline"
+                className="h-11 px-4 text-xs font-bold rounded-xl gap-1.5 shrink-0"
+                title="Open Fullscreen Preview in New Tab"
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span>Open Preview</span>
+              </Button>
             </div>
           </div>
 
@@ -168,7 +182,7 @@ export function BroadcastModal({
             <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground flex items-center gap-1.5">
               <Settings2 className="h-4 w-4 text-amber-500" /> How to Setup in OBS Studio / Streamlabs:
             </h4>
-            <div className="grid grid-cols-3 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="p-2.5 rounded-xl bg-card border space-y-1">
                 <span className="font-bold text-emerald-500">Step 1</span>
                 <p className="text-muted-foreground text-[11px]">

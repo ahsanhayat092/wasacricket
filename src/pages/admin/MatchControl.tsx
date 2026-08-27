@@ -230,6 +230,19 @@ export default function AdminMatchControl() {
     );
   }
 
+  const handleOpenOBS = () => {
+    const currentMatchId = id || match?.id;
+    if (currentMatchId) {
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://wasacricket.vercel.app";
+      const overlayUrl = `${origin}/broadcast/${currentMatchId}?theme=tv_classic`;
+      try {
+        navigator.clipboard.writeText(overlayUrl);
+        toast.success("📺 OBS Browser Source URL copied to clipboard!");
+      } catch {}
+    }
+    setBroadcastModalOpen(true);
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       <EventAnimationOverlay event={match.recentEvent} />
@@ -263,11 +276,16 @@ export default function AdminMatchControl() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setBroadcastModalOpen(true)}
-            className="text-xs gap-1.5 border-red-500/40 text-red-500 hover:bg-red-500/10 font-bold"
+            onClick={handleOpenOBS}
+            className="text-xs gap-1.5 border-red-500/40 text-red-500 hover:bg-red-500/10 font-bold cursor-pointer"
           >
             <Tv className="h-3.5 w-3.5" /> OBS Stream Overlay
           </Button>
+          <a href={`/broadcast/${match.id}`} target="_blank" rel="noreferrer">
+            <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-500 hover:bg-red-500/10 font-semibold hidden sm:inline-flex">
+              <Tv className="h-3.5 w-3.5" /> Launch Overlay ↗
+            </Button>
+          </a>
           <Link to={`/live/${match.id}`} target="_blank">
             <Button variant="outline" size="sm" className="text-xs gap-1.5 border-emerald-500/40 text-emerald-500 font-semibold">
               <Zap className="h-3.5 w-3.5" /> View Live Public Screen
@@ -385,7 +403,7 @@ export default function AdminMatchControl() {
                 inningsNumber={1}
                 workspace={data}
                 readOnly={false}
-                onOpenBroadcast={() => setBroadcastModalOpen(true)}
+                onOpenBroadcast={handleOpenOBS}
                 onSaved={() => {
                   refetch();
                   invalidate();
@@ -405,7 +423,7 @@ export default function AdminMatchControl() {
                 inningsNumber={2}
                 workspace={data}
                 readOnly={false}
-                onOpenBroadcast={() => setBroadcastModalOpen(true)}
+                onOpenBroadcast={handleOpenOBS}
                 onSaved={() => {
                   refetch();
                   invalidate();
@@ -4301,7 +4319,7 @@ function PlayingVIEditor({
       <BroadcastModal
         open={broadcastModalOpen}
         onOpenChange={setBroadcastModalOpen}
-        matchId={id!}
+        matchId={match.id}
         matchTitle={`${teamA?.name ?? "Team A"} vs ${teamB?.name ?? "Team B"}`}
       />
     </div>
