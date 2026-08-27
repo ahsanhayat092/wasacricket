@@ -1400,12 +1400,15 @@ export async function getUserManagedTeams(
     const cleanEmail = userEmail?.toLowerCase().trim();
     const isPlatformAdmin = cleanEmail === "ahsanhayat092@gmail.com";
 
+    // For the platform administrator account, return all existing teams as their managed teams
+    if (isPlatformAdmin) {
+      return allTeams;
+    }
+
     return allTeams.filter((t) => {
       const matchEmail = cleanEmail && t.ownerEmail?.toLowerCase().trim() === cleanEmail;
       const matchUid = userUid && t.ownerId === userUid;
-      // For platform admin, include legacy unassigned teams
-      const isLegacyUnassigned = isPlatformAdmin && !t.ownerEmail && !t.ownerId;
-      return matchEmail || matchUid || isLegacyUnassigned;
+      return matchEmail || matchUid;
     });
   } catch (err) {
     console.error("Error loading user managed teams:", err);

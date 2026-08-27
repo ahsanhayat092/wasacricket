@@ -1137,25 +1137,42 @@ export async function updateTournamentScorerPin(tournamentId: string, scorerPin:
   });
 }
 
-export async function bootstrapLegacyTeamsAdmin(adminEmail = "ahsanhayat092@gmail.com") {
+export async function bootstrapLegacyTeamsAdmin(adminEmail = "ahsanhayat092@gmail.com", userUid?: string) {
   const cleanEmail = adminEmail.toLowerCase().trim();
+
+  // Resolve UID for this administrator
+  let targetUid = userUid;
+  if (!targetUid) {
+    try {
+      const userSnap = await getDocs(query(usersCol(), where("email", "==", cleanEmail)));
+      if (!userSnap.empty) {
+        targetUid = userSnap.docs[0].id;
+      }
+    } catch {}
+  }
+  if (!targetUid) {
+    targetUid = `admin_${cleanEmail.replace(/[^a-z0-9]/gi, "_")}`;
+  }
+
   const allSnap = await getDocs(teamsCol());
-  const unassignedDocs = allSnap.docs.filter((d) => {
+  const teamsToAssign = allSnap.docs.filter((d) => {
     const data = d.data() as Team;
-    return !data.ownerEmail && !data.ownerId;
+    // Target any team not yet explicitly assigned to another user, or already assigned to admin
+    return !data.ownerEmail || !data.ownerId || data.ownerEmail.toLowerCase().trim() === cleanEmail;
   });
 
-  if (unassignedDocs.length === 0) return { count: 0 };
+  if (teamsToAssign.length === 0) return { count: 0 };
 
   const batch = writeBatch(db);
-  for (const docSnap of unassignedDocs) {
+  for (const docSnap of teamsToAssign) {
     batch.update(docSnap.ref, {
       ownerEmail: cleanEmail,
+      ownerId: targetUid,
       updatedAt: now(),
     });
   }
   await batch.commit();
-  return { count: unassignedDocs.length };
+  return { count: teamsToAssign.length };
 }
 
 export async function createManagedTeam(input: {

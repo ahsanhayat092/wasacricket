@@ -28,11 +28,11 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   // Automatically bootstrap legacy teams for platform admin
   useEffect(() => {
     if (user?.email?.toLowerCase().trim() === "ahsanhayat092@gmail.com") {
-      bootstrapLegacyTeamsAdmin("ahsanhayat092@gmail.com").catch((err) => {
+      bootstrapLegacyTeamsAdmin("ahsanhayat092@gmail.com", user.uid).catch((err) => {
         console.warn("Bootstrap legacy teams:", err);
       });
     }
-  }, [user?.email]);
+  }, [user?.email, user?.uid]);
 
   // Fetch teams owned/managed by this user
   const { data: teams = [], isLoading: isLoadingTeams, refetch: refetchTeams } = useQuery({

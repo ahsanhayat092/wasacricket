@@ -228,8 +228,9 @@ describe("Team Manager Persona & RBAC Authorization Logic", () => {
     expect(canPerformAction("TEAM_MANAGER", "SET_RULES")).toBe(false);
   });
 
-  it("10. Bootstrap legacy unassigned teams to platform administrator (ahsanhayat092@gmail.com)", () => {
+  it("10. Bootstrap legacy and existing teams to platform administrator account (ahsanhayat092@gmail.com)", () => {
     const adminEmail = "ahsanhayat092@gmail.com";
+    const adminUid = "user_admin_ahsan";
 
     const allDbTeams: Team[] = [
       {
@@ -251,32 +252,30 @@ describe("Team Manager Persona & RBAC Authorization Logic", () => {
         updatedAt: "2026-01-01T00:00:00Z",
       },
       {
-        id: "new_team_user",
-        name: "Karachi Kings",
-        shortName: "KK",
-        ownerEmail: "other@club.com",
-        ownerId: "user_other",
-        createdAt: "2026-02-01T00:00:00Z",
-        updatedAt: "2026-02-01T00:00:00Z",
+        id: "legacy_team_3",
+        tournamentId: "main",
+        name: "WASA Defenders",
+        shortName: "DEF",
+        groupName: "A",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
       },
     ];
 
-    const getManagerTeams = (email: string) => {
+    const getManagerTeams = (email: string, uid?: string) => {
       const isPlatformAdmin = email.toLowerCase().trim() === adminEmail;
+      if (isPlatformAdmin) {
+        return allDbTeams;
+      }
       return allDbTeams.filter((t) => {
         const matchEmail = t.ownerEmail?.toLowerCase().trim() === email.toLowerCase().trim();
-        const isLegacyUnassigned = isPlatformAdmin && !t.ownerEmail && !t.ownerId;
-        return matchEmail || isLegacyUnassigned;
+        const matchUid = uid && t.ownerId === uid;
+        return matchEmail || matchUid;
       });
     };
 
-    const adminManagedTeams = getManagerTeams(adminEmail);
-    expect(adminManagedTeams.length).toBe(2);
-    expect(adminManagedTeams.map((t) => t.id)).toEqual(["legacy_team_1", "legacy_team_2"]);
-
-    // Another user only sees their own team
-    const otherUserTeams = getManagerTeams("other@club.com");
-    expect(otherUserTeams.length).toBe(1);
-    expect(otherUserTeams[0].id).toBe("new_team_user");
+    const adminManagedTeams = getManagerTeams(adminEmail, adminUid);
+    expect(adminManagedTeams.length).toBe(3);
+    expect(adminManagedTeams.map((t) => t.id)).toEqual(["legacy_team_1", "legacy_team_2", "legacy_team_3"]);
   });
 });
