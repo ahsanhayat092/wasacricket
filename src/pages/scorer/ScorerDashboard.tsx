@@ -40,6 +40,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
+import { BroadcastModal } from "@/components/BroadcastModal";
 import { toast } from "sonner";
 
 export default function ScorerDashboard() {
@@ -47,6 +48,7 @@ export default function ScorerDashboard() {
   const { tournamentId, tournament, setTournamentId } = useTournament();
   const { theme, toggle: toggleTheme } = useTheme();
   const [tab, setTab] = useState<"live" | "upcoming" | "completed">("live");
+  const [broadcastMatch, setBroadcastMatch] = useState<{ id: string; title: string } | null>(null);
 
   const { user, isScorer, isAdmin, isLoading: isAuthLoading, logout } = useAuth();
 
@@ -465,26 +467,47 @@ export default function ScorerDashboard() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t mt-4">
+                    <div className="flex items-center justify-between pt-4 border-t mt-4 gap-2">
                       <span className="text-[10px] text-muted-foreground font-semibold">
                         {m.oversPerSide ?? 4} Overs Match
                       </span>
-                      <Link to={`/admin/matches/${m.id}`}>
+                      <div className="flex items-center gap-2">
                         <Button
+                          type="button"
                           size="sm"
-                          className={`text-xs font-bold gap-1.5 h-9 px-4 rounded-xl shadow-sm ${
-                            isLive
-                              ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                              : isUpcoming
-                              ? "bg-amber-500 hover:bg-amber-600 text-white"
-                              : ""
-                          }`}
-                          variant={isLive || isUpcoming ? "default" : "outline"}
+                          variant="outline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setBroadcastMatch({
+                              id: m.id,
+                              title: `${m.teamA?.name ?? "Team A"} vs ${m.teamB?.name ?? "Team B"}`,
+                            });
+                          }}
+                          className="text-xs font-bold gap-1 h-9 px-3 rounded-xl border-red-500/40 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                          title="Open OBS broadcast stream overlay settings & URL"
                         >
-                          {isLive ? "Open Live Scoring" : isUpcoming ? "Start Match & Toss" : "Review Scorecard"}
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <Tv className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">OBS</span>
                         </Button>
-                      </Link>
+
+                        <Link to={`/admin/matches/${m.id}`}>
+                          <Button
+                            size="sm"
+                            className={`text-xs font-bold gap-1.5 h-9 px-4 rounded-xl shadow-sm ${
+                              isLive
+                                ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                                : isUpcoming
+                                ? "bg-amber-500 hover:bg-amber-600 text-white"
+                                : ""
+                            }`}
+                            variant={isLive || isUpcoming ? "default" : "outline"}
+                          >
+                            {isLive ? "Open Live Scoring" : isUpcoming ? "Start Match & Toss" : "Review Scorecard"}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </Card>
                 );
@@ -501,6 +524,15 @@ export default function ScorerDashboard() {
           )}
         </div>
       </main>
+
+      {broadcastMatch && (
+        <BroadcastModal
+          open={!!broadcastMatch}
+          onOpenChange={(open) => !open && setBroadcastMatch(null)}
+          matchId={broadcastMatch.id}
+          matchTitle={broadcastMatch.title}
+        />
+      )}
     </div>
   );
 }

@@ -385,6 +385,7 @@ export default function AdminMatchControl() {
                 inningsNumber={1}
                 workspace={data}
                 readOnly={false}
+                onOpenBroadcast={() => setBroadcastModalOpen(true)}
                 onSaved={() => {
                   refetch();
                   invalidate();
@@ -404,6 +405,7 @@ export default function AdminMatchControl() {
                 inningsNumber={2}
                 workspace={data}
                 readOnly={false}
+                onOpenBroadcast={() => setBroadcastModalOpen(true)}
                 onSaved={() => {
                   refetch();
                   invalidate();
@@ -1444,6 +1446,7 @@ function InningsLiveConsole({
   onSaved,
   onInningsCompleted,
   onAutoFinalizeMatch,
+  onOpenBroadcast,
 }: {
   matchId: string;
   inningsNumber: 1 | 2;
@@ -1452,6 +1455,7 @@ function InningsLiveConsole({
   onSaved: () => void;
   onInningsCompleted?: () => void;
   onAutoFinalizeMatch?: () => void;
+  onOpenBroadcast?: () => void;
 }) {
   const { innings, players, teams, match } = workspace;
   const existing = innings.find((i) => i.inningsNumber === inningsNumber);
@@ -2719,21 +2723,36 @@ function InningsLiveConsole({
               </div>
             </div>
 
-            {/* Over Wheel & Player Replacement Button */}
+            {/* Over Wheel & Actions */}
             <div className="flex flex-col items-start sm:items-end gap-2.5 w-full sm:w-auto">
-              {!readOnly && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCorrectionModalOpen(true)}
-                  className="h-8 text-xs font-bold border-sky-500/40 text-sky-400 hover:bg-sky-500/10 gap-1.5 shadow-sm"
-                  title="Replace player wrongly selected at toss, add new player to squad, or correct scorecard entries"
-                >
-                  <UserCheck className="h-3.5 w-3.5 text-sky-400" />
-                  <span>Replace Player / Squad Edit</span>
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {onOpenBroadcast && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onOpenBroadcast}
+                    className="h-8 text-xs font-bold border-red-500/40 text-red-500 hover:bg-red-500/10 gap-1.5 shadow-sm cursor-pointer"
+                    title="Open OBS broadcast stream overlay settings & browser source URL"
+                  >
+                    <Tv className="h-3.5 w-3.5" />
+                    <span>OBS Overlay</span>
+                  </Button>
+                )}
+                {!readOnly && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCorrectionModalOpen(true)}
+                    className="h-8 text-xs font-bold border-sky-500/40 text-sky-400 hover:bg-sky-500/10 gap-1.5 shadow-sm cursor-pointer"
+                    title="Replace player wrongly selected at toss, add new player to squad, or correct scorecard entries"
+                  >
+                    <UserCheck className="h-3.5 w-3.5 text-sky-400" />
+                    <span>Replace Player / Squad Edit</span>
+                  </Button>
+                )}
+              </div>
               <div className="flex flex-col items-start sm:items-end gap-1 w-full sm:w-auto">
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                   Recent Deliveries
