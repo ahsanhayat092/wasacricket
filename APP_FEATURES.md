@@ -227,6 +227,8 @@ The platform uses a **Tournament-Scoped Role-Based Access Control (RBAC)** archi
 | **Export PDFs, Story Cards & Certificates** | ✅ | ✅ | ✅ | ✅ |
 | **Input Ball-by-Ball Live Scoring Console** | ✅ | ✅ | ✅ | ❌ |
 | **Record Toss, Set Starting Lineup & PotM** | ✅ | ✅ | ✅ | ❌ |
+| **Broadcast OBS Live Stream Overlay (TV/Ticker/Box)** | ✅ | ✅ | ✅ | ✅ |
+| **Manage Team Requests & Invitations** | ✅ | ✅ | ❌ | ❌ |
 | **Undo / Redo Delivery Errors** | ✅ | ✅ | ✅ | ❌ |
 | **Create & Edit Teams, Players, Rosters** | ✅ | ✅ | ❌ | ❌ |
 | **Generate & Reschedule Match Fixtures** | ✅ | ✅ | ❌ | ❌ |
@@ -240,7 +242,9 @@ The platform uses a **Tournament-Scoped Role-Based Access Control (RBAC)** archi
 ## 🛠️ 10. Technology Stack & Performance
 
 - **Frontend**: React 19, TypeScript, Vite, TailwindCSS, Radix UI, Lucide Icons, Recharts.
-- **Backend & Database**: Firebase Firestore with sub-second real-time snapshot listeners.
-- **QR Engine**: `qrcode` canvas rendering.
-- **Automated Testing**: `vitest` unit test suite (47 tests passing).
+- **Backend & Database**: Firebase Firestore with sub-100ms real-time snapshot listeners.
+- **Broadcast Graphics**: Transparent OBS Browser Source Overlays (`/broadcast/:id`) with 3 stream styles (TV Lower-Third, 60px Bottom Ticker, Compact Scorebox).
+- **QR Engine**: `qrcode` canvas rendering with high-resolution printable matchday posters.
+- **Automated Testing**: `vitest` unit test suite (60 tests passing across team management, fixture generation, scoring engine, image utilities, and hydration).
+
 
