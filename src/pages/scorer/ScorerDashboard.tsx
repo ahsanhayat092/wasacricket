@@ -63,9 +63,19 @@ export default function ScorerDashboard() {
     return scorerTourneys || [];
   }, [isAdmin, tournaments, scorerTourneys]);
 
+  // Compute effective tournament ID immediately so query never waits on state sync
+  const effectiveTournamentId = useMemo(() => {
+    if (isAdmin) return tournamentId;
+    if (allowedTournaments.length > 0) {
+      const match = allowedTournaments.find((t) => t.id === tournamentId);
+      return match ? match.id : allowedTournaments[0].id;
+    }
+    return tournamentId;
+  }, [isAdmin, tournamentId, allowedTournaments]);
+
   const hasPinSession = pinUnlockedTourneys.length > 0;
   const isAuthorizedForActive = Boolean(
-    isAdmin || (tournamentId && allowedTournaments.some((t) => t.id === tournamentId))
+    isAdmin || (effectiveTournamentId && allowedTournaments.some((t) => t.id === effectiveTournamentId))
   );
 
   // Strict route authorization guard: require active PIN session or logged in Scorer/Admin
@@ -75,8 +85,8 @@ export default function ScorerDashboard() {
         navigate("/scorer/login", { replace: true });
         return;
       }
-      if (!isAdmin && allowedTournaments.length > 0 && !isAuthorizedForActive) {
-        setTournamentId(allowedTournaments[0].id);
+      if (!isAdmin && allowedTournaments.length > 0 && tournamentId !== effectiveTournamentId) {
+        setTournamentId(effectiveTournamentId);
       }
     }
   }, [
@@ -86,16 +96,17 @@ export default function ScorerDashboard() {
     hasPinSession,
     user,
     allowedTournaments,
-    isAuthorizedForActive,
+    tournamentId,
+    effectiveTournamentId,
     navigate,
     setTournamentId,
   ]);
 
   const { data: matches, isLoading } = useQuery({
-    queryKey: ["schedule", tournamentId],
-    queryFn: () => getSchedule(tournamentId),
+    queryKey: ["schedule", effectiveTournamentId],
+    queryFn: () => getSchedule(effectiveTournamentId),
     refetchInterval: 5000,
-    enabled: isAuthorizedForActive,
+    enabled: Boolean(effectiveTournamentId),
   });
 
   if (isAuthLoading) {

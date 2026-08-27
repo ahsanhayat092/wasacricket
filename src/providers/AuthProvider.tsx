@@ -91,17 +91,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         // Query tournaments collection & tournament members collection for this user
-        const [ownedUidSnap, ownedEmailSnap, memberSnap, userSnap] = await Promise.all([
+        const [ownedUidSnap, ownedEmailSnap, allMembersSnap, userSnap] = await Promise.all([
           getDocs(query(tournamentsCol(), where("ownerId", "==", user.uid))),
           getDocs(query(tournamentsCol(), where("ownerEmail", "==", email))),
-          getDocs(query(tournamentMembersCol(), where("userEmail", "==", email))),
+          getDocs(tournamentMembersCol()),
           getDocs(query(usersCol(), where("email", "==", email))),
         ]);
 
         const isOwner = isSuperAdmin || !ownedUidSnap.empty || !ownedEmailSnap.empty;
-        const memberRoles = memberSnap.docs.map((d) => ((d.data() as any).role || "").toUpperCase());
+
+        const userMembers = allMembersSnap.docs.filter((d) => {
+          const data = d.data() as any;
+          const matchEmail = email && data.userEmail && data.userEmail.toLowerCase().trim() === email;
+          const matchUid = user.uid && data.userId && data.userId === user.uid;
+          return matchEmail || matchUid;
+        });
+
+        const memberRoles = userMembers.map((d) => ((d.data() as any).role || "").toUpperCase());
         const isTournamentAdmin = isOwner || memberRoles.includes("OWNER") || memberRoles.includes("ADMIN");
-        const isTournamentScorer = isTournamentAdmin || memberRoles.includes("SCORER");
+        const isTournamentScorer = isTournamentAdmin || memberRoles.includes("SCORER") || memberRoles.length > 0;
 
         // Also check if user has active PIN-unlocked session in sessionStorage
         let hasPinSession = false;
