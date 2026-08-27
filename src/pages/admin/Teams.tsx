@@ -537,23 +537,45 @@ export default function AdminTeams() {
           {sentInvitations.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {sentInvitations.map((inv) => (
-                <Card key={inv.id} className="border-border/70 p-4 space-y-3 bg-card">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-sky-500 border-sky-500/30 text-[10px] font-bold">
-                      INVITATION PENDING
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">
-                      Group {inv.groupName || "A"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <TeamBadge shortName={inv.teamShortName || "TM"} logoUrl={inv.teamLogoUrl} size="sm" />
-                    <div>
-                      <h4 className="font-bold text-xs">{inv.teamName || "Cricket Club"}</h4>
-                      <p className="text-[10px] text-muted-foreground font-mono">
-                        Sent: {new Date(inv.createdAt).toLocaleDateString()}
-                      </p>
+                <Card key={inv.id} className="border-border/70 p-4 space-y-3 bg-card flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="text-sky-500 border-sky-500/30 text-[10px] font-bold">
+                        INVITATION PENDING
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        Group {inv.groupName || "A"}
+                      </span>
                     </div>
+                    <div className="flex items-center gap-3 pt-2">
+                      <TeamBadge shortName={inv.teamShortName || "TM"} logoUrl={inv.teamLogoUrl} size="sm" />
+                      <div>
+                        <h4 className="font-bold text-xs">{inv.teamName || "Cricket Club"}</h4>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          Sent: {new Date(inv.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t flex items-center justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const tourneyName = tournament?.name || "Cricket Tournament";
+                        const inviteUrl = `${window.location.origin}/team/requests`;
+                        const text = encodeURIComponent(
+                          `🏏 *Tournament Invitation!*\n\n` +
+                          `Your cricket team *${inv.teamName}* has been invited to join *${tourneyName}*!\n\n` +
+                          `👉 Log in to the Team Manager Portal to accept:\n${inviteUrl}`
+                        );
+                        window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+                      }}
+                      className="text-[11px] font-bold h-7 px-2.5 rounded-lg border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/10"
+                    >
+                      Share via WhatsApp
+                    </Button>
                   </div>
                 </Card>
               ))}
