@@ -1,10 +1,19 @@
-import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useTournament } from "@/context/TournamentContext";
 import { usePlayerModal } from "@/context/PlayerModalContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import {
   Moon,
   Sun,
@@ -13,16 +22,18 @@ import {
   Shield,
   KeyRound,
   LogIn,
+  LogOut,
   Search,
   Activity,
   Layers,
   Sparkles,
-  Info,
   Calendar,
   ListOrdered,
   BookOpen,
   Users,
   Share2,
+  LayoutDashboard,
+  User,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -30,17 +41,18 @@ import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 
 export function PublicLayout() {
   const { theme, toggle } = useTheme();
-  const { user, isAdmin, isScorer } = useAuth();
+  const { user, isAdmin, isScorer, logout } = useAuth();
   const { openPlayerSearch } = usePlayerModal();
-  const { tournament, activeTournamentSlug, isFlagshipWasa } = useTournament();
+  const { tournament, activeTournamentSlug } = useTournament();
   const [open, setOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isTournamentSubpage = !!activeTournamentSlug;
   const basePrefix = activeTournamentSlug ? `/t/${activeTournamentSlug}` : "";
 
-  // 1. Global Public Top Navigation
+  // 1. Clean Global Public Top Navigation
   const GLOBAL_NAV = [
     { to: "/", label: "Home" },
     { to: "/live-scores", label: "Live Scores", badge: "LIVE" },
@@ -78,13 +90,16 @@ export function PublicLayout() {
   const tournamentTitle = tournament?.name || "WASA Premier League";
   const venueTitle = tournament?.venueName || "Askari XI, Lahore";
 
+  // Contextual destination for Create Tournament CTA
+  const createTournamentPath = isAdmin ? "/admin/tournaments/new" : "/organizer/signup";
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* 1. Global Header */}
       <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between gap-4">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 font-bold text-lg">
+          {/* Brand Logo */}
+          <Link to="/" className="flex items-center gap-2.5 font-bold text-lg shrink-0">
             <span className="h-9 w-9 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-md">
               <Trophy className="h-5 w-5 text-amber-300" />
             </span>
@@ -98,7 +113,7 @@ export function PublicLayout() {
             </div>
           </Link>
 
-          {/* Desktop Global Navigation */}
+          {/* Desktop Public Navigation (Center) */}
           <nav className="hidden md:flex items-center gap-1 ml-4 flex-1">
             {GLOBAL_NAV.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.to === "/"} className={globalNavLinkCls}>
@@ -112,86 +127,121 @@ export function PublicLayout() {
             ))}
           </nav>
 
-          {/* Header Action Buttons */}
+          {/* Header Actions (Right) */}
           <div className="flex items-center gap-2">
             {/* Player Search Trigger */}
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={openPlayerSearch}
-              className="gap-1.5 text-xs font-semibold rounded-xl bg-muted/20 hover:bg-muted border-border/60 h-9"
+              className="gap-1.5 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground h-9"
               title="Search Players"
             >
-              <Search className="h-3.5 w-3.5 text-emerald-500" />
+              <Search className="h-4 w-4 text-emerald-500" />
               <span className="hidden sm:inline">Search</span>
             </Button>
 
-            {/* Manage Team CTA */}
-            <Link to="/team">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs font-bold rounded-xl border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 h-9"
-              >
-                <Users className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Manage Team</span>
-              </Button>
-            </Link>
+            {/* Auth / Workspace Context Area */}
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl hover:bg-accent transition-colors focus:outline-none border border-border/60">
+                    <Avatar className="h-7 w-7 border shrink-0">
+                      <AvatarImage src={user.avatar || undefined} />
+                      <AvatarFallback className="text-[11px] font-bold bg-emerald-500/10 text-emerald-500">
+                        {user.name?.charAt(0).toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs font-bold max-w-[100px] truncate hidden sm:inline">
+                      {user.name || user.email?.split("@")[0]}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-1.5">
+                  <div className="px-2 py-1.5 space-y-0.5">
+                    <p className="text-xs font-bold truncate leading-none">
+                      {user.name || "User"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {user.email}
+                    </p>
+                  </div>
+                  <DropdownMenuSeparator />
 
-            {/* Scorer Access CTA */}
-            <Link to="/scorer/login">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs font-bold rounded-xl border-amber-500/40 text-amber-500 hover:bg-amber-500/10 h-9"
-              >
-                <KeyRound className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Scorer Login</span>
-              </Button>
-            </Link>
+                  {isAdmin && (
+                    <DropdownMenuItem
+                      onClick={() => navigate("/admin")}
+                      className="cursor-pointer text-xs font-semibold gap-2 py-2"
+                    >
+                      <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Organizer Workspace</span>
+                    </DropdownMenuItem>
+                  )}
 
-            {/* Organizer Login / Admin Workspace CTA */}
-            {user || isAdmin ? (
-              <Link to="/admin">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="gap-1.5 text-xs font-bold rounded-xl bg-primary/10 text-primary hover:bg-primary/20 h-9 border border-primary/20 shadow-sm"
-                >
-                  <Shield className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Organizer Workspace</span>
-                </Button>
-              </Link>
+                  <DropdownMenuItem
+                    onClick={() => navigate("/team")}
+                    className="cursor-pointer text-xs font-semibold gap-2 py-2"
+                  >
+                    <Users className="h-3.5 w-3.5 text-sky-500" />
+                    <span>Team Manager Portal</span>
+                  </DropdownMenuItem>
+
+                  {isScorer && (
+                    <DropdownMenuItem
+                      onClick={() => navigate("/scorer/dashboard")}
+                      className="cursor-pointer text-xs font-semibold gap-2 py-2"
+                    >
+                      <KeyRound className="h-3.5 w-3.5 text-amber-500" />
+                      <span>Scorer Dashboard</span>
+                    </DropdownMenuItem>
+                  )}
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={logout}
+                    className="cursor-pointer text-destructive focus:text-destructive text-xs font-semibold gap-2 py-2"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Sign out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
-              <Link to="/organizer/login">
+              <Link to="/login">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="gap-1.5 text-xs font-bold rounded-xl border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 h-9"
+                  className="gap-1.5 text-xs font-bold rounded-xl text-muted-foreground hover:text-foreground h-9"
                 >
                   <LogIn className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Organizer Login</span>
+                  <span>Sign In</span>
                 </Button>
               </Link>
             )}
 
-            {/* Create Tournament CTA */}
-            <Link to={isAdmin ? "/admin/tournaments/new" : "/organizer/signup"}>
+            {/* Create Tournament CTA (Primary Action) */}
+            <Link to={createTournamentPath}>
               <Button
                 size="sm"
                 className="gap-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm h-9"
               >
-                <Trophy className="h-3.5 w-3.5" />
-                <span className="hidden md:inline">Create Tournament</span>
+                <Trophy className="h-3.5 w-3.5 text-amber-300" />
+                <span className="hidden sm:inline">Create Tournament</span>
               </Button>
             </Link>
 
             {/* Theme Toggle */}
-            <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme" className="h-9 w-9 rounded-xl">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggle}
+              aria-label="Toggle theme"
+              className="h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground"
+            >
               {theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
             </Button>
 
-            {/* Mobile Sheet Menu */}
+            {/* Mobile Menu Hamburger */}
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden h-9 w-9" aria-label="Menu">
@@ -219,41 +269,55 @@ export function PublicLayout() {
                   ))}
 
                   <div className="pt-4 border-t space-y-2">
-                    {user || isAdmin ? (
-                      <Link to="/admin" onClick={() => setOpen(false)} className="block">
-                        <Button size="sm" className="w-full bg-emerald-600 text-white font-bold text-xs gap-1.5">
-                          <Shield className="h-3.5 w-3.5" />
-                          Organizer Workspace
+                    {user ? (
+                      <div className="space-y-2">
+                        <div className="px-2 py-1.5 rounded-xl bg-muted/40 text-xs">
+                          <p className="font-bold text-foreground truncate">{user.name || "User"}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                        </div>
+                        {isAdmin && (
+                          <Link to="/admin" onClick={() => setOpen(false)} className="block">
+                            <Button size="sm" className="w-full bg-emerald-600 text-white font-bold text-xs gap-1.5">
+                              <Shield className="h-3.5 w-3.5" />
+                              Organizer Workspace
+                            </Button>
+                          </Link>
+                        )}
+                        <Link to="/team" onClick={() => setOpen(false)} className="block">
+                          <Button variant="outline" size="sm" className="w-full text-xs font-bold gap-1.5">
+                            <Users className="h-3.5 w-3.5 text-sky-500" />
+                            Team Manager Portal
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setOpen(false);
+                            logout();
+                          }}
+                          className="w-full text-xs font-bold text-destructive justify-start gap-1.5"
+                        >
+                          <LogOut className="h-3.5 w-3.5" />
+                          Sign Out
                         </Button>
-                      </Link>
+                      </div>
                     ) : (
                       <>
-                        <Link to="/organizer/login" onClick={() => setOpen(false)} className="block">
-                          <Button variant="outline" size="sm" className="w-full border-emerald-500/40 text-emerald-600 font-bold text-xs gap-1.5">
+                        <Link to="/login" onClick={() => setOpen(false)} className="block">
+                          <Button variant="outline" size="sm" className="w-full text-xs font-bold gap-1.5">
                             <LogIn className="h-3.5 w-3.5" />
-                            Organizer Login
+                            Sign In
                           </Button>
                         </Link>
                         <Link to="/organizer/signup" onClick={() => setOpen(false)} className="block">
                           <Button size="sm" className="w-full bg-emerald-600 text-white font-bold text-xs gap-1.5">
-                            <Trophy className="h-3.5 w-3.5" />
+                            <Trophy className="h-3.5 w-3.5 text-amber-300" />
                             Create Tournament
                           </Button>
                         </Link>
                       </>
                     )}
-                    <Link to="/team" onClick={() => setOpen(false)} className="block">
-                      <Button variant="outline" size="sm" className="w-full text-emerald-600 border-emerald-500/40 text-xs font-bold gap-1.5">
-                        <Users className="h-3.5 w-3.5" />
-                        Manage Team
-                      </Button>
-                    </Link>
-                    <Link to="/scorer/login" onClick={() => setOpen(false)} className="block">
-                      <Button variant="outline" size="sm" className="w-full text-amber-500 border-amber-500/40 text-xs font-bold gap-1.5">
-                        <KeyRound className="h-3.5 w-3.5" />
-                        Scorer Access
-                      </Button>
-                    </Link>
                   </div>
                 </div>
               </SheetContent>
@@ -361,7 +425,7 @@ export function PublicLayout() {
             </div>
 
             <div className="space-y-2 text-xs">
-              <h4 className="font-bold text-foreground">For Organizers</h4>
+              <h4 className="font-bold text-foreground">For Organizers & Scorers</h4>
               <ul className="space-y-1.5 text-muted-foreground">
                 <li><Link to="/organizer/signup" className="hover:text-emerald-500">Create Tournament</Link></li>
                 <li><Link to="/scorer/login" className="hover:text-emerald-500">Scorer Portal</Link></li>
