@@ -91,7 +91,7 @@ export function PublicLayout() {
   const venueTitle = tournament?.venueName || "Askari XI, Lahore";
 
   // Contextual destination for Create Tournament CTA
-  const createTournamentPath = isAdmin ? "/admin/tournaments/new" : "/organizer/signup";
+  const createTournamentPath = user ? "/admin/tournaments/new" : "/organizer/signup";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

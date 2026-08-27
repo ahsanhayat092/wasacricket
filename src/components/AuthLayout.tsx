@@ -89,11 +89,13 @@ export default function AuthLayout({
   }, []);
 
   const hasPinSession = pinUnlockedTourneys.length > 0;
+  const isCreatingTournament = location.pathname === "/admin/tournaments/new";
 
   // Redirect scorer away from admin-only pages to scorer dashboard or matches
   useEffect(() => {
     if (!isLoading && (user || hasPinSession) && isScorer && !isAdmin) {
       const isAllowed =
+        isCreatingTournament ||
         location.pathname === "/scorer/dashboard" ||
         location.pathname === "/admin/matches" ||
         location.pathname.startsWith("/admin/matches/");
@@ -101,7 +103,7 @@ export default function AuthLayout({
         navigate("/scorer/dashboard", { replace: true });
       }
     }
-  }, [isLoading, user, hasPinSession, isScorer, isAdmin, location.pathname, navigate]);
+  }, [isLoading, user, hasPinSession, isScorer, isAdmin, isCreatingTournament, location.pathname, navigate]);
 
   if (isLoading) {
     return <AuthLayoutSkeleton />;
@@ -148,8 +150,8 @@ export default function AuthLayout({
     );
   }
 
-  // If user is logged in but has neither admin nor scorer role (and no PIN session)
-  if (user && !isAdmin && !isScorer && !hasPinSession) {
+  // If user is logged in but has neither admin nor scorer role (and no PIN session), allow tournament creation
+  if (user && !isAdmin && !isScorer && !hasPinSession && !isCreatingTournament) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-6 p-8 max-w-md w-full text-center border rounded-2xl bg-card shadow-sm">

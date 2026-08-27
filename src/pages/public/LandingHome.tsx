@@ -26,8 +26,12 @@ import {
   Clock,
 } from "lucide-react";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LandingHome() {
+  const { user } = useAuth();
+  const createTourneyHref = user ? "/admin/tournaments/new" : "/organizer/signup";
+
   const { data: tournaments, isLoading: isTournamentsLoading } = useQuery({
     queryKey: ["tournaments"],
     queryFn: getTournaments,
@@ -78,7 +82,7 @@ export default function LandingHome() {
               </Button>
             </Link>
 
-            <Link to="/organizer/signup">
+            <Link to={createTourneyHref}>
               <Button size="lg" variant="outline" className="h-12 px-5 font-semibold text-sm gap-2 rounded-xl">
                 <Trophy className="h-4 w-4 text-amber-500" /> Create Tournament
               </Button>
@@ -349,7 +353,7 @@ export default function LandingHome() {
               </div>
             </div>
             <div className="pt-2">
-              <Link to="/organizer/signup">
+              <Link to={createTourneyHref}>
                 <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">
                   Create Tournament
                 </Button>
