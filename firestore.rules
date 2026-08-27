@@ -75,15 +75,6 @@ service cloud.firestore {
       );
     }
 
-    // Check if user is a member of the tournament
-    function isTournamentMember(tourneyId) {
-      return isSignedIn() && (
-        isSuperAdmin() ||
-        isTournamentOwner(tourneyId) ||
-        exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid))
-      );
-    }
-
     // -------------------------------------------------------------------------
     // Team Authorization Helpers
     // -------------------------------------------------------------------------
@@ -140,12 +131,6 @@ service cloud.firestore {
         );
 
       allow delete: if isSignedIn() && isTournamentOwner(tournamentId);
-
-      // Explicit Subcollections under tournament: restricted to Tournament Admins
-      match /{subcollection=**} {
-        allow read: if true;
-        allow write: if isTournamentAdmin(tournamentId);
-      }
     }
 
     // =========================================================================
@@ -223,20 +208,20 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if true;
 
-      // Match creation and deletion strictly restricted to Tournament Admins
+      // Match creation and deletion strictly restricted to Tournament Admins (no null bypass!)
       allow create: if isSignedIn() && (
-        request.resource.data.tournamentId == null ||
+        request.resource.data.tournamentId != null &&
         isTournamentAdmin(request.resource.data.tournamentId)
       );
 
       allow delete: if isSignedIn() && (
-        resource.data.tournamentId == null ||
+        resource.data.tournamentId != null &&
         isTournamentAdmin(resource.data.tournamentId)
       );
 
       // Match updates allowed for Tournament Admins (fixtures, config) and Scorers (toss, lineups, POTM, events)
       allow update: if isSignedIn() && (
-        resource.data.tournamentId == null ||
+        resource.data.tournamentId != null &&
         canScoreMatch(resource.data.tournamentId)
       );
 
@@ -244,7 +229,7 @@ service cloud.firestore {
       match /{subcollection=**} {
         allow read: if true;
         allow write: if isSignedIn() && (
-          resource.data.tournamentId == null ||
+          resource.data.tournamentId != null &&
           canScoreMatch(resource.data.tournamentId)
         );
       }
@@ -328,13 +313,22 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // 8. TOURNAMENT MEMBERS (PRIVACY & ROLE ESCALATION PROTECTED)
+    // 8. TOURNAMENT MEMBERS (CIRCULAR DEPENDENCY FIXED & ESCALATION PROTECTED)
     // =========================================================================
     match /tournamentMembers/{memberId} {
-      // Private: Only tournament members, admins, owners, or Super Admin can read
+      // Circular dependency fix: check direct user identity or parent tournament ownership directly
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        (resource.data.tournamentId != null && isTournamentMember(resource.data.tournamentId))
+        resource.data.userId == request.auth.uid ||
+        resource.data.userEmail == request.auth.token.email ||
+        (
+          resource.data.tournamentId != null &&
+          exists(/databases/$(database)/documents/tournaments/$(resource.data.tournamentId)) &&
+          (
+            get(/databases/$(database)/documents/tournaments/$(resource.data.tournamentId)).data.ownerId == request.auth.uid ||
+            get(/databases/$(database)/documents/tournaments/$(resource.data.tournamentId)).data.ownerEmail == request.auth.token.email
+          )
+        )
       );
 
       // Only Tournament OWNER or Super Admin can create/update/delete members
@@ -406,10 +400,14 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // 11. SYSTEM ADMINISTRATORS (STRICTLY ISOLATED)
+    // 11. SYSTEM ADMINISTRATORS (CIRCULAR DEPENDENCY FIXED)
     // =========================================================================
     match /system_admins/{adminId} {
-      allow read: if isSuperAdmin();
+      allow read: if isSignedIn() && (
+        request.auth.uid == adminId ||
+        request.auth.token.email == 'ahsanhayat092@gmail.com' ||
+        request.auth.uid == 'org_ahsanhayat092_gmail_com'
+      );
       allow write: if isSuperAdmin();
     }
   }

@@ -102,11 +102,17 @@ class SecurityRulesEvaluator {
     if (collection === "tournamentMembers") {
       const doc = this.getDoc(path);
       if (!auth?.uid || !doc) return false;
-      return this.isSuperAdmin(auth) || this.isTournamentOwner(doc.tournamentId, auth) || this.isTournamentAdmin(doc.tournamentId, auth);
+      return Boolean(
+        this.isSuperAdmin(auth) ||
+        doc.userId === auth.uid ||
+        doc.userEmail === auth.token?.email ||
+        (doc.tournamentId && this.isTournamentOwner(doc.tournamentId, auth))
+      );
     }
 
     if (collection === "system_admins") {
-      return this.isSuperAdmin(auth);
+      const targetAdminId = segments[1];
+      return Boolean(auth?.uid && (auth.uid === targetAdminId || this.isSuperAdmin(auth)));
     }
 
     return false;
