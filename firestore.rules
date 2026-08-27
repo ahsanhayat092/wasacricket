@@ -3,65 +3,122 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper to verify authenticated admin user
-    function isAuth() {
+    // -------------------------------------------------------------------------
+    // Helper Functions & Cost Guards
+    // -------------------------------------------------------------------------
+
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    // Public read access for all tournament data; authenticated admin/scorer write only
-    match /tournaments/{tournamentId} {
-      allow read: if true;
-      allow write: if isAuth();
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'ahsanhayat092@gmail.com' ||
+        request.auth.uid == 'org_ahsanhayat092_gmail_com'
+      );
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    // -------------------------------------------------------------------------
+    // 1. Tournaments Collection
+    // -------------------------------------------------------------------------
+    match /tournaments/{tournamentId} {
+      // Public view for live tournaments, schedules, and standings
+      allow read: if true;
+
+      // Creation allowed for any authenticated user (Organizers)
+      allow create: if isSignedIn();
+
+      // Updates and deletes allowed for the tournament owner, assigned admins, or super admin
+      allow update, delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.ownerEmail == request.auth.token.email ||
+        !('ownerId' in resource.data)
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Teams & Rosters Collection
+    // -------------------------------------------------------------------------
     match /teams/{teamId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.ownerEmail == request.auth.token.email ||
+        !('ownerId' in resource.data)
+      );
     }
 
+    // -------------------------------------------------------------------------
+    // 3. Players Collection
+    // -------------------------------------------------------------------------
     match /players/{playerId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isSignedIn();
     }
 
+    // -------------------------------------------------------------------------
+    // 4. Matches, Innings & Live Scoring Console
+    // -------------------------------------------------------------------------
     match /matches/{matchId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isSignedIn();
     }
 
     match /innings/{inningsId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isSignedIn();
     }
 
     match /battingScores/{scoreId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isSignedIn();
     }
 
     match /bowlingScores/{scoreId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isSignedIn();
     }
 
+    // -------------------------------------------------------------------------
+    // 5. Standings, Rules & Points Table
+    // -------------------------------------------------------------------------
     match /standings/{standingId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isSignedIn();
     }
 
+    // -------------------------------------------------------------------------
+    // 6. Tournament Members & Multi-Tenant Access Roles
+    // -------------------------------------------------------------------------
     match /tournamentMembers/{memberId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isSignedIn();
     }
 
     match /tournamentTeamMemberships/{membershipId} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isSignedIn();
     }
 
+    // -------------------------------------------------------------------------
+    // 7. Users & Account Profiles
+    // -------------------------------------------------------------------------
     match /users/{userId} {
-      allow read: if true;
-      allow write: if isAuth();
+      // Authenticated users can read their own profile or public profile data
+      allow read: if isSignedIn();
+      // Write allowed only for the user themselves or Super Admin
+      allow write: if isUser(userId) || isSuperAdmin();
     }
   }
 }
