@@ -1842,6 +1842,9 @@ function InningsLiveConsole({
       bowlerName?: string;
       dismissal?: string;
     } | null,
+    customStrikerId?: string | null,
+    customNonStrikerId?: string | null,
+    customBowlerId?: string | null,
   ) => {
     const battingPayload = newBat
       .filter((r) => r.batted)
@@ -1901,6 +1904,10 @@ function InningsLiveConsole({
       players,
     );
 
+    const activeStriker = customStrikerId !== undefined ? customStrikerId : (strikerId || null);
+    const activeNonStriker = customNonStrikerId !== undefined ? customNonStrikerId : (nonStrikerId || null);
+    const activeBowler = customBowlerId !== undefined ? customBowlerId : (currentBowlerId || null);
+
     return save.mutateAsync({
       matchId,
       inningsNumber,
@@ -1912,9 +1919,9 @@ function InningsLiveConsole({
       batting: battingPayload,
       bowling: bowlingPayload,
       completed: isCompleted,
-      strikerId: strikerId || null,
-      nonStrikerId: nonStrikerId || null,
-      currentBowlerId: currentBowlerId || null,
+      strikerId: activeStriker,
+      nonStrikerId: activeNonStriker,
+      currentBowlerId: activeBowler,
       recentBalls: customRecentBalls ?? recentBalls,
       fallOfWickets: dynamicFow,
       partnerships: dynamicPartnerships,
@@ -2070,9 +2077,11 @@ function InningsLiveConsole({
 
   // Swap Strike
   const handleSwapStrike = () => {
-    const temp = strikerId;
-    setStrikerId(nonStrikerId);
-    setNonStrikerId(temp);
+    const newStriker = nonStrikerId;
+    const newNonStriker = strikerId;
+    setStrikerId(newStriker);
+    setNonStrikerId(newNonStriker);
+    triggerSave(batRows, bowlRows, extras, closed, recentBalls, null, newStriker, newNonStriker, currentBowlerId);
     toast.info("Strike swapped");
   };
 
@@ -2251,7 +2260,7 @@ function InningsLiveConsole({
 
     const isFinished = checkInningsAndMatchCompletion(newBat, finalBowl, extras, newTotalBalls);
     if (!isFinished) {
-      triggerSave(newBat, finalBowl, extras, false, newRecentBalls, celebrationEvent);
+      triggerSave(newBat, finalBowl, extras, false, newRecentBalls, celebrationEvent, nextStriker, nextNonStriker, currentBowlerId);
       if (isOverEnd) {
         const finishedBowler = currentBowlerId;
         setLastOverBowlerId(finishedBowler);
@@ -2370,7 +2379,9 @@ function InningsLiveConsole({
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, newTotalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls);
+      const activeStrikerAfterExtra = (type === "BYE" || type === "LEG_BYE") && isOverEnd ? nonStrikerId : strikerId;
+      const activeNonStrikerAfterExtra = (type === "BYE" || type === "LEG_BYE") && isOverEnd ? strikerId : nonStrikerId;
+      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls, null, activeStrikerAfterExtra, activeNonStrikerAfterExtra, currentBowlerId);
       if (isOverEnd) {
         const finishedBowler = currentBowlerId;
         setLastOverBowlerId(finishedBowler);
@@ -2503,7 +2514,9 @@ function InningsLiveConsole({
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, totalLegalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls, celebrationEvent);
+      const activeStrikerAfterNb = batsmanRuns % 2 === 1 ? nonStrikerId : strikerId;
+      const activeNonStrikerAfterNb = batsmanRuns % 2 === 1 ? strikerId : nonStrikerId;
+      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls, celebrationEvent, activeStrikerAfterNb, activeNonStrikerAfterNb, currentBowlerId);
     }
   };
 
@@ -2692,7 +2705,7 @@ function InningsLiveConsole({
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, newTotalBalls);
     if (!isFinished) {
-      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls, celebrationEvent);
+      triggerSave(newBat, newBowl, newExtras, false, newRecentBalls, celebrationEvent, nextStriker, nextNonStriker, currentBowlerId);
       toast.success(`Wicket recorded: ${formattedDismissal}!`);
       if (isOverEnd) {
         const finishedBowler = currentBowlerId;

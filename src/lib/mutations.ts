@@ -737,13 +737,27 @@ export async function saveInnings(input: {
     inn.bowlingTeamId ||
     (inferredBattingTeamId === match.teamAId ? match.teamBId : match.teamAId);
 
-  // Update innings extras + completed flag + recent deliveries + FOW & partnerships
+  const totalBatRuns = clampedBatting.reduce((s, b) => s + (Number(b.runs) || 0), 0);
+  const totalExtras =
+    (Number(input.wides) || 0) +
+    (Number(input.noBalls) || 0) +
+    (Number(input.byes) || 0) +
+    (Number(input.legByes) || 0) +
+    (Number(input.penaltyRuns) || 0);
+  const totalRuns = totalBatRuns + totalExtras;
+  const totalWickets = clampedBatting.filter((b) => b.isOut).length;
+  const totalBalls = clampedBowling.reduce((s, b) => s + (Number(b.balls) || 0), 0);
+
+  // Update innings extras + completed flag + recent deliveries + FOW & partnerships + total runs/wickets/balls
   await updateDoc(inningsDoc(inn.id), {
     ...(!inn.battingTeamId && inferredBattingTeamId ? { battingTeamId: inferredBattingTeamId } : {}),
     ...(!inn.bowlingTeamId && inferredBowlingTeamId ? { bowlingTeamId: inferredBowlingTeamId } : {}),
     ...(input.strikerId !== undefined ? { strikerId: input.strikerId } : {}),
     ...(input.nonStrikerId !== undefined ? { nonStrikerId: input.nonStrikerId } : {}),
     ...(input.currentBowlerId !== undefined ? { currentBowlerId: input.currentBowlerId } : {}),
+    runs: totalRuns,
+    wickets: totalWickets,
+    balls: totalBalls,
     wides: input.wides,
     noBalls: input.noBalls,
     byes: input.byes,
