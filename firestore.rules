@@ -3,9 +3,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // -------------------------------------------------------------------------
-    // Helper Functions & Cost Guards
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Helper Functions & Security Guards
+    // =========================================================================
 
     function isSignedIn() {
       return request.auth != null;
@@ -18,66 +18,158 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'ahsanhayat092@gmail.com' ||
-        request.auth.uid == 'org_ahsanhayat092_gmail_com'
+        request.auth.uid == 'org_ahsanhayat092_gmail_com' ||
+        exists(/databases/$(database)/documents/system_admins/$(request.auth.uid))
       );
     }
 
-    function isValidString(val, minLen, maxLen) {
-      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    // Helper: Check if user is owner of a tournament
+    function isTournamentOwner(tourneyId) {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          exists(/databases/$(database)/documents/tournaments/$(tourneyId)) &&
+          (
+            get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.ownerId == request.auth.uid ||
+            get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.ownerEmail == request.auth.token.email
+          )
+        )
+      );
     }
 
-    // -------------------------------------------------------------------------
+    // Helper: Check if user is OWNER or ADMIN (roster & schedule managers)
+    function isTournamentAdmin(tourneyId) {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        isTournamentOwner(tourneyId) ||
+        (
+          exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)) &&
+          (
+            get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)).data.role == 'OWNER' ||
+            get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)).data.role == 'ADMIN'
+          )
+        )
+      );
+    }
+
+    // Helper: Check if user is authorized for tournament (OWNER, ADMIN, or SCORER)
+    function isTournamentAuthorized(tourneyId) {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        isTournamentAdmin(tourneyId) ||
+        exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid))
+      );
+    }
+
+    // Data Validation helpers
+    function isValidNonEmptyString(val, maxLen) {
+      return val is string && val.size() > 0 && val.size() <= maxLen;
+    }
+
+    function isValidPositiveNumber(val, max) {
+      return val is number && val >= 0 && val <= max;
+    }
+
+    // =========================================================================
     // 1. Tournaments Collection
-    // -------------------------------------------------------------------------
+    // =========================================================================
     match /tournaments/{tournamentId} {
-      // Public view for live tournaments, schedules, and standings
       allow read: if true;
 
-      // Creation allowed for any authenticated user (Organizers)
-      allow create: if isSignedIn();
+      // Creation requires authenticated user and required name & ownerId
+      allow create: if isSignedIn() &&
+        isValidNonEmptyString(request.resource.data.name, 120) &&
+        (request.resource.data.ownerId == request.auth.uid || isSuperAdmin());
 
-      // Updates and deletes allowed for the tournament owner, assigned admins, or super admin
-      allow update, delete: if isSignedIn() && (
+      // Update / Delete strictly requires owner or super admin
+      allow update: if isSignedIn() && (
         isSuperAdmin() ||
         resource.data.ownerId == request.auth.uid ||
-        resource.data.ownerEmail == request.auth.token.email ||
-        !('ownerId' in resource.data)
+        resource.data.ownerEmail == request.auth.token.email
       );
+
+      allow delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.ownerEmail == request.auth.token.email
+      );
+
+      // Subcollections under tournament
+      match /{subcollection=**} {
+        allow read: if true;
+        allow write: if isTournamentAuthorized(tournamentId);
+      }
     }
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // 2. Teams & Rosters Collection
-    // -------------------------------------------------------------------------
+    // =========================================================================
     match /teams/{teamId} {
       allow read: if true;
-      allow create: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        isValidNonEmptyString(request.resource.data.name, 100);
+
       allow update, delete: if isSignedIn() && (
         isSuperAdmin() ||
         resource.data.ownerId == request.auth.uid ||
         resource.data.ownerEmail == request.auth.token.email ||
-        !('ownerId' in resource.data)
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId))
       );
     }
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // 3. Players Collection
-    // -------------------------------------------------------------------------
+    // =========================================================================
     match /players/{playerId} {
       allow read: if true;
-      allow write: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        isValidNonEmptyString(request.resource.data.name, 100);
+
+      allow update, delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
+        (resource.data.teamId != null && exists(/databases/$(database)/documents/teams/$(resource.data.teamId)) && get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.ownerId == request.auth.uid) ||
+        request.resource.data.tournamentId != null
+      );
     }
 
-    // -------------------------------------------------------------------------
-    // 4. Matches, Innings & Live Scoring Console
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 4. Matches, Innings & Live Scoring Scores
+    // =========================================================================
     match /matches/{matchId} {
       allow read: if true;
-      allow write: if isSignedIn();
+
+      allow create: if isSignedIn() && (
+        request.resource.data.tournamentId == null ||
+        isTournamentAdmin(request.resource.data.tournamentId)
+      );
+
+      allow update: if isSignedIn() && (
+        resource.data.tournamentId == null ||
+        isTournamentAuthorized(resource.data.tournamentId)
+      );
+
+      allow delete: if isSignedIn() && (
+        resource.data.tournamentId == null ||
+        isTournamentAdmin(resource.data.tournamentId)
+      );
+
+      match /{subcollection=**} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
     }
 
     match /innings/{inningsId} {
       allow read: if true;
       allow write: if isSignedIn();
+
+      match /{subcollection=**} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
     }
 
     match /battingScores/{scoreId} {
@@ -90,35 +182,57 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // 5. Standings, Rules & Points Table
-    // -------------------------------------------------------------------------
+    // =========================================================================
     match /standings/{standingId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn() && (
+        request.resource.data.tournamentId == null ||
+        isTournamentAuthorized(request.resource.data.tournamentId)
+      );
     }
 
-    // -------------------------------------------------------------------------
-    // 6. Tournament Members & Multi-Tenant Access Roles
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 6. Tournament Members & Role Escalation Protection
+    // =========================================================================
     match /tournamentMembers/{memberId} {
       allow read: if true;
-      allow write: if isSignedIn();
+
+      // Role Escalation Guard: Only the tournament OWNER or Super Admin can assign/modify roles
+      allow create, update, delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        (request.resource.data.tournamentId != null && isTournamentOwner(request.resource.data.tournamentId)) ||
+        (resource.data.tournamentId != null && isTournamentOwner(resource.data.tournamentId))
+      );
     }
 
     match /tournamentTeamMemberships/{membershipId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        (resource.data.tournamentId != null && isTournamentAuthorized(resource.data.tournamentId)) ||
+        resource.data.requestedBy == request.auth.uid ||
+        resource.data.requestedBy == request.auth.token.email
+      );
     }
 
-    // -------------------------------------------------------------------------
-    // 7. Users & Account Profiles
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 7. Users & Account Profiles (Privacy Isolated)
+    // =========================================================================
     match /users/{userId} {
-      // Authenticated users can read their own profile or public profile data
-      allow read: if isSignedIn();
-      // Write allowed only for the user themselves or Super Admin
+      // Prevent mass data-harvesting of user profiles: only self or super admin
+      allow read: if isUser(userId) || isSuperAdmin();
       allow write: if isUser(userId) || isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 8. System Administrators
+    // =========================================================================
+    match /system_admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
   }
 }
