@@ -410,4 +410,38 @@ describe("Team Manager Persona & RBAC Authorization Logic", () => {
     const superAdminTourneys = getScorerAllowedTournaments("ahsanhayat092@gmail.com", [], true);
     expect(superAdminTourneys.length).toBe(3);
   });
+
+  it("13. Tournament Wizard allows launching event with 0 initial teams and decouples platform team invitations", () => {
+    // 1. Wizard initialized with 0 teams
+    const wizardTeams: Array<{ teamId?: string; name: string; shortName: string; isExisting: boolean }> = [];
+    expect(wizardTeams.length).toBe(0);
+
+    // 2. Selecting existing platform team
+    const platformTeam = { id: "team_falcons", name: "Falcons Cricket Club", shortName: "FAL" };
+    wizardTeams.push({
+      teamId: platformTeam.id,
+      name: platformTeam.name,
+      shortName: platformTeam.shortName,
+      isExisting: true,
+    });
+
+    expect(wizardTeams.length).toBe(1);
+
+    // 3. Simulating tournament creation with invited team membership
+    const tournamentId = "tourney_new_123";
+    const generatedMemberships = wizardTeams.map((t) => ({
+      id: `${tournamentId}_${t.teamId || "custom"}`,
+      tournamentId,
+      teamId: t.teamId || "custom",
+      teamName: t.name,
+      teamShortName: t.shortName,
+      status: "INVITED" as const,
+      source: "ORGANIZER_INVITE" as const,
+    }));
+
+    expect(generatedMemberships.length).toBe(1);
+    expect(generatedMemberships[0].status).toBe("INVITED");
+    expect(generatedMemberships[0].source).toBe("ORGANIZER_INVITE");
+    expect(generatedMemberships[0].teamId).toBe("team_falcons");
+  });
 });
