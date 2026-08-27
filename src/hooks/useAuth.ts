@@ -18,20 +18,21 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = LOGIN_PATH } =
+  const { redirectOnUnauthenticated = false, redirectPath = "/" } =
     options ?? {};
 
   const navigate = useNavigate();
   const { firebaseUser, role, isAdmin, isScorer, isLoading } = useFirebaseAuth();
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (customRedirect = "/") => {
     try {
       localStorage.removeItem("wasa_organizer_session");
       sessionStorage.removeItem("scorer_global_pin_auth");
+      sessionStorage.removeItem("scorer_auth_tournaments");
       await signOut(auth);
     } catch {}
-    navigate(redirectPath);
-  }, [navigate, redirectPath]);
+    navigate(customRedirect || "/");
+  }, [navigate]);
 
   const signInWithEmail = useCallback(async (email: string, pass: string) => {
     try {
