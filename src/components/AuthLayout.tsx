@@ -236,10 +236,10 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
 
   const allowedTournaments = isAdmin ? userAdminTournaments : userScorerTournaments;
   const isLoadingTourneys = isAdmin ? isLoadingAdminTourneys : isLoadingScorerTourneys;
-
+  const isCreatingNewTournament = location.pathname === "/admin/tournaments/new";
   const isGlobalPath =
-    isAdmin &&
-    (location.pathname === "/admin/tournaments" || location.pathname === "/admin/tournaments/new");
+    isCreatingNewTournament ||
+    (isAdmin && location.pathname === "/admin/tournaments");
 
   const isAuthorizedForCurrentTournament =
     isSuperAdmin ||
@@ -382,7 +382,9 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <SidebarTrigger className="h-8 w-8" />
             <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              {activeMenuItem?.label ?? (isAdmin ? "Admin Workspace" : "Scorer Workspace")}
+              {isCreatingNewTournament
+                ? "🏆 Launch Tournament Wizard"
+                : (activeMenuItem?.label ?? (isAdmin ? "Admin Workspace" : "Scorer Workspace"))}
             </h2>
           </div>
           <div className="flex items-center gap-2">
