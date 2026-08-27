@@ -192,7 +192,9 @@ class SecurityRulesEvaluator {
     if (collection === "players") {
       const isMgr = existing.teamId && this.isTeamManager(existing.teamId, auth);
       const isTourneyAdmin = existing.tournamentId && this.isTournamentAdmin(existing.tournamentId, auth);
-      return Boolean(isMgr || isTourneyAdmin);
+      const isNewMgr = newData.teamId && this.isTeamManager(newData.teamId, auth);
+      const isNewTourneyAdmin = newData.tournamentId && this.isTournamentAdmin(newData.tournamentId, auth);
+      return Boolean(isMgr || isTourneyAdmin || isNewMgr || isNewTourneyAdmin);
     }
 
     if (collection === "matches") {
@@ -334,6 +336,26 @@ describe("Firestore Security Rules Matrix & Privilege Hardening", () => {
           teamManagerA
         )
       ).toBe(false);
+    });
+
+    it("ALLOWS a player to participate for multiple teams & tournaments without global ownership lock", () => {
+      // Team Manager B adds the player to their team roster in a different tournament
+      expect(
+        evalRules.canCreate(
+          "players/player_babar_falcons",
+          { name: "Babar Azam", teamId: "team_falcons", tournamentId: "lahore_cup" },
+          teamManagerB
+        )
+      ).toBe(true);
+
+      // Team Manager B can update the roster entry for their team
+      expect(
+        evalRules.canUpdate(
+          "players/player_babar",
+          { name: "Babar Azam", teamId: "team_falcons" },
+          teamManagerB
+        )
+      ).toBe(true);
     });
   });
 

@@ -185,12 +185,12 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // 4. PLAYERS COLLECTION
+    // 4. PLAYERS COLLECTION (Multi-Team & Multi-Tournament Enabled)
     // =========================================================================
     match /players/{playerId} {
       allow read: if true;
 
-      // Creation restricted to team manager (for own team) or tournament admin (for own tournament)
+      // Creation: Team Managers can add players to their roster, Tournament Admins to tournament squads
       allow create: if isSignedIn() &&
         isValidNonEmptyString(request.resource.data.name, 100) &&
         (
@@ -199,8 +199,18 @@ service cloud.firestore {
           (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId))
         );
 
-      // Updates and deletes strictly validated against existing document relationships (NO bypass!)
-      allow update, delete: if isSignedIn() && (
+      // Updates: Authorized for the Team Manager of the roster entry, or Tournament Admin of the tournament,
+      // or a Team Manager adding/updating participation for their team without blocking multi-team play
+      allow update: if isSignedIn() && (
+        isSuperAdmin() ||
+        (resource.data.teamId != null && isTeamManager(resource.data.teamId)) ||
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
+        (request.resource.data.teamId != null && isTeamManager(request.resource.data.teamId)) ||
+        (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId))
+      );
+
+      // Deletes: Only the specific team's manager or tournament admin can delete that specific roster entry
+      allow delete: if isSignedIn() && (
         isSuperAdmin() ||
         (resource.data.teamId != null && isTeamManager(resource.data.teamId)) ||
         (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId))
