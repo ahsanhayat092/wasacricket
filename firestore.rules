@@ -164,7 +164,23 @@ service cloud.firestore {
 
     match /innings/{inningsId} {
       allow read: if true;
-      allow write: if isSignedIn();
+
+      allow create: if isSignedIn() && (
+        (request.resource.data.tournamentId != null && isTournamentAuthorized(request.resource.data.tournamentId)) ||
+        (request.resource.data.matchId != null && exists(/databases/$(database)/documents/matches/$(request.resource.data.matchId)) && isTournamentAuthorized(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId)) ||
+        isSuperAdmin()
+      );
+
+      allow update: if isSignedIn() && (
+        (resource.data.tournamentId != null && isTournamentAuthorized(resource.data.tournamentId)) ||
+        (request.resource.data.tournamentId != null && isTournamentAuthorized(request.resource.data.tournamentId)) ||
+        isSuperAdmin()
+      );
+
+      allow delete: if isSignedIn() && (
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
+        isSuperAdmin()
+      );
 
       match /{subcollection=**} {
         allow read: if true;
@@ -174,12 +190,30 @@ service cloud.firestore {
 
     match /battingScores/{scoreId} {
       allow read: if true;
-      allow write: if isSignedIn();
+
+      allow create, update: if isSignedIn() && (
+        (request.resource.data.tournamentId != null && isTournamentAuthorized(request.resource.data.tournamentId)) ||
+        isSuperAdmin()
+      );
+
+      allow delete: if isSignedIn() && (
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
+        isSuperAdmin()
+      );
     }
 
     match /bowlingScores/{scoreId} {
       allow read: if true;
-      allow write: if isSignedIn();
+
+      allow create, update: if isSignedIn() && (
+        (request.resource.data.tournamentId != null && isTournamentAuthorized(request.resource.data.tournamentId)) ||
+        isSuperAdmin()
+      );
+
+      allow delete: if isSignedIn() && (
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
+        isSuperAdmin()
+      );
     }
 
     // =========================================================================

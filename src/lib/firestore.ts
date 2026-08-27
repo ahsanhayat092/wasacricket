@@ -196,6 +196,7 @@ export type Partnership = {
 
 export type Innings = {
   id: string;
+  tournamentId?: string;
   matchId: string;
   inningsNumber: 1 | 2;
   battingTeamId: string;
@@ -222,6 +223,7 @@ export type Innings = {
 
 export type BattingScore = {
   id: string;
+  tournamentId?: string;
   inningsId: string;
   playerId: string;
   battingOrder: number;
@@ -235,6 +237,7 @@ export type BattingScore = {
 
 export type BowlingScore = {
   id: string;
+  tournamentId?: string;
   inningsId: string;
   playerId: string;
   balls: number;

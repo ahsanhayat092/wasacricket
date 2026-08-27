@@ -573,6 +573,7 @@ export async function startMatch(input: {
   });
 
   await addDoc(inningsCol(), {
+    tournamentId: match.tournamentId || TOURNAMENT_ID,
     matchId: input.matchId,
     inningsNumber: 1 as const,
     battingTeamId: battingFirstId!,
@@ -674,6 +675,7 @@ export async function saveInnings(input: {
     }
 
     const ref = await addDoc(inningsCol(), {
+      tournamentId: match.tournamentId || TOURNAMENT_ID,
       matchId: input.matchId,
       inningsNumber: input.inningsNumber,
       battingTeamId, bowlingTeamId,
@@ -685,7 +687,7 @@ export async function saveInnings(input: {
       partnerships: input.partnerships ?? [],
       createdAt: now(), updatedAt: now(),
     });
-    inn = { id: ref.id, matchId: input.matchId, inningsNumber: input.inningsNumber, battingTeamId, bowlingTeamId, runs: 0, wickets: 0, balls: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0, allOut: false, completed: false, recentBalls: input.recentBalls ?? [], fallOfWickets: input.fallOfWickets ?? [], partnerships: input.partnerships ?? [], createdAt: now(), updatedAt: now() };
+    inn = { id: ref.id, tournamentId: match.tournamentId || TOURNAMENT_ID, matchId: input.matchId, inningsNumber: input.inningsNumber, battingTeamId, bowlingTeamId, runs: 0, wickets: 0, balls: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0, allOut: false, completed: false, recentBalls: input.recentBalls ?? [], fallOfWickets: input.fallOfWickets ?? [], partnerships: input.partnerships ?? [], createdAt: now(), updatedAt: now() };
   }
 
   // Dynamic Match Configuration from match document
@@ -750,6 +752,7 @@ export async function saveInnings(input: {
 
   // Update innings extras + completed flag + recent deliveries + FOW & partnerships + total runs/wickets/balls
   await updateDoc(inningsDoc(inn.id), {
+    tournamentId: match.tournamentId || TOURNAMENT_ID,
     ...(!inn.battingTeamId && inferredBattingTeamId ? { battingTeamId: inferredBattingTeamId } : {}),
     ...(!inn.bowlingTeamId && inferredBowlingTeamId ? { bowlingTeamId: inferredBowlingTeamId } : {}),
     ...(input.strikerId !== undefined ? { strikerId: input.strikerId } : {}),
@@ -789,6 +792,7 @@ export async function saveInnings(input: {
   for (const b of clampedBatting) {
     const ref = doc(battingScoresCol());
     batch.set(ref, {
+      tournamentId: match.tournamentId || TOURNAMENT_ID,
       inningsId: inn.id,
       playerId: b.playerId,
       battingOrder: b.battingOrder,
@@ -804,6 +808,7 @@ export async function saveInnings(input: {
   for (const b of clampedBowling) {
     const ref = doc(bowlingScoresCol());
     batch.set(ref, {
+      tournamentId: match.tournamentId || TOURNAMENT_ID,
       inningsId: inn.id,
       playerId: b.playerId,
       balls: b.balls,
