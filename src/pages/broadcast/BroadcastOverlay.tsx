@@ -35,11 +35,13 @@ export default function BroadcastOverlay() {
   // Determine current active innings
   const currentInnings = useMemo(() => {
     if (!innings || innings.length === 0) return null;
-    // If inn2 has started or is completed, show inn2, else inn1
-    if (innings.length > 1 && (innings[1].runs > 0 || (innings[1].balls && innings[1].balls > 0) || match?.status === "COMPLETED")) {
-      return innings[1];
+    const inn1 = innings.find((i: any) => i.inningsNumber === 1);
+    const inn2 = innings.find((i: any) => i.inningsNumber === 2);
+
+    if (inn2 && (inn2.runs > 0 || inn2.balls > 0 || inn1?.completed || match?.status === "COMPLETED")) {
+      return inn2;
     }
-    return innings[0];
+    return inn1 || innings[0];
   }, [innings, match?.status]);
 
   const isInnings2 = currentInnings?.inningsNumber === 2;
@@ -47,11 +49,11 @@ export default function BroadcastOverlay() {
     ? (currentInnings?.battingTeamId === teamA?.id ? teamA : teamB)
     : (currentInnings?.battingTeamId === teamB?.id ? teamB : teamA);
 
-  const maxOvers = match?.oversPerSide ?? 10;
+  const maxOvers = Number(match?.oversPerSide) || (match?.stage === "FINAL" ? 5 : 4);
   const maxBalls = maxOvers * 6;
-  const totalRuns = currentInnings?.runs ?? 0;
-  const totalWickets = currentInnings?.wickets ?? 0;
-  const totalBalls = currentInnings?.balls ?? 0;
+  const totalRuns = Number(currentInnings?.runs) || 0;
+  const totalWickets = Number(currentInnings?.wickets) || 0;
+  const totalBalls = Number(currentInnings?.balls) || 0;
   const oversFormatted = ballsToOversText(totalBalls);
 
   const crr = useMemo(() => {
@@ -59,7 +61,8 @@ export default function BroadcastOverlay() {
   }, [totalRuns, totalBalls]);
 
   // Target and RRR calculation for Innings 2
-  const target = match?.targetRuns ?? (innings[0] ? (innings[0].runs ?? 0) + 1 : 0);
+  const inn1 = innings.find((i: any) => i.inningsNumber === 1);
+  const target = match?.targetRuns ?? (inn1 ? (Number(inn1.runs) || 0) + 1 : 0);
   const runsNeeded = Math.max(0, target - totalRuns);
   const ballsRemaining = Math.max(0, maxBalls - totalBalls);
   const rrr = useMemo(() => {
@@ -69,12 +72,25 @@ export default function BroadcastOverlay() {
 
   // Active Batters
   const battingScores = (currentInnings?.batting ?? []) as BattingScore[];
-  const activeBatters = useMemo(() => {
-    return battingScores.filter((b) => !b.isOut).slice(0, 2);
-  }, [battingScores]);
+  const strikerId = currentInnings?.strikerId;
+  const nonStrikerId = currentInnings?.nonStrikerId;
+  const currentBowlerId = currentInnings?.currentBowlerId;
 
-  const striker = activeBatters[0];
-  const nonStriker = activeBatters[1];
+  const striker = useMemo(() => {
+    if (strikerId) {
+      const found = battingScores.find((b) => b.playerId === strikerId);
+      if (found) return found;
+    }
+    return battingScores.filter((b) => !b.isOut)[0];
+  }, [battingScores, strikerId]);
+
+  const nonStriker = useMemo(() => {
+    if (nonStrikerId) {
+      const found = battingScores.find((b) => b.playerId === nonStrikerId);
+      if (found) return found;
+    }
+    return battingScores.filter((b) => !b.isOut && b.playerId !== striker?.playerId)[0];
+  }, [battingScores, nonStrikerId, striker]);
 
   const getPlayerName = (pId?: string) => {
     if (!pId) return "Batter";
@@ -85,9 +101,13 @@ export default function BroadcastOverlay() {
   // Active Bowler
   const bowlingScores = (currentInnings?.bowling ?? []) as BowlingScore[];
   const currentBowler = useMemo(() => {
+    if (currentBowlerId) {
+      const found = bowlingScores.find((b) => b.playerId === currentBowlerId);
+      if (found) return found;
+    }
     if (bowlingScores.length === 0) return null;
     return bowlingScores[bowlingScores.length - 1];
-  }, [bowlingScores]);
+  }, [bowlingScores, currentBowlerId]);
 
   // Recent Balls in current over
   const recentBallsList = useMemo(() => {

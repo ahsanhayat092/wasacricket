@@ -1634,11 +1634,11 @@ function InningsLiveConsole({
     return null;
   });
 
-  // Calculated Totals & Match Configuration (strictly 4 overs for league, 5 for final, max 5 wickets)
+  // Calculated Totals & Match Configuration (dynamic based on match.oversPerSide)
   const isFinal = match.stage === "FINAL";
-  const maxMatchOvers = isFinal ? 5 : 4;
-  const maxLegalBallsInnings = maxMatchOvers * 6; // strictly 24 balls for League, 30 for Final
-  const maxWickets = 6; // 6 players per team: Last Man Standing allowed (6 dismissals = ALL OUT)
+  const maxMatchOvers = Number(match.oversPerSide) || (isFinal ? 5 : 4);
+  const maxLegalBallsInnings = maxMatchOvers * 6;
+  const maxWickets = Number(match.playersPerTeam) || 6;
   const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
 
   const totalBatterRuns = useMemo(

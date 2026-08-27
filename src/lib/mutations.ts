@@ -688,30 +688,29 @@ export async function saveInnings(input: {
     inn = { id: ref.id, matchId: input.matchId, inningsNumber: input.inningsNumber, battingTeamId, bowlingTeamId, runs: 0, wickets: 0, balls: 0, wides: 0, noBalls: 0, byes: 0, legByes: 0, penaltyRuns: 0, allOut: false, completed: false, recentBalls: input.recentBalls ?? [], fallOfWickets: input.fallOfWickets ?? [], partnerships: input.partnerships ?? [], createdAt: now(), updatedAt: now() };
   }
 
-  // Strict Tournament Rules Guardrails
-  const maxOvers = match.stage === "FINAL" ? 5 : 4;
-  const maxBalls = maxOvers * 6; // 24 balls for League, 30 for Final
-  const maxWickets = 6; // 6 players per team: Last Man Standing allowed (6 dismissals = all out)
+  // Dynamic Match Configuration from match document
+  const maxOvers = Number(match.oversPerSide) || (match.stage === "FINAL" ? 5 : 4);
+  const maxBalls = maxOvers * 6;
+  const maxWickets = Number(match.playersPerTeam) || 11;
 
-  // Clamp batting to max 6 players and max 6 dismissals
+  // Process batting records
   let outCount = 0;
-  const clampedBatting = input.batting.slice(0, 6).map((b) => {
+  const clampedBatting = input.batting.map((b) => {
     let isOut = b.isOut;
     if (isOut) {
       if (outCount < maxWickets) {
         outCount += 1;
       } else {
-        isOut = false; // Cap at strictly 6 dismissals
+        isOut = false;
       }
     }
     return { ...b, isOut };
   });
 
-  // Clamp total bowling legal balls to max quota (only saving active bowlers who delivered balls/extras/runs/wickets)
+  // Process bowling records (saving active bowlers who delivered balls/extras/runs/wickets)
   let accumulatedBalls = 0;
   const clampedBowling = input.bowling
     .filter((b) => b.balls > 0 || b.wides > 0 || b.noBalls > 0 || b.runs > 0 || b.wickets > 0)
-    .slice(0, 6)
     .map((b) => {
       let balls = Math.max(0, b.balls);
       if (accumulatedBalls + balls > maxBalls) {
