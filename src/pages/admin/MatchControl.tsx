@@ -463,6 +463,13 @@ export default function AdminMatchControl() {
           />
         </TabsContent>
       </Tabs>
+
+      <BroadcastModal
+        open={broadcastModalOpen}
+        onOpenChange={setBroadcastModalOpen}
+        matchId={match.id}
+        matchTitle={`${teamA?.name ?? "Team A"} vs ${teamB?.name ?? "Team B"}`}
+      />
     </div>
   );
 }
@@ -4315,13 +4322,6 @@ function PlayingVIEditor({
           </CardContent>
         </Card>
       </div>
-
-      <BroadcastModal
-        open={broadcastModalOpen}
-        onOpenChange={setBroadcastModalOpen}
-        matchId={match.id}
-        matchTitle={`${teamA?.name ?? "Team A"} vs ${teamB?.name ?? "Team B"}`}
-      />
     </div>
   );
 }
