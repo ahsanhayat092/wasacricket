@@ -72,14 +72,20 @@ export default function LandingHome() {
               </Button>
             </Link>
 
-            <Link to="/organizer/signup">
+            <Link to="/team">
               <Button size="lg" variant="outline" className="h-12 px-6 font-bold text-sm gap-2 rounded-xl border-emerald-500/40 hover:bg-emerald-500/10">
-                <Trophy className="h-4 w-4 text-emerald-500" /> Create Tournament
+                <Users className="h-4 w-4 text-emerald-500" /> Manage Your Team
+              </Button>
+            </Link>
+
+            <Link to="/organizer/signup">
+              <Button size="lg" variant="outline" className="h-12 px-5 font-semibold text-sm gap-2 rounded-xl">
+                <Trophy className="h-4 w-4 text-amber-500" /> Create Tournament
               </Button>
             </Link>
 
             <Link to="/scorer/login">
-              <Button size="lg" variant="ghost" className="h-12 px-5 font-semibold text-sm gap-2 text-muted-foreground hover:text-foreground">
+              <Button size="lg" variant="ghost" className="h-12 px-4 font-semibold text-sm gap-2 text-muted-foreground hover:text-foreground">
                 <KeyRound className="h-4 w-4 text-amber-500" /> Scorer Access
               </Button>
             </Link>

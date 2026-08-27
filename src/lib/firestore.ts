@@ -62,13 +62,19 @@ export type Tournament = {
   updatedAt: string;
 };
 
+export type TeamRole = "TEAM_MANAGER" | "CAPTAIN" | "VICE_CAPTAIN" | "PLAYER";
+
 export type Team = {
   id: string;
-  tournamentId: string;
+  tournamentId?: string; // Optional for multi-tournament / standalone teams
   name: string;
   shortName: string;
-  groupName: "A" | "B";
+  groupName?: "A" | "B";
   logoUrl?: string | null;
+  ownerId?: string | null; // UID of the team creator / Team Manager
+  ownerEmail?: string | null;
+  city?: string | null;
+  description?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -85,6 +91,39 @@ export type Player = {
   battingStyle?: string | null;
   bowlingStyle?: string | null;
   photoUrl?: string | null;
+  email?: string | null;
+  tournamentIds?: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+// ---------------------------------------------------------------------------
+// Team <-> Tournament Participation / Request / Invitation Relationship
+// ---------------------------------------------------------------------------
+export type TeamMembershipStatus =
+  | "PENDING"
+  | "INVITED"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "DECLINED"
+  | "WITHDRAWN";
+
+export type TeamMembershipSource = "ORGANIZER_INVITE" | "TEAM_REQUEST";
+
+export type TournamentTeamMembership = {
+  id: string;
+  tournamentId: string;
+  teamId: string;
+  teamName?: string;
+  teamShortName?: string;
+  teamLogoUrl?: string | null;
+  groupName?: "A" | "B";
+  status: TeamMembershipStatus;
+  source: TeamMembershipSource;
+  requestedBy?: string | null; // Team manager email/uid
+  invitedBy?: string | null; // Organizer email/uid
+  squadPlayerIds?: string[]; // IDs of players selected for this tournament squad
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -306,6 +345,8 @@ export const tournamentsCol = () => typedCollection<Omit<Tournament, "id">>("tou
 export const tournamentDoc = (id: string = TOURNAMENT_ID) => typedDoc<Omit<Tournament, "id">>("tournaments", id);
 export const tournamentMembersCol = () => typedCollection<Omit<TournamentMember, "id">>("tournamentMembers");
 export const tournamentMemberDoc = (id: string) => typedDoc<Omit<TournamentMember, "id">>("tournamentMembers", id);
+export const tournamentTeamMembershipsCol = () => typedCollection<Omit<TournamentTeamMembership, "id">>("tournamentTeamMemberships");
+export const tournamentTeamMembershipDoc = (id: string) => typedDoc<Omit<TournamentTeamMembership, "id">>("tournamentTeamMemberships", id);
 export const teamsCol = () => typedCollection<Omit<Team, "id">>("teams");
 export const playersCol = () => typedCollection<Omit<Player, "id">>("players");
 export const matchesCol = () => typedCollection<Omit<Match, "id">>("matches");

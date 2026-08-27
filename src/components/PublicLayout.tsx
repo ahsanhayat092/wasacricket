@@ -126,6 +126,18 @@ export function PublicLayout() {
               <span className="hidden sm:inline">Search</span>
             </Button>
 
+            {/* Manage Team CTA */}
+            <Link to="/team">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs font-bold rounded-xl border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 h-9"
+              >
+                <Users className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Manage Team</span>
+              </Button>
+            </Link>
+
             {/* Scorer Access CTA */}
             <Link to="/scorer/login">
               <Button
@@ -230,6 +242,12 @@ export function PublicLayout() {
                         </Link>
                       </>
                     )}
+                    <Link to="/team" onClick={() => setOpen(false)} className="block">
+                      <Button variant="outline" size="sm" className="w-full text-emerald-600 border-emerald-500/40 text-xs font-bold gap-1.5">
+                        <Users className="h-3.5 w-3.5" />
+                        Manage Team
+                      </Button>
+                    </Link>
                     <Link to="/scorer/login" onClick={() => setOpen(false)} className="block">
                       <Button variant="outline" size="sm" className="w-full text-amber-500 border-amber-500/40 text-xs font-bold gap-1.5">
                         <KeyRound className="h-3.5 w-3.5" />
@@ -312,7 +330,7 @@ export function PublicLayout() {
       <footer className="border-t py-12 mt-16 bg-muted/20">
         <div className="mx-auto max-w-6xl px-4 space-y-8">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-8">
-            <div className="sm:col-span-2 space-y-3">
+            <div className="sm:col-span-1 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="h-7 w-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs">
                   <Trophy className="h-4 w-4 text-amber-300" />
@@ -320,7 +338,7 @@ export function PublicLayout() {
                 <span className="font-black text-base">WasaCricket</span>
               </div>
               <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
-                The modern cricket tournament management platform. Live ball-by-ball scoring, mathematical scenario engines, and corporate tournament tools.
+                The modern cricket tournament management platform. Live ball-by-ball scoring, mathematical scenario engines, and club management.
               </p>
             </div>
 
@@ -330,6 +348,15 @@ export function PublicLayout() {
                 <li><Link to="/live-scores" className="hover:text-emerald-500">Live Scores</Link></li>
                 <li><Link to="/tournaments" className="hover:text-emerald-500">Browse Tournaments</Link></li>
                 <li><Link to="/about" className="hover:text-emerald-500">About Platform</Link></li>
+              </ul>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <h4 className="font-bold text-foreground">For Teams</h4>
+              <ul className="space-y-1.5 text-muted-foreground">
+                <li><Link to="/team" className="hover:text-emerald-500">Manage Your Team</Link></li>
+                <li><Link to="/team/players" className="hover:text-emerald-500">Player Rosters</Link></li>
+                <li><Link to="/team/tournaments" className="hover:text-emerald-500">Join Tournaments</Link></li>
               </ul>
             </div>
 

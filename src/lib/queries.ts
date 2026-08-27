@@ -23,12 +23,15 @@ import {
   standingsCol,
   usersCol,
   tournamentMembersCol,
+  tournamentTeamMembershipsCol,
+  tournamentTeamMembershipDoc,
   teamDoc,
   matchDoc,
   playerDoc,
   TOURNAMENT_ID,
   type Tournament,
   type TournamentMember,
+  type TournamentTeamMembership,
   type TournamentRole,
   type Team,
   type Player,
@@ -236,12 +239,69 @@ export async function getTournament(idOrContext?: any): Promise<Tournament> {
 
 export async function getTeams(idOrContext?: any): Promise<Team[]> {
   const tournamentId = resolveTournamentId(idOrContext);
+  
+  // 1. Direct tournament teams
   const snap = await getDocs(
     query(teamsCol(), where("tournamentId", "==", tournamentId)),
   );
-  if (!snap.empty) {
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+  const directTeams: Team[] = !snap.empty
+    ? snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team)
+    : [];
+
+  // 2. Teams joined via accepted tournament memberships
+  let membershipTeams: Team[] = [];
+  try {
+    const memSnap = await getDocs(
+      query(
+        tournamentTeamMembershipsCol(),
+        where("tournamentId", "==", tournamentId),
+        where("status", "==", "ACCEPTED"),
+      ),
+    );
+    if (!memSnap.empty) {
+      const teamFetches = memSnap.docs.map(async (mDoc) => {
+        const mData = mDoc.data() as TournamentTeamMembership;
+        // If already in directTeams, skip fetch
+        if (directTeams.some((t) => t.id === mData.teamId)) return null;
+        const tSnap = await getDoc(teamDoc(mData.teamId));
+        if (tSnap.exists()) {
+          const tData = { id: tSnap.id, ...tSnap.data() } as Team;
+          if (mData.groupName) {
+            tData.groupName = mData.groupName;
+          }
+          return tData;
+        } else if (mData.teamName) {
+          // Construct fallback team object from membership
+          return {
+            id: mData.teamId,
+            tournamentId,
+            name: mData.teamName,
+            shortName: mData.teamShortName || mData.teamName.slice(0, 3).toUpperCase(),
+            groupName: mData.groupName || "A",
+            logoUrl: mData.teamLogoUrl || null,
+            createdAt: mData.createdAt,
+            updatedAt: mData.updatedAt,
+          } as Team;
+        }
+        return null;
+      });
+      const resolved = await Promise.all(teamFetches);
+      membershipTeams = resolved.filter((t): t is Team => t !== null);
+    }
+  } catch (err) {
+    console.warn("Could not query tournament team memberships:", err);
   }
+
+  const combined = [...directTeams, ...membershipTeams];
+  const uniqueMap = new Map<string, Team>();
+  for (const t of combined) {
+    if (!uniqueMap.has(t.id)) {
+      uniqueMap.set(t.id, t);
+    }
+  }
+  const result = Array.from(uniqueMap.values());
+  if (result.length > 0) return result;
+
   // Fallback for default WASA teams
   if (tournamentId === TOURNAMENT_ID || tournamentId === "main") {
     const allSnap = await getDocs(teamsCol());
@@ -1310,6 +1370,112 @@ export async function getTournamentMembers(tournamentId: string): Promise<Tourna
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TournamentMember);
   } catch (err) {
     console.error("Error loading tournament members:", err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Team Manager & Tournament Team Memberships
+// ---------------------------------------------------------------------------
+
+export async function getAllTeams(): Promise<Team[]> {
+  try {
+    const snap = await getDocs(teamsCol());
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+  } catch (err) {
+    console.error("Error loading all teams:", err);
+    return [];
+  }
+}
+
+export async function getUserManagedTeams(
+  userEmail?: string | null,
+  userUid?: string | null,
+): Promise<Team[]> {
+  if (!userEmail && !userUid) return [];
+  try {
+    const allSnap = await getDocs(teamsCol());
+    const allTeams = allSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+
+    const cleanEmail = userEmail?.toLowerCase().trim();
+    const isPlatformAdmin = cleanEmail === "ahsanhayat092@gmail.com";
+
+    return allTeams.filter((t) => {
+      const matchEmail = cleanEmail && t.ownerEmail?.toLowerCase().trim() === cleanEmail;
+      const matchUid = userUid && t.ownerId === userUid;
+      // For platform admin, include legacy unassigned teams
+      const isLegacyUnassigned = isPlatformAdmin && !t.ownerEmail && !t.ownerId;
+      return matchEmail || matchUid || isLegacyUnassigned;
+    });
+  } catch (err) {
+    console.error("Error loading user managed teams:", err);
+    return [];
+  }
+}
+
+export async function getTournamentTeamMemberships(
+  tournamentId: string,
+): Promise<TournamentTeamMembership[]> {
+  try {
+    const snap = await getDocs(
+      query(tournamentTeamMembershipsCol(), where("tournamentId", "==", tournamentId)),
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TournamentTeamMembership);
+  } catch (err) {
+    console.error("Error loading tournament team memberships:", err);
+    return [];
+  }
+}
+
+export async function getTeamTournamentMemberships(
+  teamId: string,
+): Promise<TournamentTeamMembership[]> {
+  try {
+    const snap = await getDocs(
+      query(tournamentTeamMembershipsCol(), where("teamId", "==", teamId)),
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as TournamentTeamMembership);
+  } catch (err) {
+    console.error("Error loading team tournament memberships:", err);
+    return [];
+  }
+}
+
+export type TeamMembershipWithTournament = TournamentTeamMembership & {
+  tournament: Tournament | null;
+};
+
+export async function getTeamMembershipsWithDetails(
+  teamId: string,
+): Promise<TeamMembershipWithTournament[]> {
+  try {
+    const memberships = await getTeamTournamentMemberships(teamId);
+    if (memberships.length === 0) return [];
+
+    const tournamentsSnap = await getDocs(tournamentsCol());
+    const tournamentsMap = new Map<string, Tournament>();
+    for (const doc of tournamentsSnap.docs) {
+      tournamentsMap.set(doc.id, { id: doc.id, ...doc.data() } as Tournament);
+    }
+
+    return memberships.map((m) => ({
+      ...m,
+      tournament: tournamentsMap.get(m.tournamentId) || null,
+    }));
+  } catch (err) {
+    console.error("Error loading team memberships with details:", err);
+    return [];
+  }
+}
+
+export async function getOpenTournaments(): Promise<Tournament[]> {
+  try {
+    const snap = await getDocs(tournamentsCol());
+    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Tournament);
+    // Include all active/upcoming tournaments
+    return list.filter((t) => t.status !== "COMPLETED");
+  } catch (err) {
+    console.error("Error loading open tournaments:", err);
     return [];
   }
 }

@@ -28,6 +28,14 @@ import OrganizerAuth from "./pages/auth/OrganizerAuth";
 import ScorerAuth from "./pages/auth/ScorerAuth";
 import ScorerPinEntry from "./pages/ScorerPinEntry";
 import ScorerDashboard from "./pages/scorer/ScorerDashboard";
+import TeamManagerAuth from "./pages/auth/TeamManagerAuth";
+
+// Team Manager Pages & Layout
+import TeamLayout from "./components/TeamLayout";
+import TeamDashboard from "./pages/team/TeamDashboard";
+import TeamPlayers from "./pages/team/TeamPlayers";
+import TeamTournaments from "./pages/team/TeamTournaments";
+import TeamRequests from "./pages/team/TeamRequests";
 
 // Organizer / Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -61,6 +69,20 @@ export default function App() {
             {/* Organizer Auth */}
             <Route path="/organizer/login" element={<OrganizerAuth />} />
             <Route path="/organizer/signup" element={<OrganizerAuth />} />
+
+            {/* Team Manager Auth & Workspace */}
+            <Route path="/team/login" element={<TeamManagerAuth />} />
+            <Route path="/team/signup" element={<TeamManagerAuth />} />
+            <Route
+              path="/team"
+              element={<TeamLayout />}
+            >
+              <Route index element={<TeamDashboard />} />
+              <Route path="dashboard" element={<TeamDashboard />} />
+              <Route path="players" element={<TeamPlayers />} />
+              <Route path="tournaments" element={<TeamTournaments />} />
+              <Route path="requests" element={<TeamRequests />} />
+            </Route>
 
             {/* Public tenant micro-portal (/t/:slug/...) */}
             <Route path="/t/:slug" element={<PublicLayout />}>

@@ -34,9 +34,13 @@ import {
   userDoc,
   tournamentMembersCol,
   tournamentMemberDoc,
+  tournamentTeamMembershipsCol,
+  tournamentTeamMembershipDoc,
   TOURNAMENT_ID,
   type Tournament,
   type TournamentMember,
+  type TournamentTeamMembership,
+  type TeamMembershipStatus,
   type TournamentRole,
   type Team,
   type Player,
@@ -1129,6 +1133,282 @@ export async function removeTournamentMember(memberId: string) {
 export async function updateTournamentScorerPin(tournamentId: string, scorerPin: string) {
   await updateDoc(tournamentDoc(tournamentId), {
     scorerPin: scorerPin.trim(),
+    updatedAt: now(),
+  });
+}
+
+export async function bootstrapLegacyTeamsAdmin(adminEmail = "ahsanhayat092@gmail.com") {
+  const cleanEmail = adminEmail.toLowerCase().trim();
+  const allSnap = await getDocs(teamsCol());
+  const unassignedDocs = allSnap.docs.filter((d) => {
+    const data = d.data() as Team;
+    return !data.ownerEmail && !data.ownerId;
+  });
+
+  if (unassignedDocs.length === 0) return { count: 0 };
+
+  const batch = writeBatch(db);
+  for (const docSnap of unassignedDocs) {
+    batch.update(docSnap.ref, {
+      ownerEmail: cleanEmail,
+      updatedAt: now(),
+    });
+  }
+  await batch.commit();
+  return { count: unassignedDocs.length };
+}
+
+export async function createManagedTeam(input: {
+  name: string;
+  shortName: string;
+  logoUrl?: string;
+  city?: string;
+  description?: string;
+  ownerId: string;
+  ownerEmail: string;
+}) {
+  const data = {
+    name: input.name.trim(),
+    shortName: input.shortName.trim().toUpperCase(),
+    logoUrl: input.logoUrl?.trim() || null,
+    city: input.city?.trim() || null,
+    description: input.description?.trim() || null,
+    ownerId: input.ownerId,
+    ownerEmail: input.ownerEmail.toLowerCase().trim(),
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  const ref = await addDoc(teamsCol(), data);
+  return { id: ref.id, ...data };
+}
+
+export async function updateManagedTeam(input: {
+  id: string;
+  name: string;
+  shortName: string;
+  logoUrl?: string;
+  city?: string;
+  description?: string;
+  ownerId?: string;
+  ownerEmail?: string;
+}) {
+  const existingSnap = await getDoc(teamDoc(input.id));
+  if (!existingSnap.exists()) {
+    throw new Error("Team not found.");
+  }
+  const existingData = existingSnap.data() as Team;
+  
+  // Verify authorization if ownerId/ownerEmail provided
+  if (input.ownerId && existingData.ownerId && existingData.ownerId !== input.ownerId) {
+    if (input.ownerEmail && existingData.ownerEmail && existingData.ownerEmail.toLowerCase().trim() !== input.ownerEmail.toLowerCase().trim()) {
+      throw new Error("You are not authorized to edit this team.");
+    }
+  }
+
+  const updateData: Partial<Team> = {
+    name: input.name.trim(),
+    shortName: input.shortName.trim().toUpperCase(),
+    logoUrl: input.logoUrl !== undefined ? (input.logoUrl ? input.logoUrl.trim() : null) : existingData.logoUrl,
+    city: input.city !== undefined ? (input.city ? input.city.trim() : null) : existingData.city,
+    description: input.description !== undefined ? (input.description ? input.description.trim() : null) : existingData.description,
+    updatedAt: now(),
+  };
+
+  await updateDoc(teamDoc(input.id), updateData);
+  return { id: input.id, ...updateData };
+}
+
+export async function deleteManagedTeam(teamId: string, userEmail?: string, userUid?: string) {
+  const existingSnap = await getDoc(teamDoc(teamId));
+  if (!existingSnap.exists()) return;
+  const existingData = existingSnap.data() as Team;
+
+  // Authorization check
+  if (userUid && existingData.ownerId && existingData.ownerId !== userUid) {
+    if (userEmail && existingData.ownerEmail && existingData.ownerEmail.toLowerCase().trim() !== userEmail.toLowerCase().trim()) {
+      throw new Error("You are not authorized to delete this team.");
+    }
+  }
+
+  // Check if any match references this team
+  const matchesSnap = await getDocs(matchesCol());
+  const referenced = matchesSnap.docs.some((d) => {
+    const m = d.data() as Match;
+    return m.teamAId === teamId || m.teamBId === teamId;
+  });
+  if (referenced) {
+    throw new Error(
+      "Cannot delete this team because it has participated in tournament matches.",
+    );
+  }
+
+  // Remove players and memberships for this team
+  const [playersSnap, membershipsSnap] = await Promise.all([
+    getDocs(query(playersCol(), where("teamId", "==", teamId))),
+    getDocs(query(tournamentTeamMembershipsCol(), where("teamId", "==", teamId))),
+  ]);
+
+  const batch = writeBatch(db);
+  playersSnap.docs.forEach((pDoc) => batch.delete(pDoc.ref));
+  membershipsSnap.docs.forEach((mDoc) => batch.delete(mDoc.ref));
+  batch.delete(teamDoc(teamId));
+  batch.delete(standingDoc(teamId));
+  await batch.commit();
+}
+
+/**
+ * Team Manager submits a request to join a tournament.
+ */
+export async function requestJoinTournament(input: {
+  tournamentId: string;
+  teamId: string;
+  requestedBy: string;
+  squadPlayerIds?: string[];
+  notes?: string;
+}) {
+  const membershipId = `${input.tournamentId}_${input.teamId}`;
+  
+  // Fetch team info for denormalized display
+  const teamSnap = await getDoc(teamDoc(input.teamId));
+  const teamData = teamSnap.exists() ? (teamSnap.data() as Team) : null;
+
+  const data: Omit<TournamentTeamMembership, "id"> = {
+    tournamentId: input.tournamentId,
+    teamId: input.teamId,
+    teamName: teamData?.name,
+    teamShortName: teamData?.shortName,
+    teamLogoUrl: teamData?.logoUrl,
+    groupName: "A",
+    status: "PENDING",
+    source: "TEAM_REQUEST",
+    requestedBy: input.requestedBy.toLowerCase().trim(),
+    squadPlayerIds: input.squadPlayerIds || [],
+    notes: input.notes?.trim() || null,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  await setDoc(tournamentTeamMembershipDoc(membershipId), data, { merge: true });
+  return { id: membershipId, ...data };
+}
+
+/**
+ * Tournament Organizer invites a team to their tournament.
+ */
+export async function inviteTeamToTournament(input: {
+  tournamentId: string;
+  teamId: string;
+  invitedBy: string;
+  groupName?: "A" | "B";
+  notes?: string;
+}) {
+  const membershipId = `${input.tournamentId}_${input.teamId}`;
+
+  const teamSnap = await getDoc(teamDoc(input.teamId));
+  const teamData = teamSnap.exists() ? (teamSnap.data() as Team) : null;
+
+  const data: Omit<TournamentTeamMembership, "id"> = {
+    tournamentId: input.tournamentId,
+    teamId: input.teamId,
+    teamName: teamData?.name,
+    teamShortName: teamData?.shortName,
+    teamLogoUrl: teamData?.logoUrl,
+    groupName: input.groupName || "A",
+    status: "INVITED",
+    source: "ORGANIZER_INVITE",
+    invitedBy: input.invitedBy.toLowerCase().trim(),
+    notes: input.notes?.trim() || null,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  await setDoc(tournamentTeamMembershipDoc(membershipId), data, { merge: true });
+  return { id: membershipId, ...data };
+}
+
+/**
+ * Organizer responds to a team's join request (ACCEPT or REJECT).
+ */
+export async function respondToTournamentRequest(input: {
+  membershipId: string;
+  status: "ACCEPTED" | "REJECTED";
+  groupName?: "A" | "B";
+}) {
+  const memRef = tournamentTeamMembershipDoc(input.membershipId);
+  const memSnap = await getDoc(memRef);
+  if (!memSnap.exists()) {
+    throw new Error("Membership request not found.");
+  }
+  const memData = memSnap.data() as TournamentTeamMembership;
+
+  const updateData: Partial<TournamentTeamMembership> = {
+    status: input.status,
+    groupName: input.groupName || memData.groupName || "A",
+    updatedAt: now(),
+  };
+
+  await updateDoc(memRef, updateData);
+
+  if (input.status === "ACCEPTED") {
+    // Recalculate standings for tournament so this team is initialized
+    await recalculateStandings(memData.tournamentId);
+  }
+
+  return { id: input.membershipId, ...memData, ...updateData };
+}
+
+/**
+ * Team Manager responds to an organizer's invitation (ACCEPT or DECLINE).
+ */
+export async function respondToTournamentInvite(input: {
+  membershipId: string;
+  status: "ACCEPTED" | "DECLINED";
+  squadPlayerIds?: string[];
+}) {
+  const memRef = tournamentTeamMembershipDoc(input.membershipId);
+  const memSnap = await getDoc(memRef);
+  if (!memSnap.exists()) {
+    throw new Error("Tournament invitation not found.");
+  }
+  const memData = memSnap.data() as TournamentTeamMembership;
+
+  const updateData: Partial<TournamentTeamMembership> = {
+    status: input.status,
+    squadPlayerIds: input.squadPlayerIds || memData.squadPlayerIds || [],
+    updatedAt: now(),
+  };
+
+  await updateDoc(memRef, updateData);
+
+  if (input.status === "ACCEPTED") {
+    await recalculateStandings(memData.tournamentId);
+  }
+
+  return { id: input.membershipId, ...memData, ...updateData };
+}
+
+/**
+ * Team Manager updates the tournament squad (which players participate in this tournament).
+ */
+export async function updateTournamentSquad(input: {
+  membershipId: string;
+  squadPlayerIds: string[];
+}) {
+  const memRef = tournamentTeamMembershipDoc(input.membershipId);
+  await updateDoc(memRef, {
+    squadPlayerIds: input.squadPlayerIds,
+    updatedAt: now(),
+  });
+}
+
+/**
+ * Team Manager withdraws/cancels an outgoing join request.
+ */
+export async function withdrawTournamentRequest(membershipId: string) {
+  const memRef = tournamentTeamMembershipDoc(membershipId);
+  await updateDoc(memRef, {
+    status: "WITHDRAWN",
     updatedAt: now(),
   });
 }

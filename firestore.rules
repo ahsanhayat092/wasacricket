@@ -54,6 +54,11 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    match /tournamentTeamMemberships/{membershipId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
     match /users/{userId} {
       allow read: if true;
       allow write: if isAuth();
