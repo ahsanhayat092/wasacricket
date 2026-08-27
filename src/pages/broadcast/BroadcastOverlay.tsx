@@ -1,7 +1,6 @@
 import React, { useMemo, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
-import { getMatchWorkspace } from "@/lib/queries";
+import { subscribeToBroadcastMatch } from "@/lib/queries";
 import { ballsToOversText, runRate, requiredRunRate } from "@/lib/cricket";
 import type { BattingScore, BowlingScore } from "@/lib/firestore";
 
@@ -10,13 +9,20 @@ export default function BroadcastOverlay() {
   const [searchParams] = useSearchParams();
   const theme = searchParams.get("theme") || "tv_classic"; // 'tv_classic' | 'ticker' | 'scorebox'
 
-  // Poll match workspace every 2 seconds for real-time OBS streaming
-  const { data } = useQuery({
-    queryKey: ["broadcastMatch", id],
-    queryFn: () => getMatchWorkspace(id!),
-    enabled: !!id,
-    refetchInterval: 2000,
-  });
+  const [data, setData] = useState<any | null>(null);
+
+  // Real-time Firestore stream listener (sub-100ms instant updates)
+  useEffect(() => {
+    if (!id) return;
+    const unsub = subscribeToBroadcastMatch(id, (liveWorkspace) => {
+      if (liveWorkspace) {
+        setData(liveWorkspace);
+      }
+    });
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [id]);
 
   const match = data?.match;
   const teams = data?.teams ?? [];

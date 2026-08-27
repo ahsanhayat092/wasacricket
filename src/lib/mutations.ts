@@ -757,12 +757,11 @@ export async function saveInnings(input: {
     updatedAt: now(),
   });
 
-  if (input.recentEvent !== undefined) {
-    await updateDoc(matchDoc(input.matchId), {
-      recentEvent: input.recentEvent,
-      updatedAt: now(),
-    });
-  }
+  // Always touch match document so real-time listeners (Live viewer, OBS stream overlay) update immediately
+  await updateDoc(matchDoc(input.matchId), {
+    updatedAt: now(),
+    ...(input.recentEvent !== undefined ? { recentEvent: input.recentEvent } : {}),
+  });
 
   // Replace scorecard entries (idempotent)
   const [existingBat, existingBowl] = await Promise.all([

@@ -1448,8 +1448,8 @@ export async function getMatchWorkspace(matchId: string) {
     const match = { id: snap.id, ...snap.data() } as Match;
 
     const [teams, players, inningsSnap] = await Promise.all([
-      getTeams(),
-      getPlayers(),
+      getTeams(match.tournamentId),
+      getPlayers(match.tournamentId),
       getDocs(query(inningsCol(), where("matchId", "==", matchId))),
     ]);
 
@@ -1499,6 +1499,39 @@ export async function getMatchWorkspace(matchId: string) {
     console.error("Error loading match workspace:", err);
     return null;
   }
+}
+
+/**
+ * Real-time listener for OBS Broadcast Overlays with zero polling delay.
+ */
+export function subscribeToBroadcastMatch(
+  matchId: string,
+  callback: (workspace: any) => void,
+): Unsubscribe {
+  // Fetch immediately
+  getMatchWorkspace(matchId).then((w) => {
+    if (w) callback(w);
+  });
+
+  // Listen to match document
+  const unsubMatch = onSnapshot(matchDoc(matchId), async () => {
+    const w = await getMatchWorkspace(matchId);
+    if (w) callback(w);
+  });
+
+  // Listen to innings collection
+  const unsubInnings = onSnapshot(
+    query(inningsCol(), where("matchId", "==", matchId)),
+    async () => {
+      const w = await getMatchWorkspace(matchId);
+      if (w) callback(w);
+    },
+  );
+
+  return () => {
+    unsubMatch();
+    unsubInnings();
+  };
 }
 
 // ---------------------------------------------------------------------------
