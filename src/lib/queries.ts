@@ -120,8 +120,16 @@ export async function getUserTournaments(userEmail?: string | null, userUid?: st
     }
   }
 
-  const memberTournamentIds = memberSnap.docs.map((d) => (d.data() as any).tournamentId);
-  const missingIds = memberTournamentIds.filter((tId) => tId && !map.has(tId));
+  // For members, only include if role is OWNER or ADMIN
+  const adminMemberTournamentIds = memberSnap.docs
+    .filter((d) => {
+      const data = d.data() as any;
+      const r = (data.role || "").toUpperCase();
+      return r === "OWNER" || r === "ADMIN";
+    })
+    .map((d) => (d.data() as any).tournamentId);
+
+  const missingIds = adminMemberTournamentIds.filter((tId) => tId && !map.has(tId));
 
   if (missingIds.length > 0) {
     const memberTournaments = await Promise.all(
@@ -135,6 +143,73 @@ export async function getUserTournaments(userEmail?: string | null, userUid?: st
     );
     for (const t of memberTournaments) {
       if (t) map.set(t.id, t);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+/**
+ * Returns strictly the tournaments a Scorer is authorized to score:
+ * 1. SuperAdmin (all)
+ * 2. Tournaments where user is OWNER or ADMIN
+ * 3. Tournaments where user is explicitly assigned as SCORER in tournamentMembers
+ * 4. Tournaments unlocked via 4-digit PIN in the current session
+ */
+export async function getUserScorerTournaments(
+  userEmail?: string | null,
+  userUid?: string | null,
+  pinUnlockedTournamentIds: string[] = [],
+): Promise<Tournament[]> {
+  const email = userEmail?.toLowerCase().trim();
+  const isSuperAdmin = email === "ahsanhayat092@gmail.com";
+
+  if (isSuperAdmin) {
+    return await getTournaments();
+  }
+
+  const map = new Map<string, Tournament>();
+
+  // 1. Tournaments unlocked via PIN in this browser session
+  if (pinUnlockedTournamentIds && pinUnlockedTournamentIds.length > 0) {
+    await Promise.all(
+      pinUnlockedTournamentIds.map(async (tId) => {
+        if (!tId) return;
+        const snap = await getDoc(tournamentDoc(tId));
+        if (snap.exists()) {
+          map.set(snap.id, { id: snap.id, ...snap.data() } as Tournament);
+        }
+      }),
+    );
+  }
+
+  if (email || userUid) {
+    // 2. Lookup owned or assigned member tournaments
+    const [ownerSnap, ownerEmailSnap, memberSnap] = await Promise.all([
+      userUid ? getDocs(query(tournamentsCol(), where("ownerId", "==", userUid))) : { docs: [] },
+      email ? getDocs(query(tournamentsCol(), where("ownerEmail", "==", email))) : { docs: [] },
+      email ? getDocs(query(tournamentMembersCol(), where("userEmail", "==", email))) : { docs: [] },
+    ]);
+
+    for (const d of ownerSnap.docs) {
+      map.set(d.id, { id: d.id, ...d.data() } as Tournament);
+    }
+    for (const d of ownerEmailSnap.docs) {
+      map.set(d.id, { id: d.id, ...d.data() } as Tournament);
+    }
+
+    // Include any tournament where member has role OWNER, ADMIN, or SCORER
+    const memberTourneyIds = memberSnap.docs.map((d) => (d.data() as any).tournamentId);
+    const missingIds = memberTourneyIds.filter((tId) => tId && !map.has(tId));
+    if (missingIds.length > 0) {
+      await Promise.all(
+        missingIds.map(async (tId) => {
+          const snap = await getDoc(tournamentDoc(tId));
+          if (snap.exists()) {
+            map.set(snap.id, { id: snap.id, ...snap.data() } as Tournament);
+          }
+        }),
+      );
     }
   }
 

@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useTournament } from "@/context/TournamentContext";
-import { getUserTournaments } from "@/lib/queries";
+import { getUserTournaments, getUserScorerTournaments } from "@/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
@@ -45,7 +45,7 @@ import {
   Layers,
   Plus,
 } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
 import { AuthLayoutSkeleton } from "./AuthLayoutSkeleton";
 import { Button } from "./ui/button";
@@ -77,10 +77,22 @@ export default function AuthLayout({
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Check if there is an active PIN session in sessionStorage
+  const pinUnlockedTourneys: string[] = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = sessionStorage.getItem("scorer_auth_tournaments");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const hasPinSession = pinUnlockedTourneys.length > 0;
+
   // Redirect scorer away from admin-only pages to scorer dashboard or matches
   useEffect(() => {
-    if (!isLoading && user && isScorer && !isAdmin) {
-      const allowedPaths = ["/scorer/dashboard", "/admin/matches"];
+    if (!isLoading && (user || hasPinSession) && isScorer && !isAdmin) {
       const isAllowed =
         location.pathname === "/scorer/dashboard" ||
         location.pathname === "/admin/matches" ||
@@ -89,13 +101,14 @@ export default function AuthLayout({
         navigate("/scorer/dashboard", { replace: true });
       }
     }
-  }, [isLoading, user, isScorer, isAdmin, location.pathname, navigate]);
+  }, [isLoading, user, hasPinSession, isScorer, isAdmin, location.pathname, navigate]);
 
   if (isLoading) {
     return <AuthLayoutSkeleton />;
   }
 
-  if (!user) {
+  // If no logged in user and no PIN session, prompt login
+  if (!user && !hasPinSession) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
@@ -110,22 +123,33 @@ export default function AuthLayout({
               Administrator or Official Scorer credentials are required to access this workspace.
             </p>
           </div>
-          <Button
-            onClick={() => {
-              window.location.href = LOGIN_PATH;
-            }}
-            size="lg"
-            className="w-full"
-          >
-            Sign in with Google
-          </Button>
+          <div className="space-y-3 w-full">
+            <Button
+              onClick={() => {
+                window.location.href = LOGIN_PATH;
+              }}
+              size="lg"
+              className="w-full"
+            >
+              Sign in with Google
+            </Button>
+            <Link to="/scorer/login" className="block w-full">
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full text-amber-500 border-amber-500/40 hover:bg-amber-500/10 font-bold"
+              >
+                <KeyRound className="h-4 w-4 mr-2" /> Enter Scorer PIN
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
-  // If user is neither admin nor scorer
-  if (!isAdmin && !isScorer) {
+  // If user is logged in but has neither admin nor scorer role (and no PIN session)
+  if (user && !isAdmin && !isScorer && !hasPinSession) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-6 p-8 max-w-md w-full text-center border rounded-2xl bg-card shadow-sm">
@@ -153,10 +177,10 @@ export default function AuthLayout({
             </Button>
             <Button
               variant="outline"
-              onClick={() => (window.location.href = "/")}
-              className="flex-1"
+              onClick={() => (window.location.href = "/scorer/login")}
+              className="flex-1 text-amber-500"
             >
-              Public Site
+              Scorer PIN Login
             </Button>
           </div>
         </div>
@@ -181,32 +205,56 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
 
   const isSuperAdmin = user?.email?.toLowerCase() === "ahsanhayat092@gmail.com";
 
-  // Fetch tournaments owned or managed by this user
-  const { data: userTournaments, isLoading: isLoadingTourneys } = useQuery({
+  // List of tournament IDs unlocked via PIN in this browser session
+  const pinUnlockedTourneys: string[] = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = sessionStorage.getItem("scorer_auth_tournaments");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Fetch tournaments owned or managed by this user (if Admin)
+  const { data: userAdminTournaments, isLoading: isLoadingAdminTourneys } = useQuery({
     queryKey: ["user_tournaments", user?.uid, user?.email],
     queryFn: () => getUserTournaments(user?.email, user?.uid),
-    enabled: !!user,
+    enabled: !!user && isAdmin,
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch tournaments assigned to this user as Scorer (or unlocked via PIN)
+  const { data: userScorerTournaments, isLoading: isLoadingScorerTourneys } = useQuery({
+    queryKey: ["user_scorer_tournaments", user?.email, user?.uid, pinUnlockedTourneys],
+    queryFn: () => getUserScorerTournaments(user?.email, user?.uid, pinUnlockedTourneys),
+    enabled: !isAdmin,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const allowedTournaments = isAdmin ? userAdminTournaments : userScorerTournaments;
+  const isLoadingTourneys = isAdmin ? isLoadingAdminTourneys : isLoadingScorerTourneys;
+
   const isGlobalPath =
-    location.pathname === "/admin/tournaments" ||
-    location.pathname === "/admin/tournaments/new";
+    isAdmin &&
+    (location.pathname === "/admin/tournaments" || location.pathname === "/admin/tournaments/new");
 
   const isAuthorizedForCurrentTournament =
     isSuperAdmin ||
     isGlobalPath ||
-    (userTournaments && userTournaments.some((t) => t.id === tournamentId));
+    (allowedTournaments && allowedTournaments.some((t) => t.id === tournamentId)) ||
+    pinUnlockedTourneys.includes(tournamentId);
 
-  // Auto-switch to user's first tournament if active tournamentId doesn't belong to them
+  // Auto-switch to user's first allowed tournament if active tournamentId doesn't belong to them
   useEffect(() => {
-    if (!isSuperAdmin && !isLoadingTourneys && userTournaments && userTournaments.length > 0) {
-      const hasCurrent = userTournaments.some((t) => t.id === tournamentId);
+    if (!isSuperAdmin && !isLoadingTourneys && allowedTournaments && allowedTournaments.length > 0) {
+      const hasCurrent =
+        allowedTournaments.some((t) => t.id === tournamentId) || pinUnlockedTourneys.includes(tournamentId);
       if (!hasCurrent) {
-        setTournamentId(userTournaments[0].id);
+        setTournamentId(allowedTournaments[0].id);
       }
     }
-  }, [isSuperAdmin, isLoadingTourneys, userTournaments, tournamentId, setTournamentId]);
+  }, [isSuperAdmin, isLoadingTourneys, allowedTournaments, tournamentId, pinUnlockedTourneys, setTournamentId]);
 
   // Prevent flash of unauthorized tournament data while user tournaments are loading
   if (!isSuperAdmin && !isGlobalPath && isLoadingTourneys) {
@@ -289,27 +337,34 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
               <button className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors w-full text-left focus:outline-none group-data-[collapsible=icon]:justify-center">
                 <Avatar className="h-8 w-8 border shrink-0">
                   <AvatarFallback className="text-xs font-bold bg-emerald-500/10 text-emerald-500">
-                    {user?.name?.charAt(0).toUpperCase() || "U"}
+                    {user?.name?.charAt(0).toUpperCase() || "S"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-bold truncate leading-none">
-                      {user?.name || (isAdmin ? "Admin" : "Scorer")}
+                      {user?.name || (isAdmin ? "Admin" : "Official Scorer")}
                     </p>
                     <Badge variant="outline" className="text-[9px] py-0 px-1 border-muted-foreground/30">
                       {isAdmin ? "Admin" : "Scorer"}
                     </Badge>
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate mt-1">
-                    {user?.email || "user"}
+                    {user?.email || (pinUnlockedTourneys.length > 0 ? "PIN-Verified Session" : "scorer")}
                   </p>
                 </div>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem
-                onClick={logout}
+                onClick={() => {
+                  if (user) {
+                    logout();
+                  } else {
+                    sessionStorage.removeItem("scorer_auth_tournaments");
+                    window.location.href = "/";
+                  }
+                }}
                 className="cursor-pointer text-destructive focus:text-destructive text-xs font-medium"
               >
                 <LogOut className="mr-2 h-4 w-4" />
@@ -348,23 +403,35 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
                 <div className="space-y-2">
                   <h2 className="text-xl font-black tracking-tight">Tournament Access Restricted</h2>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    You are not authorized to manage <strong>{tournament?.name || "this tournament"}</strong>. In multi-tenant mode, organizers can only view and manage tournaments they own or are invited to.
+                    {isAdmin
+                      ? `You are not authorized to manage "${tournament?.name || "this tournament"}". Organizers can only manage tournaments they own or are invited to.`
+                      : `You are not assigned as an Official Scorer for "${tournament?.name || "this tournament"}".`}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 pt-2">
-                  <Button
-                    onClick={() => navigate("/admin/tournaments/new")}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 rounded-xl h-10"
-                  >
-                    <Plus className="h-4 w-4" /> Launch 5-Step Tournament Wizard
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate("/admin/tournaments")}
-                    className="text-xs font-bold rounded-xl h-10"
-                  >
-                    View My Tournaments
-                  </Button>
+                  {!isAdmin ? (
+                    <Link to="/scorer/login" className="w-full">
+                      <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs gap-1.5 rounded-xl h-10">
+                        <KeyRound className="h-4 w-4" /> Enter Scorer PIN to Unlock
+                      </Button>
+                    </Link>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={() => navigate("/admin/tournaments/new")}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 rounded-xl h-10"
+                      >
+                        <Plus className="h-4 w-4" /> Launch 5-Step Tournament Wizard
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate("/admin/tournaments")}
+                        className="text-xs font-bold rounded-xl h-10"
+                      >
+                        View My Tournaments
+                      </Button>
+                    </>
+                  )}
                 </div>
               </Card>
             </div>

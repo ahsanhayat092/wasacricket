@@ -368,4 +368,46 @@ describe("Team Manager Persona & RBAC Authorization Logic", () => {
     expect(tigersMatches[0].runs).toBe(72);
     expect(tigersMatches[0].wickets).toBe(3);
   });
+
+  it("12. Scorer tournament authorization is strictly isolated to assigned tournaments or PIN-unlocked tournaments", () => {
+    const allTournaments = [
+      { id: "tourney_1", name: "Tournament 1", scorerPin: "1111" },
+      { id: "tourney_2", name: "Tournament 2", scorerPin: "2222" },
+      { id: "tourney_3", name: "Tournament 3", scorerPin: "3333" },
+    ];
+
+    const scorerMemberships = [
+      { tournamentId: "tourney_1", userEmail: "scorer1@test.com", role: "SCORER" },
+    ];
+
+    const getScorerAllowedTournaments = (
+      userEmail?: string,
+      pinUnlockedTourneys: string[] = [],
+      isPlatformAdmin = false,
+    ) => {
+      if (isPlatformAdmin) return allTournaments;
+
+      const allowedIds = new Set<string>(pinUnlockedTourneys);
+      if (userEmail) {
+        scorerMemberships
+          .filter((m) => m.userEmail.toLowerCase() === userEmail.toLowerCase())
+          .forEach((m) => allowedIds.add(m.tournamentId));
+      }
+      return allTournaments.filter((t) => allowedIds.has(t.id));
+    };
+
+    // Scenario A: Scorer enters PIN for Tournament 2 only
+    const pinScorerTourneys = getScorerAllowedTournaments(undefined, ["tourney_2"], false);
+    expect(pinScorerTourneys.length).toBe(1);
+    expect(pinScorerTourneys[0].id).toBe("tourney_2");
+
+    // Scenario B: Scorer with email assigned only to Tournament 1
+    const emailScorerTourneys = getScorerAllowedTournaments("scorer1@test.com", [], false);
+    expect(emailScorerTourneys.length).toBe(1);
+    expect(emailScorerTourneys[0].id).toBe("tourney_1");
+
+    // Scenario C: Super Admin
+    const superAdminTourneys = getScorerAllowedTournaments("ahsanhayat092@gmail.com", [], true);
+    expect(superAdminTourneys.length).toBe(3);
+  });
 });

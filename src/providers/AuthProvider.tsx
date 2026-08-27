@@ -90,21 +90,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const isSuperAdmin = email === "ahsanhayat092@gmail.com";
 
       try {
-        // Query users collection & tournament members collection for this email
-        const [userSnap, memberSnap] = await Promise.all([
-          getDocs(query(usersCol(), where("email", "==", email))),
+        // Query tournaments collection & tournament members collection for this user
+        const [ownedUidSnap, ownedEmailSnap, memberSnap, userSnap] = await Promise.all([
+          getDocs(query(tournamentsCol(), where("ownerId", "==", user.uid))),
+          getDocs(query(tournamentsCol(), where("ownerEmail", "==", email))),
           getDocs(query(tournamentMembersCol(), where("userEmail", "==", email))),
+          getDocs(query(usersCol(), where("email", "==", email))),
         ]);
 
-        let isTournamentAdmin = true;
-        let isTournamentScorer = true;
+        const isOwner = isSuperAdmin || !ownedUidSnap.empty || !ownedEmailSnap.empty;
+        const memberRoles = memberSnap.docs.map((d) => ((d.data() as any).role || "").toUpperCase());
+        const isTournamentAdmin = isOwner || memberRoles.includes("OWNER") || memberRoles.includes("ADMIN");
+        const isTournamentScorer = isTournamentAdmin || memberRoles.includes("SCORER");
 
-        // Ensure user account is saved in Firestore
+        // Also check if user has active PIN-unlocked session in sessionStorage
+        let hasPinSession = false;
+        if (typeof window !== "undefined") {
+          try {
+            const raw = sessionStorage.getItem("scorer_auth_tournaments");
+            const parsed = raw ? JSON.parse(raw) : [];
+            hasPinSession = Array.isArray(parsed) && parsed.length > 0;
+          } catch {}
+        }
+
+        // Save user record if not present
         if (userSnap.empty) {
           await addDoc(usersCol(), {
             email,
             name: user.displayName ?? email.split("@")[0],
-            role: "admin",
+            role: isTournamentAdmin ? "admin" : "scorer",
             createdBy: isSuperAdmin ? "system" : "self_signup",
             createdAt: now(),
             updatedAt: now(),
@@ -113,17 +127,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setState({
           firebaseUser: user,
-          role: "admin",
-          isAdmin: true,
-          isScorer: true,
+          role: isTournamentAdmin ? "admin" : isTournamentScorer || hasPinSession ? "scorer" : null,
+          isAdmin: isTournamentAdmin,
+          isScorer: isTournamentScorer || hasPinSession,
           isLoading: false,
         });
       } catch (err) {
         console.error("Error resolving user role:", err);
         setState({
           firebaseUser: user,
-          role: "admin",
-          isAdmin: true,
+          role: isSuperAdmin ? "admin" : "scorer",
+          isAdmin: isSuperAdmin,
           isScorer: true,
           isLoading: false,
         });

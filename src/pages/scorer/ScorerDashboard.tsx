@@ -34,6 +34,7 @@ export default function ScorerDashboard() {
   const { data: tournaments } = useQuery({
     queryKey: ["tournaments"],
     queryFn: getTournaments,
+    enabled: isAdmin,
   });
 
   // Get list of tournament IDs unlocked via PIN in this session
@@ -47,23 +48,29 @@ export default function ScorerDashboard() {
     }
   }, []);
 
+  // Fetch tournaments this user/session is authorized to score
+  const { data: scorerTourneys, isLoading: isScorerTourneysLoading } = useQuery({
+    queryKey: ["user_scorer_tournaments", user?.email, user?.uid, pinUnlockedTourneys],
+    queryFn: () => getUserScorerTournaments(user?.email, user?.uid, pinUnlockedTourneys),
+    enabled: !isAdmin,
+  });
+
   // Allowed tournaments for this scorer:
-  // - If user is Admin: all tournaments
-  // - If user unlocked specific tournament via PIN: ONLY those specific tournaments
+  // - If user is Platform Admin: all tournaments
+  // - Otherwise: ONLY tournaments assigned in tournamentMembers or unlocked via PIN
   const allowedTournaments = useMemo(() => {
-    if (!tournaments) return [];
-    if (isAdmin) return tournaments;
-    return tournaments.filter((t) => pinUnlockedTourneys.includes(t.id));
-  }, [tournaments, isAdmin, pinUnlockedTourneys]);
+    if (isAdmin) return tournaments || [];
+    return scorerTourneys || [];
+  }, [isAdmin, tournaments, scorerTourneys]);
 
   const hasPinSession = pinUnlockedTourneys.length > 0;
   const isAuthorizedForActive = Boolean(
-    isAdmin || (tournamentId && pinUnlockedTourneys.includes(tournamentId))
+    isAdmin || (tournamentId && allowedTournaments.some((t) => t.id === tournamentId))
   );
 
   // Strict route authorization guard: require active PIN session or logged in Scorer/Admin
   useEffect(() => {
-    if (!isAuthLoading) {
+    if (!isAuthLoading && !isScorerTourneysLoading) {
       if (!isAdmin && !hasPinSession && !user) {
         navigate("/scorer/login", { replace: true });
         return;
@@ -72,7 +79,17 @@ export default function ScorerDashboard() {
         setTournamentId(allowedTournaments[0].id);
       }
     }
-  }, [isAuthLoading, isAdmin, hasPinSession, user, allowedTournaments, isAuthorizedForActive, navigate, setTournamentId]);
+  }, [
+    isAuthLoading,
+    isScorerTourneysLoading,
+    isAdmin,
+    hasPinSession,
+    user,
+    allowedTournaments,
+    isAuthorizedForActive,
+    navigate,
+    setTournamentId,
+  ]);
 
   const { data: matches, isLoading } = useQuery({
     queryKey: ["schedule", tournamentId],
