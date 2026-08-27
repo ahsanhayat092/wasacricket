@@ -38,6 +38,7 @@ import {
   ExternalLink,
   ChevronDown,
   UserCheck,
+  Tv,
 } from "lucide-react";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { BroadcastModal } from "@/components/BroadcastModal";
