@@ -61,6 +61,7 @@ import {
 } from "@/lib/cricket";
 import { toast } from "sonner";
 import { BroadcastModal } from "@/components/BroadcastModal";
+import { monitoring } from "@/lib/monitoring";
 import {
   ArrowLeft,
   ArrowRight,
@@ -2133,6 +2134,12 @@ function InningsLiveConsole({
     }
 
     pushHistory();
+    monitoring.logScorerAction(`Ball Scored (${runsScored} Runs)`, matchId, {
+      runs: runsScored,
+      strikerId,
+      bowlerId: currentBowlerId,
+      innings: inningsNumber,
+    });
 
     const newBat = batRows.map((b) => {
       if (b.playerId === strikerId) {
@@ -2308,6 +2315,12 @@ function InningsLiveConsole({
     }
 
     pushHistory();
+    monitoring.logScorerAction(`Extra Recorded (${type})`, matchId, {
+      type,
+      extraRuns,
+      bowlerId: currentBowlerId,
+      innings: inningsNumber,
+    });
 
     const newExtras = { ...extras };
     let newBowl = [...bowlRows];
@@ -2559,6 +2572,13 @@ function InningsLiveConsole({
   // Confirm Wicket
   const confirmWicket = () => {
     pushHistory();
+    monitoring.logScorerAction(`Wicket Recorded (${dismissalType})`, matchId, {
+      outPlayerId,
+      bowlerId: currentBowlerId,
+      catcherId,
+      dismissalType,
+      innings: inningsNumber,
+    });
 
     const outPlayerName = resolvePlayerName(outPlayerId, "Batsman");
     const bowlerPlayerName = resolvePlayerName(currentBowlerId, "Bowler");

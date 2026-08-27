@@ -232,6 +232,7 @@ The platform uses a **Tournament-Scoped Role-Based Access Control (RBAC)** archi
 | **Undo / Redo Delivery Errors** | ✅ | ✅ | ✅ | ❌ |
 | **Create & Edit Teams, Players, Rosters** | ✅ | ✅ | ❌ | ❌ |
 | **Generate & Reschedule Match Fixtures** | ✅ | ✅ | ❌ | ❌ |
+| **Universal Full-Text & Fuzzy Search (Cmd + K)** | ✅ | ✅ | ✅ | ✅ |
 | **Assign / Invite Tournament Scorers** | ✅ | ✅ | ❌ | ❌ |
 | **Invite Additional Tournament Admins** | ✅ | ❌ | ❌ | ❌ |
 | **Configure Overs, Rules & Branding / Colors** | ✅ | ❌ | ❌ | ❌ |
@@ -239,12 +240,18 @@ The platform uses a **Tournament-Scoped Role-Based Access Control (RBAC)** archi
 
 ---
 
-## 🛠️ 10. Technology Stack & Performance
+## 🛠️ 10. Technology Stack, Search Engine & Observability
 
 - **Frontend**: React 19, TypeScript, Vite, TailwindCSS, Radix UI, Lucide Icons, Recharts.
 - **Backend & Database**: Firebase Firestore with sub-100ms real-time snapshot listeners.
+- **Database Composite Indexes (`firestore.indexes.json`)**: Pre-configured query indexes for collections `players`, `matches`, `innings`, `batting_scores`, `bowling_scores`, `tournament_team_memberships`, and `tournament_users`.
+- **Search Architecture (`src/lib/search-engine.ts`)**: Tokenized, trigram & Levenshtein distance fuzzy search engine with instantaneous global & tournament-scoped command dialog (`Cmd + K`).
+- **Production Observability & Error Tracking (`src/lib/monitoring.ts`)**: Sentry-compatible runtime exception capture, unhandled promise handling, and granular Scorer Console breadcrumbs logger.
+- **Latency & Performance Tracer (`src/lib/perf-tracer.ts`)**: Sub-millisecond snapshot duration tracer and network ping monitor.
+- **Uptime Health Check API (`/api/health.ts`)**: Serverless health ping endpoint with live service status and uptime seconds.
 - **Broadcast Graphics**: Transparent OBS Browser Source Overlays (`/broadcast/:id`) with 3 stream styles (TV Lower-Third, 60px Bottom Ticker, Compact Scorebox).
 - **QR Engine**: `qrcode` canvas rendering with high-resolution printable matchday posters.
-- **Automated Testing**: `vitest` unit test suite (60 tests passing across team management, fixture generation, scoring engine, image utilities, and hydration).
+- **Automated Testing**: `vitest` unit test suite (72 tests passing across search indexing, monitoring, team management, fixture generation, scoring engine, image utilities, and hydration).
+
 
 

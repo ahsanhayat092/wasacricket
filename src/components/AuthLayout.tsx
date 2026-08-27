@@ -44,10 +44,12 @@ import {
   BookOpen,
   Layers,
   Plus,
+  Search,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
 import { AuthLayoutSkeleton } from "./AuthLayoutSkeleton";
+import { UniversalSearchDialog } from "@/components/UniversalSearchDialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 
@@ -204,6 +206,19 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const [universalSearchOpen, setUniversalSearchOpen] = useState(false);
+
+  // Global Cmd+K / Ctrl+K keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setUniversalSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const isSuperAdmin = user?.email?.toLowerCase() === "ahsanhayat092@gmail.com";
 
@@ -388,6 +403,19 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUniversalSearchOpen(true)}
+              className="gap-2 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground h-9 px-3 bg-muted/40 border-border/80"
+              title="Search players, teams, matches (Cmd + K)"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden md:inline-flex px-1.5 py-0.5 rounded bg-muted border font-mono text-[10px] text-muted-foreground">
+                ⌘K
+              </kbd>
+            </Button>
             <Link to="/" target="_blank" rel="noreferrer">
               <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-muted-foreground hover:text-foreground">
                 <Home className="h-3.5 w-3.5" />
@@ -444,6 +472,13 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
           )}
         </main>
       </SidebarInset>
+
+      {/* Universal Search Dialog */}
+      <UniversalSearchDialog
+        open={universalSearchOpen}
+        onOpenChange={setUniversalSearchOpen}
+        tournamentIdScoped={tournamentId}
+      />
     </>
   );
 }

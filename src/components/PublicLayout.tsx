@@ -38,6 +38,8 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ShareTournamentModal } from "@/components/ShareTournamentModal";
+import { UniversalSearchDialog } from "@/components/UniversalSearchDialog";
+import { SystemHealthBadge } from "@/components/SystemHealthBadge";
 
 export function PublicLayout() {
   const { theme, toggle } = useTheme();
@@ -46,8 +48,21 @@ export function PublicLayout() {
   const { tournament, activeTournamentSlug } = useTournament();
   const [open, setOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [universalSearchOpen, setUniversalSearchOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Global Cmd+K / Ctrl+K keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setUniversalSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const isTournamentSubpage = !!activeTournamentSlug;
   const basePrefix = activeTournamentSlug ? `/t/${activeTournamentSlug}` : "";
@@ -229,6 +244,21 @@ export function PublicLayout() {
                 <span className="hidden sm:inline">Create Tournament</span>
               </Button>
             </Link>
+
+            {/* Universal Full-Text Search Trigger (Cmd + K) */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUniversalSearchOpen(true)}
+              className="gap-2 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground h-9 px-3 bg-muted/40 border-border/80"
+              title="Search players, teams, matches (Cmd + K)"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden md:inline-flex px-1.5 py-0.5 rounded bg-muted border font-mono text-[10px] text-muted-foreground">
+                ⌘K
+              </kbd>
+            </Button>
 
             {/* Theme Toggle */}
             <Button
@@ -435,11 +465,21 @@ export function PublicLayout() {
           </div>
 
           <div className="pt-6 border-t border-border/40 flex flex-wrap items-center justify-between gap-4 text-[11px] text-muted-foreground">
-            <p>© 2026 WasaCricket. All Rights Reserved. Play Hard, Win Together!</p>
+            <div className="flex items-center gap-3">
+              <p>© 2026 WasaCricket. All Rights Reserved. Play Hard, Win Together!</p>
+              <SystemHealthBadge />
+            </div>
             <p>Sportsmanship • Competition • Excellence</p>
           </div>
         </div>
       </footer>
+
+      {/* Universal Full-Text & Fuzzy Search Dialog */}
+      <UniversalSearchDialog
+        open={universalSearchOpen}
+        onOpenChange={setUniversalSearchOpen}
+        tournamentIdScoped={activeTournamentSlug}
+      />
     </div>
   );
 }
