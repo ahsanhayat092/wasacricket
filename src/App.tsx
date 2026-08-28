@@ -61,10 +61,12 @@ export default function App() {
             {/* Dedicated Transparent OBS Live Broadcast Overlay */}
             <Route path="/broadcast/:id" element={<BroadcastOverlay />} />
 
-            {/* Scorer Auth & Quick PIN */}
+            {/* Scorer Auth & Live Scoring Cockpit */}
             <Route path="/scorer/login" element={<ScorerAuth />} />
             <Route path="/scorer/:id" element={<ScorerPinEntry />} />
             <Route path="/scorer/dashboard" element={<ScorerDashboard />} />
+            <Route path="/scorer/match/:id" element={<div className="min-h-screen bg-background p-4 sm:p-6 max-w-7xl mx-auto"><AdminMatchControl /></div>} />
+            <Route path="/scorer/matches/:id" element={<div className="min-h-screen bg-background p-4 sm:p-6 max-w-7xl mx-auto"><AdminMatchControl /></div>} />
 
             {/* Organizer Auth */}
             <Route path="/organizer/login" element={<OrganizerAuth />} />

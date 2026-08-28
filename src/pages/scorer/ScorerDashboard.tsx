@@ -492,7 +492,7 @@ export default function ScorerDashboard() {
                           <span className="hidden sm:inline">OBS</span>
                         </Button>
 
-                        <Link to={`/admin/matches/${m.id}`}>
+                        <Link to={`/scorer/matches/${m.id}`}>
                           <Button
                             size="sm"
                             className={`text-xs font-bold gap-1.5 h-9 px-4 rounded-xl shadow-sm ${

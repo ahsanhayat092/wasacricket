@@ -12,7 +12,7 @@ import {
   updateMatchDetails as fbUpdateMatchDetails,
   upsertPlayer as fbUpsertPlayer,
 } from "@/lib/mutations";
-import { useParams, Link, useNavigate } from "react-router";
+import { useParams, Link, useNavigate, useLocation } from "react-router";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -102,6 +102,7 @@ type WorkspaceData = {
 export default function AdminMatchControl() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["matchWorkspace", id],
@@ -251,7 +252,7 @@ export default function AdminMatchControl() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-3">
-          <Link to="/admin/matches">
+          <Link to={location.pathname.startsWith("/scorer") ? "/scorer/dashboard" : "/admin/matches"}>
             <Button variant="ghost" size="icon" className="h-9 w-9">
               <ArrowLeft className="h-4 w-4" />
             </Button>

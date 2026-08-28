@@ -45,7 +45,7 @@ export default function ScorerPinEntry() {
       sessionStorage.removeItem(lockoutKey);
       toast.success("Scorer PIN Verified! Accessing Match Live Scoring Console...");
       sessionStorage.setItem(`scorer_pin_auth_${id}`, "true");
-      navigate(`/admin/matches/${id}`);
+      navigate(`/scorer/matches/${id}`);
     } else {
       const currentAttempts = Number(sessionStorage.getItem(attemptsKey) || "0") + 1;
       sessionStorage.setItem(attemptsKey, String(currentAttempts));
