@@ -39,6 +39,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { useLocation, useNavigate, Link, Outlet } from "react-router";
 import { AuthLayoutSkeleton } from "./AuthLayoutSkeleton";
+import { WorkspaceRoleSwitcher } from "@/components/WorkspaceRoleSwitcher";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { TeamBadge } from "./TeamBadge";
@@ -279,14 +280,15 @@ function TeamLayoutContent() {
       </Sidebar>
 
       <SidebarInset className="min-w-0 flex-1 overflow-x-hidden">
-        <header className="h-14 border-b flex items-center justify-between px-4 sm:px-6 bg-background/80 backdrop-blur sticky top-0 z-20">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger className="h-8 w-8" />
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">
+        <header className="h-14 border-b flex items-center justify-between px-4 sm:px-6 bg-background/80 backdrop-blur sticky top-0 z-20 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <SidebarTrigger className="h-8 w-8 shrink-0" />
+            <h2 className="text-sm font-semibold tracking-tight text-foreground truncate">
               {activeNavItem?.label ?? "Team Manager Workspace"}
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            <WorkspaceRoleSwitcher className="hidden md:flex" />
             <Link to="/" target="_blank" rel="noreferrer">
               <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-muted-foreground hover:text-foreground">
                 <Home className="h-3.5 w-3.5" />

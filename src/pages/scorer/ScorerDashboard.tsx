@@ -5,6 +5,7 @@ import { getSchedule, getTournaments, getUserScorerTournaments } from "@/lib/que
 import { useTournament } from "@/context/TournamentContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { WorkspaceRoleSwitcher } from "@/components/WorkspaceRoleSwitcher";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -215,8 +216,9 @@ export default function ScorerDashboard() {
             )}
           </nav>
 
-          {/* Right Actions: Theme Toggle, Unlock PIN, Profile Dropdown */}
+          {/* Right Actions: Workspace Switcher, Theme Toggle, Unlock PIN, Profile Dropdown */}
           <div className="flex items-center gap-2">
+            <WorkspaceRoleSwitcher className="hidden lg:flex" />
             <Button
               variant="ghost"
               size="icon"

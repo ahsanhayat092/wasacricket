@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
-import { getAdminDashboard, getUserTournaments } from "@/lib/queries";
+import { getAdminDashboard, getUserTournaments, getUserManagedTeams, getUserScorerTournaments } from "@/lib/queries";
 import { useTournament } from "@/context/TournamentContext";
 import { useAuth } from "@/hooks/useAuth";
 import { seedTournament } from "@/lib/mutations";
@@ -30,6 +30,7 @@ import {
   Share2,
   ExternalLink,
   ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,6 +45,18 @@ export default function AdminDashboard() {
   const { data: tournaments, isLoading: isLoadingTournaments } = useQuery({
     queryKey: ["user_tournaments", user?.uid, user?.email],
     queryFn: () => getUserTournaments(user?.email, user?.uid),
+    enabled: !!user,
+  });
+
+  const { data: managedTeams = [] } = useQuery({
+    queryKey: ["user_managed_teams", user?.email, user?.uid],
+    queryFn: () => getUserManagedTeams(user?.email, user?.uid),
+    enabled: !!user,
+  });
+
+  const { data: scorerTourneys = [] } = useQuery({
+    queryKey: ["user_scorer_tournaments", user?.email, user?.uid],
+    queryFn: () => getUserScorerTournaments(user?.email, user?.uid),
     enabled: !!user,
   });
 
@@ -200,6 +213,118 @@ export default function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Multi-Role & Connected Workspaces Hub */}
+      {(tournaments && tournaments.length > 0) && (
+        <Card className="p-5 border-2 border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.04] via-background to-sky-500/[0.03] rounded-3xl shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Connected Roles & Personas
+              </span>
+              <h2 className="text-lg font-black tracking-tight flex items-center gap-2">
+                Your Workspaces Hub
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                You have active assignments across multiple roles. Seamlessly switch between them:
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link to="/admin/tournaments">
+                <Button variant="outline" size="sm" className="h-8 text-xs font-bold gap-1 rounded-xl">
+                  <Layers className="h-3.5 w-3.5 text-emerald-500" /> All My Tournaments ({tournaments.length})
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* 1. Tournament Organizer Tile */}
+            <div className="p-3.5 rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/5 flex flex-col justify-between space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <Trophy className="h-3 w-3" /> Organizer
+                  </span>
+                  <Badge className="bg-emerald-600 text-white font-bold text-[9px] px-1.5 py-0">
+                    ACTIVE NOW
+                  </Badge>
+                </div>
+                <h3 className="font-extrabold text-sm truncate" title={tournament?.name}>
+                  {tournament?.name || "Organizer Workspace"}
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  {tournaments.length} tournament{tournaments.length > 1 ? "s" : ""} under your management
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 pt-1">
+                <Link to="/admin/schedule" className="flex-1">
+                  <Button size="sm" variant="outline" className="w-full h-8 text-[11px] font-bold rounded-xl border-emerald-500/30 text-emerald-600">
+                    Fixtures
+                  </Button>
+                </Link>
+                <Link to="/admin/teams" className="flex-1">
+                  <Button size="sm" variant="outline" className="w-full h-8 text-[11px] font-bold rounded-xl border-emerald-500/30 text-emerald-600">
+                    Teams
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* 2. Team Manager Tile */}
+            <div className="p-3.5 rounded-2xl border border-sky-500/30 bg-sky-500/5 flex flex-col justify-between space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-sky-600 dark:text-sky-400 flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Team Manager
+                  </span>
+                  <Badge variant="outline" className="border-sky-500/40 text-sky-600 font-bold text-[9px] px-1.5 py-0">
+                    {managedTeams.length} Team{managedTeams.length !== 1 ? "s" : ""}
+                  </Badge>
+                </div>
+                <h3 className="font-extrabold text-sm truncate">
+                  {managedTeams.length > 0
+                    ? managedTeams.map((t) => t.name).slice(0, 2).join(", ") + (managedTeams.length > 2 ? "..." : "")
+                    : "Manage My Teams"}
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Player squad rosters, tournament invites & registrations
+                </p>
+              </div>
+              <Link to="/team" className="block w-full pt-1">
+                <Button size="sm" className="w-full h-8 text-[11px] font-bold bg-sky-600 hover:bg-sky-500 text-white rounded-xl gap-1">
+                  Open Team Manager <ArrowRight className="h-3 w-3" />
+                </Button>
+              </Link>
+            </div>
+
+            {/* 3. Match Official / Scorer Tile */}
+            <div className="p-3.5 rounded-2xl border border-amber-500/30 bg-amber-500/5 flex flex-col justify-between space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Zap className="h-3 w-3" /> Match Official / Scorer
+                  </span>
+                  <Badge variant="outline" className="border-amber-500/40 text-amber-600 font-bold text-[9px] px-1.5 py-0">
+                    {scorerTourneys.length} Event{scorerTourneys.length !== 1 ? "s" : ""}
+                  </Badge>
+                </div>
+                <h3 className="font-extrabold text-sm truncate">
+                  Scorer Match Center
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Live ball-by-ball scoring console, toss & OBS broadcast
+                </p>
+              </div>
+              <Link to="/scorer/dashboard" className="block w-full pt-1">
+                <Button size="sm" className="w-full h-8 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl gap-1">
+                  Open Scorer Cockpit <ArrowRight className="h-3 w-3" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Empty State Onboarding Card (If no teams in current tournament) */}
       {isZeroTeams && (
