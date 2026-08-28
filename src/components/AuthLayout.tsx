@@ -168,8 +168,8 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
   const isAuthorizedForCurrentTournament =
     isSuperAdmin ||
     isGlobalPath ||
-    allowedTournaments.length === 0 ||
-    allowedTournaments.some((t) => t.id === tournamentId);
+    (allowedTournaments.length > 0 &&
+      allowedTournaments.some((t) => t.id === tournamentId));
 
   // Auto-switch to user's first allowed tournament if active tournamentId doesn't belong to them
   useEffect(() => {
@@ -207,7 +207,9 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
                   <button className="flex-1 min-w-0 flex items-center justify-between gap-1 p-1.5 rounded-xl hover:bg-accent/60 transition-colors text-left focus:outline-none group">
                     <div className="flex flex-col leading-tight min-w-0">
                       <span className="font-bold tracking-tight truncate text-sm text-foreground">
-                        {tournament?.name || "WASA Premier League"}
+                        {allowedTournaments.length > 0
+                          ? tournament?.name || "Tournament Workspace"
+                          : "No Active Tournament"}
                       </span>
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
                         <ShieldCheck className="h-3 w-3 text-emerald-500 inline" /> Organizer Workspace
@@ -237,6 +239,11 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
                       )}
                     </DropdownMenuItem>
                   ))}
+                  {allowedTournaments.length === 0 && (
+                    <div className="px-2 py-2 text-xs text-muted-foreground italic">
+                      No tournaments created yet
+                    </div>
+                  )}
                   <div className="my-1 border-t" />
                   <DropdownMenuItem
                     onClick={() => navigate("/admin/tournaments")}
@@ -365,30 +372,38 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
         <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
           {!isAuthorizedForCurrentTournament && !isLoadingTourneys ? (
             <div className="flex items-center justify-center min-h-[65vh] p-4">
-              <Card className="p-8 max-w-md w-full text-center space-y-5 border-dashed border-2 bg-muted/10 rounded-3xl shadow-sm">
-                <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto shadow-inner">
-                  <ShieldAlert className="h-8 w-8" />
+              <Card className="p-8 sm:p-10 max-w-lg w-full text-center space-y-6 border-dashed border-2 bg-muted/10 rounded-3xl shadow-sm">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
+                  <Trophy className="h-8 w-8 sm:h-10 sm:w-10" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-xl font-black tracking-tight">Tournament Access Restricted</h2>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    You are not authorized to manage "{tournament?.name || "this tournament"}". Organizers can only manage tournaments they own or are invited to.
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                    {allowedTournaments.length === 0
+                      ? "Create Your First Cricket Tournament!"
+                      : "Tournament Access Restricted"}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+                    {allowedTournaments.length === 0
+                      ? "You are logged in as a Tournament Organizer. Launch your corporate cup, tape-ball league, or club championship in 5 minutes with our wizard to start adding teams, generating fixtures, and scoring matches."
+                      : `You are not authorized to manage "${tournament?.name || "this tournament"}". Organizers can only manage tournaments they own or are invited to.`}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 pt-2">
                   <Button
                     onClick={() => navigate("/admin/tournaments/new")}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 rounded-xl h-10"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 rounded-xl h-11 shadow-md shadow-emerald-600/20"
                   >
                     <Plus className="h-4 w-4" /> Launch 5-Step Tournament Wizard
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate("/admin/tournaments")}
-                    className="text-xs font-bold rounded-xl h-10"
-                  >
-                    View My Tournaments
-                  </Button>
+                  {allowedTournaments.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/admin/tournaments")}
+                      className="text-xs font-bold rounded-xl h-10"
+                    >
+                      View My Tournaments
+                    </Button>
+                  )}
                 </div>
               </Card>
             </div>
