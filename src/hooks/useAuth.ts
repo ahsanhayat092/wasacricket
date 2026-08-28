@@ -31,8 +31,11 @@ export function useAuth(options?: UseAuthOptions) {
       sessionStorage.removeItem("scorer_auth_tournaments");
       await signOut(auth);
     } catch {}
-    const destination = typeof customRedirect === "string" && customRedirect.length > 0 ? customRedirect : "/";
-    window.location.href = destination;
+    const dest =
+      typeof customRedirect === "string" && customRedirect.length > 0 && !customRedirect.includes("[object")
+        ? customRedirect
+        : "/";
+    window.location.replace(window.location.origin + (dest.startsWith("/") ? dest : `/${dest}`));
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, pass: string) => {
