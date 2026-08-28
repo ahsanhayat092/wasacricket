@@ -1656,65 +1656,37 @@ export async function getUserManagedTeams(
   if (!userEmail && !userUid) return [];
   try {
     const cleanEmail = userEmail?.toLowerCase().trim();
-    const isPlatformAdmin = cleanEmail === "ahsanhayat092@gmail.com";
 
-    const [allTeamsSnap, allTourneysSnap, allMembersSnap, allTeamMembershipsSnap] = await Promise.all([
+    const [allTeamsSnap, allTeamMembershipsSnap] = await Promise.all([
       getDocs(teamsCol()),
-      getDocs(tournamentsCol()),
-      getDocs(tournamentMembersCol()),
       getDocs(tournamentTeamMembershipsCol()),
     ]);
 
     const allTeams = allTeamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
-    const allTourneys = allTourneysSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Tournament);
 
-    // For the platform administrator account, return all existing teams as their managed teams
-    if (isPlatformAdmin) {
-      return allTeams;
-    }
-
-    // IDs of tournaments owned by this user
-    const ownedTourneyIds = new Set<string>();
-    
-    allTourneys.forEach((t) => {
-      const matchEmail = cleanEmail && t.ownerEmail && t.ownerEmail.toLowerCase().trim() === cleanEmail;
-      const matchUid = userUid && (t.ownerId === userUid || t.ownerId === `tm_${cleanEmail}`);
-      if (matchEmail || matchUid) ownedTourneyIds.add(t.id);
-    });
-
-    allMembersSnap.docs.forEach((d) => {
-      const data = d.data() as any;
-      const matchEmail = cleanEmail && data.userEmail && data.userEmail.toLowerCase().trim() === cleanEmail;
-      const matchUid = userUid && (data.userId === userUid || data.userId === `tm_${cleanEmail}`);
-      if ((matchEmail || matchUid) && (data.role === "OWNER" || data.role === "ADMIN")) {
-        if (data.tournamentId) ownedTourneyIds.add(data.tournamentId);
-      }
-    });
-
-    // Team IDs associated via memberships created by this user
-    const userTeamMembershipIds = new Set<string>();
+    // Team IDs where the user explicitly requested tournament participation as Team Manager
+    const userRequestedTeamIds = new Set<string>();
     allTeamMembershipsSnap.docs.forEach((d) => {
       const data = d.data() as any;
-      const matchEmail = cleanEmail && (
-        (data.requestedBy && data.requestedBy.toLowerCase().trim() === cleanEmail) ||
-        (data.invitedBy && data.invitedBy.toLowerCase().trim() === cleanEmail)
-      );
+      // Only check requestedBy (the team manager who requested to join), NOT invitedBy (which is the tournament organizer)
+      const matchEmail = cleanEmail && data.requestedBy && data.requestedBy.toLowerCase().trim() === cleanEmail;
       const matchUid = userUid && (
         data.requestedBy === userUid ||
-        data.invitedBy === userUid ||
         data.requestedBy === `tm_${cleanEmail}`
       );
       if (matchEmail || matchUid) {
-        if (data.teamId) userTeamMembershipIds.add(data.teamId);
+        if (data.teamId) userRequestedTeamIds.add(data.teamId);
       }
     });
 
     return allTeams.filter((t) => {
+      // 1. User is the creator / owner of the team
       const matchEmail = cleanEmail && t.ownerEmail && t.ownerEmail.toLowerCase().trim() === cleanEmail;
       const matchUid = userUid && (t.ownerId === userUid || t.ownerId === `tm_${cleanEmail}`);
-      const matchTourney = t.tournamentId && ownedTourneyIds.has(t.tournamentId);
-      const matchMembership = userTeamMembershipIds.has(t.id);
-      return matchEmail || matchUid || matchTourney || matchMembership;
+      // 2. User submitted a tournament join request for this team as its manager
+      const matchRequested = userRequestedTeamIds.has(t.id);
+
+      return matchEmail || matchUid || matchRequested;
     });
   } catch (err) {
     console.error("Error loading user managed teams:", err);
