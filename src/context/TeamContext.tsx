@@ -25,12 +25,18 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     return localStorage.getItem("wasa_active_managed_team_id");
   });
 
-  // Automatically bootstrap legacy teams for platform admin
+  // Automatically bootstrap & sync teams for organizer / platform admin
   useEffect(() => {
-    if (user?.email?.toLowerCase().trim() === "ahsanhayat092@gmail.com") {
-      bootstrapLegacyTeamsAdmin("ahsanhayat092@gmail.com", user.uid).catch((err) => {
-        console.warn("Bootstrap legacy teams:", err);
-      });
+    if (user?.email) {
+      bootstrapLegacyTeamsAdmin(user.email, user.uid)
+        .then((res) => {
+          if (res && res.count > 0) {
+            refetchTeams();
+          }
+        })
+        .catch((err) => {
+          console.warn("Bootstrap teams sync:", err);
+        });
     }
   }, [user?.email, user?.uid]);
 

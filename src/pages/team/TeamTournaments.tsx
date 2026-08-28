@@ -72,7 +72,7 @@ export default function TeamTournaments() {
       return requestJoinTournament({
         tournamentId: args.tournamentId,
         teamId: activeTeam.id,
-        requestedBy: user?.email || "manager",
+        requestedBy: user?.uid || user?.email || "manager",
         squadPlayerIds: selectedSquadPlayerIds,
         notes: args.notes,
       });

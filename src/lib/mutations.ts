@@ -192,9 +192,11 @@ export async function upsertTeam(input: {
   shortName: string;
   groupName: "A" | "B";
   logoUrl?: string;
+  ownerId?: string | null;
+  ownerEmail?: string | null;
 }) {
   const tId = input.tournamentId || TOURNAMENT_ID;
-  const data = {
+  const data: Record<string, any> = {
     tournamentId: tId,
     name: input.name,
     shortName: input.shortName,
@@ -203,15 +205,22 @@ export async function upsertTeam(input: {
     updatedAt: now(),
   };
 
+  if (input.ownerId !== undefined) {
+    data.ownerId = input.ownerId;
+  }
+  if (input.ownerEmail !== undefined) {
+    data.ownerEmail = input.ownerEmail ? input.ownerEmail.toLowerCase().trim() : null;
+  }
+
   if (input.id) {
     await updateDoc(teamDoc(input.id), data);
     await recalculateStandings(tId);
-    return { id: input.id };
+    return { id: input.id, ...data };
   }
 
   const ref = await addDoc(teamsCol(), { ...data, createdAt: now() });
   await recalculateStandings(tId);
-  return { id: ref.id };
+  return { id: ref.id, ...data };
 }
 
 export async function deleteTeam(teamId: string) {
@@ -1155,11 +1164,13 @@ export async function updateTournamentScorerPin(tournamentId: string, scorerPin:
 }
 
 export async function bootstrapLegacyTeamsAdmin(adminEmail = "ahsanhayat092@gmail.com", userUid?: string) {
+  if (!adminEmail && !userUid) return { count: 0 };
   const cleanEmail = adminEmail.toLowerCase().trim();
+  const isPlatformAdmin = cleanEmail === "ahsanhayat092@gmail.com";
 
-  // Resolve UID for this administrator
+  // Resolve UID for this user
   let targetUid = userUid;
-  if (!targetUid) {
+  if (!targetUid && cleanEmail) {
     try {
       const userSnap = await getDocs(query(usersCol(), where("email", "==", cleanEmail)));
       if (!userSnap.empty) {
@@ -1167,15 +1178,45 @@ export async function bootstrapLegacyTeamsAdmin(adminEmail = "ahsanhayat092@gmai
       }
     } catch {}
   }
-  if (!targetUid) {
-    targetUid = `admin_${cleanEmail.replace(/[^a-z0-9]/gi, "_")}`;
+  if (!targetUid && cleanEmail) {
+    targetUid = `tm_${cleanEmail.replace(/[^a-z0-9]/gi, "_")}`;
   }
 
-  const allSnap = await getDocs(teamsCol());
-  const teamsToAssign = allSnap.docs.filter((d) => {
+  const [allTeamsSnap, allTourneysSnap, allMembersSnap] = await Promise.all([
+    getDocs(teamsCol()),
+    getDocs(tournamentsCol()),
+    getDocs(tournamentMembersCol()),
+  ]);
+
+  // Find all tournament IDs owned/administered by this user
+  const userTourneyIds = new Set<string>();
+  allTourneysSnap.docs.forEach((d) => {
+    const data = d.data() as Tournament;
+    const matchEmail = cleanEmail && data.ownerEmail && data.ownerEmail.toLowerCase().trim() === cleanEmail;
+    const matchUid = targetUid && (data.ownerId === targetUid || data.ownerId === `tm_${cleanEmail}`);
+    if (matchEmail || matchUid) userTourneyIds.add(d.id);
+  });
+
+  allMembersSnap.docs.forEach((d) => {
+    const data = d.data() as any;
+    const matchEmail = cleanEmail && data.userEmail && data.userEmail.toLowerCase().trim() === cleanEmail;
+    const matchUid = targetUid && (data.userId === targetUid || data.userId === `tm_${cleanEmail}`);
+    if ((matchEmail || matchUid) && (data.role === "OWNER" || data.role === "ADMIN")) {
+      if (data.tournamentId) userTourneyIds.add(data.tournamentId);
+    }
+  });
+
+  const teamsToAssign = allTeamsSnap.docs.filter((d) => {
     const data = d.data() as Team;
-    // Target any team not yet explicitly assigned to another user, or already assigned to admin
-    return !data.ownerEmail || !data.ownerId || data.ownerEmail.toLowerCase().trim() === cleanEmail;
+    // For platform admin, assign any unassigned teams
+    if (isPlatformAdmin && (!data.ownerEmail || !data.ownerId)) {
+      return true;
+    }
+    // For tournament creator, assign any teams in their tournaments that don't have an owner
+    if (data.tournamentId && userTourneyIds.has(data.tournamentId) && (!data.ownerEmail || !data.ownerId)) {
+      return true;
+    }
+    return false;
   });
 
   if (teamsToAssign.length === 0) return { count: 0 };
@@ -1184,7 +1225,7 @@ export async function bootstrapLegacyTeamsAdmin(adminEmail = "ahsanhayat092@gmai
   for (const docSnap of teamsToAssign) {
     batch.update(docSnap.ref, {
       ownerEmail: cleanEmail,
-      ownerId: targetUid,
+      ownerId: targetUid || `tm_${cleanEmail}`,
       updatedAt: now(),
     });
   }

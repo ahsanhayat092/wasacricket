@@ -35,10 +35,7 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/tournaments/$(tourneyId)) &&
           (
             get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.ownerId == request.auth.uid ||
-            (
-              !('ownerId' in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data) &&
-              get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.ownerEmail == request.auth.token.email
-            )
+            get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.ownerEmail == request.auth.token.email
           )
         ) ||
         (
@@ -87,10 +84,8 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/teams/$(teamId)) &&
           (
             get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid ||
-            (
-              !('ownerId' in get(/databases/$(database)/documents/teams/$(teamId)).data) &&
-              get(/databases/$(database)/documents/teams/$(teamId)).data.ownerEmail == request.auth.token.email
-            )
+            get(/databases/$(database)/documents/teams/$(teamId)).data.ownerEmail == request.auth.token.email ||
+            get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == ('tm_' + request.auth.token.email)
           )
         )
       );
@@ -115,10 +110,14 @@ service cloud.firestore {
     match /tournaments/{tournamentId} {
       allow read: if true;
 
-      // Creation requires authenticated user and valid name & ownerId
+      // Creation requires authenticated user and valid name & ownerId/ownerEmail
       allow create: if isSignedIn() &&
         isValidNonEmptyString(request.resource.data.name, 120) &&
-        (request.resource.data.ownerId == request.auth.uid || isSuperAdmin());
+        (
+          request.resource.data.ownerId == request.auth.uid ||
+          request.resource.data.ownerEmail == request.auth.token.email ||
+          isSuperAdmin()
+        );
 
       // Update / Delete strictly requires owner or super admin; prevents changing ownerId unless super admin
       allow update: if isSignedIn() &&
@@ -144,6 +143,7 @@ service cloud.firestore {
         isValidNonEmptyString(request.resource.data.name, 100) &&
         (
           request.resource.data.ownerId == request.auth.uid ||
+          request.resource.data.ownerEmail == request.auth.token.email ||
           (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId)) ||
           isSuperAdmin()
         );
@@ -152,7 +152,8 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         isSuperAdmin() ||
         (resource.data.ownerId == request.auth.uid) ||
-        (!('ownerId' in resource.data) && resource.data.ownerEmail == request.auth.token.email) ||
+        (resource.data.ownerEmail == request.auth.token.email) ||
+        (resource.data.ownerId == ('tm_' + request.auth.token.email)) ||
         (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId))
       ) && (
         !('ownerId' in request.resource.data) ||
@@ -164,7 +165,8 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (
         isSuperAdmin() ||
         (resource.data.ownerId == request.auth.uid) ||
-        (!('ownerId' in resource.data) && resource.data.ownerEmail == request.auth.token.email) ||
+        (resource.data.ownerEmail == request.auth.token.email) ||
+        (resource.data.ownerId == ('tm_' + request.auth.token.email)) ||
         (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId))
       );
     }
@@ -316,29 +318,24 @@ service cloud.firestore {
     // 8. TOURNAMENT MEMBERS (CIRCULAR DEPENDENCY FIXED & ESCALATION PROTECTED)
     // =========================================================================
     match /tournamentMembers/{memberId} {
-      // Circular dependency fix: check direct user identity or parent tournament ownership directly
-      allow read: if isSignedIn() && (
-        isSuperAdmin() ||
-        resource.data.userId == request.auth.uid ||
-        resource.data.userEmail == request.auth.token.email ||
-        (
-          resource.data.tournamentId != null &&
-          exists(/databases/$(database)/documents/tournaments/$(resource.data.tournamentId)) &&
-          (
-            get(/databases/$(database)/documents/tournaments/$(resource.data.tournamentId)).data.ownerId == request.auth.uid ||
-            get(/databases/$(database)/documents/tournaments/$(resource.data.tournamentId)).data.ownerEmail == request.auth.token.email
-          )
-        )
-      );
+      // Authenticated users can read tournament member assignments
+      allow read: if isSignedIn();
 
-      // Only Tournament OWNER or Super Admin can create/update/delete members
-      // Anti-Privilege Escalation: ADMIN or SCORER cannot promote anyone to OWNER
+      // Tournament Owner or Super Admin can create/update/delete members
       allow create: if isSignedIn() && (
         isSuperAdmin() ||
         (
           request.resource.data.tournamentId != null &&
-          isTournamentOwner(request.resource.data.tournamentId) &&
-          (request.resource.data.role != 'OWNER' || isSuperAdmin())
+          (
+            isTournamentOwner(request.resource.data.tournamentId) ||
+            (
+              exists(/databases/$(database)/documents/tournaments/$(request.resource.data.tournamentId)) &&
+              (
+                get(/databases/$(database)/documents/tournaments/$(request.resource.data.tournamentId)).data.ownerId == request.auth.uid ||
+                get(/databases/$(database)/documents/tournaments/$(request.resource.data.tournamentId)).data.ownerEmail == request.auth.token.email
+              )
+            )
+          )
         )
       );
 
@@ -346,8 +343,7 @@ service cloud.firestore {
         isSuperAdmin() ||
         (
           resource.data.tournamentId != null &&
-          isTournamentOwner(resource.data.tournamentId) &&
-          (request.resource.data.role != 'OWNER' || resource.data.role == 'OWNER' || isSuperAdmin())
+          isTournamentOwner(resource.data.tournamentId)
         )
       );
 
@@ -371,16 +367,17 @@ service cloud.firestore {
         (
           request.resource.data.teamId != null &&
           isTeamManager(request.resource.data.teamId) &&
-          request.resource.data.status == 'PENDING' &&
-          request.resource.data.requestedBy == request.auth.uid
+          request.resource.data.status == 'PENDING'
         )
       );
 
-      // Update: Tournament Admins can approve/reject; Team Managers can accept/decline for own team
+      // Update: Tournament Admins can approve/reject; Team Managers can accept/decline for own team / update squad
       allow update: if isSignedIn() && (
         isSuperAdmin() ||
         (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
-        (resource.data.teamId != null && isTeamManager(resource.data.teamId))
+        (resource.data.teamId != null && isTeamManager(resource.data.teamId)) ||
+        (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId)) ||
+        (request.resource.data.teamId != null && isTeamManager(request.resource.data.teamId))
       );
 
       allow delete: if isSignedIn() && (

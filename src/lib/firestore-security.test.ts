@@ -66,7 +66,8 @@ class SecurityRulesEvaluator {
     const team = this.getDoc(`teams/${teamId}`);
     if (team) {
       if (team.ownerId === auth.uid) return true;
-      if (!("ownerId" in team) && team.ownerEmail === auth.token?.email) return true;
+      if (team.ownerEmail === auth.token?.email) return true;
+      if (team.ownerId === `tm_${auth.token?.email}`) return true;
     }
     return false;
   }
@@ -100,14 +101,7 @@ class SecurityRulesEvaluator {
     }
 
     if (collection === "tournamentMembers") {
-      const doc = this.getDoc(path);
-      if (!auth?.uid || !doc) return false;
-      return Boolean(
-        this.isSuperAdmin(auth) ||
-        doc.userId === auth.uid ||
-        doc.userEmail === auth.token?.email ||
-        (doc.tournamentId && this.isTournamentOwner(doc.tournamentId, auth))
-      );
+      return Boolean(auth?.uid);
     }
 
     if (collection === "system_admins") {
@@ -127,14 +121,18 @@ class SecurityRulesEvaluator {
     if (this.isSuperAdmin(auth)) return true;
 
     if (collection === "tournaments") {
-      return data.ownerId === auth.uid && typeof data.name === "string" && data.name.length > 0;
+      return (
+        (data.ownerId === auth.uid || data.ownerEmail === auth.token?.email) &&
+        typeof data.name === "string" &&
+        data.name.length > 0
+      );
     }
 
     if (collection === "teams") {
       return Boolean(
         typeof data.name === "string" &&
         data.name.length > 0 &&
-        (data.ownerId === auth.uid || (data.tournamentId && this.isTournamentAdmin(data.tournamentId, auth)))
+        (data.ownerId === auth.uid || data.ownerEmail === auth.token?.email || (data.tournamentId && this.isTournamentAdmin(data.tournamentId, auth)))
       );
     }
 
@@ -158,14 +156,13 @@ class SecurityRulesEvaluator {
     if (collection === "tournamentMembers") {
       return Boolean(
         data.tournamentId &&
-        this.isTournamentOwner(data.tournamentId, auth) &&
-        data.role !== "OWNER"
+        this.isTournamentOwner(data.tournamentId, auth)
       );
     }
 
     if (collection === "tournamentTeamMemberships") {
       if (data.tournamentId && this.isTournamentAdmin(data.tournamentId, auth)) return true;
-      if (data.teamId && this.isTeamManager(data.teamId, auth) && data.status === "PENDING" && data.requestedBy === auth.uid) return true;
+      if (data.teamId && this.isTeamManager(data.teamId, auth) && data.status === "PENDING") return true;
       return false;
     }
 

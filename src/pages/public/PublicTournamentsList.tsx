@@ -145,7 +145,12 @@ export default function PublicTournamentsList() {
                   </p>
 
                   <div className="pt-2 flex items-center justify-between border-t gap-2">
-                    <Link to={`/admin/tournaments`}>
+                    <Link
+                      to="/admin"
+                      onClick={() => {
+                        localStorage.setItem("wasa_active_tournament_id", t.id);
+                      }}
+                    >
                       <span className="text-[11px] text-muted-foreground hover:text-emerald-500 font-semibold cursor-pointer">
                         Organizer Access →
                       </span>

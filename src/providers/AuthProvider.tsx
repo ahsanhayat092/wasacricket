@@ -6,7 +6,7 @@ import {
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getDocs, query, where, addDoc } from "firebase/firestore";
-import { usersCol, tournamentMembersCol, now, type UserAccount, type UserRole, type TournamentMember } from "@/lib/firestore";
+import { usersCol, tournamentMembersCol, tournamentsCol, now, type UserAccount, type UserRole, type TournamentMember } from "@/lib/firestore";
 
 type AuthContextValue = {
   firebaseUser: FirebaseUser | null;
@@ -91,16 +91,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         // Query tournaments collection & tournament members collection for this user
-        const [ownedUidSnap, ownedEmailSnap, allMembersSnap, userSnap] = await Promise.all([
+        const memberQueries = [
+          getDocs(query(tournamentMembersCol(), where("userEmail", "==", email))),
+        ];
+        if (user.uid) {
+          memberQueries.push(getDocs(query(tournamentMembersCol(), where("userId", "==", user.uid))));
+        }
+
+        const [ownedUidSnap, ownedEmailSnap, userSnap, ...memberSnaps] = await Promise.all([
           getDocs(query(tournamentsCol(), where("ownerId", "==", user.uid))),
           getDocs(query(tournamentsCol(), where("ownerEmail", "==", email))),
-          getDocs(tournamentMembersCol()),
           getDocs(query(usersCol(), where("email", "==", email))),
+          ...memberQueries,
         ]);
 
         const isOwner = isSuperAdmin || !ownedUidSnap.empty || !ownedEmailSnap.empty;
 
-        const userMembers = allMembersSnap.docs.filter((d) => {
+        const allMemberDocs = memberSnaps.flatMap((snap) => snap.docs);
+        const userMembers = allMemberDocs.filter((d) => {
           const data = d.data() as any;
           const matchEmail = email && data.userEmail && data.userEmail.toLowerCase().trim() === email;
           const matchUid = user.uid && data.userId && data.userId === user.uid;

@@ -262,12 +262,14 @@ export default function TournamentWizard() {
           });
           createdTeamsForSchedule.push({ id: t.teamId, name: t.name });
         } else {
-          // Create custom team document and membership invite
+          // Create custom team document and membership invite with organizer as owner
           const savedTeam = await upsertTeam({
             tournamentId: tourneyId,
             name: t.name,
             shortName: t.shortName,
             groupName,
+            ownerId: user?.uid || null,
+            ownerEmail: user?.email ? user.email.toLowerCase().trim() : null,
           });
           await inviteTeamToTournament({
             tournamentId: tourneyId,
@@ -313,6 +315,9 @@ export default function TournamentWizard() {
       queryClient.invalidateQueries({ queryKey: ["user_tournaments"] });
       queryClient.invalidateQueries({ queryKey: ["tournaments"] });
       queryClient.invalidateQueries({ queryKey: ["schedule"] });
+      queryClient.invalidateQueries({ queryKey: ["user_managed_teams"] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      queryClient.invalidateQueries({ queryKey: ["team_memberships"] });
       localStorage.setItem("wasa_active_tournament_id", newTourney.id);
       setTournamentId(newTourney.id);
       setCreatedTournament(newTourney);
