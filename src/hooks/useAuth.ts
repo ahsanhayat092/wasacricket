@@ -24,14 +24,15 @@ export function useAuth(options?: UseAuthOptions) {
   const navigate = useNavigate();
   const { firebaseUser, role, isAdmin, isScorer, isLoading } = useFirebaseAuth();
 
-  const logout = useCallback(async (customRedirect = "/") => {
+  const logout = useCallback(async (customRedirect?: unknown) => {
     try {
       localStorage.removeItem("wasa_organizer_session");
       sessionStorage.removeItem("scorer_global_pin_auth");
       sessionStorage.removeItem("scorer_auth_tournaments");
       await signOut(auth);
     } catch {}
-    window.location.href = customRedirect || "/";
+    const destination = typeof customRedirect === "string" && customRedirect.length > 0 ? customRedirect : "/";
+    window.location.href = destination;
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, pass: string) => {

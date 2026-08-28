@@ -325,7 +325,7 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem
-                onClick={logout}
+                onClick={() => logout("/")}
                 className="cursor-pointer text-destructive focus:text-destructive text-xs font-medium"
               >
                 <LogOut className="mr-2 h-4 w-4" />

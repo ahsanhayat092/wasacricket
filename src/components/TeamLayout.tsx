@@ -267,7 +267,7 @@ function TeamLayoutContent() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={logout}
+                onClick={() => logout("/")}
                 className="cursor-pointer text-destructive focus:text-destructive text-xs font-semibold gap-2 py-2"
               >
                 <LogOut className="h-3.5 w-3.5" />
