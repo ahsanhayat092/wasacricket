@@ -183,15 +183,13 @@ export function PublicLayout() {
                   </div>
                   <DropdownMenuSeparator />
 
-                  {isAdmin && (
-                    <DropdownMenuItem
-                      onClick={() => navigate("/admin")}
-                      className="cursor-pointer text-xs font-semibold gap-2 py-2"
-                    >
-                      <Shield className="h-3.5 w-3.5 text-emerald-500" />
-                      <span>Organizer Workspace</span>
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuItem
+                    onClick={() => navigate("/admin")}
+                    className="cursor-pointer text-xs font-semibold gap-2 py-2"
+                  >
+                    <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>Organizer Workspace</span>
+                  </DropdownMenuItem>
 
                   <DropdownMenuItem
                     onClick={() => navigate("/team")}
@@ -305,14 +303,12 @@ export function PublicLayout() {
                           <p className="font-bold text-foreground truncate">{user.name || "User"}</p>
                           <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                         </div>
-                        {isAdmin && (
-                          <Link to="/admin" onClick={() => setOpen(false)} className="block">
-                            <Button size="sm" className="w-full bg-emerald-600 text-white font-bold text-xs gap-1.5">
-                              <Shield className="h-3.5 w-3.5" />
-                              Organizer Workspace
-                            </Button>
-                          </Link>
-                        )}
+                        <Link to="/admin" onClick={() => setOpen(false)} className="block">
+                          <Button size="sm" className="w-full bg-emerald-600 text-white font-bold text-xs gap-1.5">
+                            <Shield className="h-3.5 w-3.5" />
+                            Organizer Workspace
+                          </Button>
+                        </Link>
                         <Link to="/team" onClick={() => setOpen(false)} className="block">
                           <Button variant="outline" size="sm" className="w-full text-xs font-bold gap-1.5">
                             <Users className="h-3.5 w-3.5 text-sky-500" />

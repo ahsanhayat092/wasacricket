@@ -217,11 +217,11 @@ function TeamLayoutContent() {
               {!isCollapsed && <span>Browse Tournaments</span>}
             </Link>
             <Link
-              to="/organizer/signup"
+              to="/admin"
               className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors group"
             >
               <Shield className="h-3.5 w-3.5 group-hover:text-emerald-500" />
-              {!isCollapsed && <span>Organizer Portal</span>}
+              {!isCollapsed && <span>Organizer Workspace</span>}
             </Link>
           </div>
         </SidebarContent>
@@ -250,12 +250,27 @@ function TeamLayoutContent() {
                 </div>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-52 p-1.5">
+              <DropdownMenuItem
+                onClick={() => navigate("/admin")}
+                className="cursor-pointer text-xs font-semibold gap-2 py-2"
+              >
+                <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                <span>Organizer Workspace</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => navigate("/")}
+                className="cursor-pointer text-xs font-semibold gap-2 py-2"
+              >
+                <Home className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Public Site</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={logout}
-                className="cursor-pointer text-destructive focus:text-destructive text-xs font-medium"
+                className="cursor-pointer text-destructive focus:text-destructive text-xs font-semibold gap-2 py-2"
               >
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5" />
                 <span>Sign out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
