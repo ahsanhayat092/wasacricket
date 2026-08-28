@@ -31,8 +31,8 @@ export function useAuth(options?: UseAuthOptions) {
       sessionStorage.removeItem("scorer_auth_tournaments");
       await signOut(auth);
     } catch {}
-    navigate(customRedirect || "/");
-  }, [navigate]);
+    window.location.href = customRedirect || "/";
+  }, []);
 
   const signInWithEmail = useCallback(async (email: string, pass: string) => {
     try {

@@ -132,17 +132,19 @@ export default function ScorerDashboard() {
   });
 
   const handleLogout = async () => {
+    sessionStorage.removeItem("scorer_global_pin_auth");
     sessionStorage.removeItem("scorer_auth_tournaments");
     if (tournamentId) {
       sessionStorage.removeItem(`scorer_pin_auth_${tournamentId}`);
     }
     if (user) {
       try {
-        await logout();
+        await logout("/");
+        return;
       } catch {}
     }
     toast.success("Scorer session ended successfully.");
-    navigate("/");
+    window.location.href = "/";
   };
 
   if (isAuthLoading) {
