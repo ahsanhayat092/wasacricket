@@ -165,6 +165,12 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
   const isGlobalPath =
     isCreatingNewTournament || location.pathname === "/admin/tournaments";
 
+  const isAuthorizedForCurrentTournament =
+    isSuperAdmin ||
+    isGlobalPath ||
+    allowedTournaments.length === 0 ||
+    allowedTournaments.some((t) => t.id === tournamentId);
+
   // Auto-switch to user's first allowed tournament if active tournamentId doesn't belong to them
   useEffect(() => {
     if (!isSuperAdmin && !isLoadingTourneys && allowedTournaments.length > 0) {
@@ -204,15 +210,7 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
                         {tournament?.name || "WASA Premier League"}
                       </span>
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
-                        {isAdmin ? (
-                          <>
-                            <ShieldCheck className="h-3 w-3 text-emerald-500 inline" /> Organizer Workspace
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="h-3 w-3 text-amber-500 inline" /> Scorer Workspace
-                          </>
-                        )}
+                        <ShieldCheck className="h-3 w-3 text-emerald-500 inline" /> Organizer Workspace
                       </span>
                     </div>
                     {allowedTournaments && allowedTournaments.length > 1 && (
@@ -306,28 +304,21 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
                 <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-bold truncate leading-none">
-                      {user?.name || (isAdmin ? "Admin" : "Official Scorer")}
+                      {user?.name || "Tournament Organizer"}
                     </p>
-                    <Badge variant="outline" className="text-[9px] py-0 px-1 border-muted-foreground/30">
-                      {isAdmin ? "Admin" : "Scorer"}
+                    <Badge variant="outline" className="text-[9px] py-0 px-1 border-emerald-500/30 text-emerald-600">
+                      Organizer
                     </Badge>
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate mt-1">
-                    {user?.email || (pinUnlockedTourneys.length > 0 ? "PIN-Verified Session" : "scorer")}
+                    {user?.email || "organizer"}
                   </p>
                 </div>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem
-                onClick={() => {
-                  if (user) {
-                    logout();
-                  } else {
-                    sessionStorage.removeItem("scorer_auth_tournaments");
-                    window.location.href = "/";
-                  }
-                }}
+                onClick={logout}
                 className="cursor-pointer text-destructive focus:text-destructive text-xs font-medium"
               >
                 <LogOut className="mr-2 h-4 w-4" />
@@ -345,7 +336,7 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
             <h2 className="text-sm font-semibold tracking-tight text-foreground">
               {isCreatingNewTournament
                 ? "🏆 Launch Tournament Wizard"
-                : (activeMenuItem?.label ?? (isAdmin ? "Admin Workspace" : "Scorer Workspace"))}
+                : (activeMenuItem?.label ?? "Organizer Workspace")}
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -381,35 +372,23 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
                 <div className="space-y-2">
                   <h2 className="text-xl font-black tracking-tight">Tournament Access Restricted</h2>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    {isAdmin
-                      ? `You are not authorized to manage "${tournament?.name || "this tournament"}". Organizers can only manage tournaments they own or are invited to.`
-                      : `You are not assigned as an Official Scorer for "${tournament?.name || "this tournament"}".`}
+                    You are not authorized to manage "{tournament?.name || "this tournament"}". Organizers can only manage tournaments they own or are invited to.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 pt-2">
-                  {!isAdmin ? (
-                    <Link to="/scorer/login" className="w-full">
-                      <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs gap-1.5 rounded-xl h-10">
-                        <KeyRound className="h-4 w-4" /> Enter Scorer PIN to Unlock
-                      </Button>
-                    </Link>
-                  ) : (
-                    <>
-                      <Button
-                        onClick={() => navigate("/admin/tournaments/new")}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 rounded-xl h-10"
-                      >
-                        <Plus className="h-4 w-4" /> Launch 5-Step Tournament Wizard
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => navigate("/admin/tournaments")}
-                        className="text-xs font-bold rounded-xl h-10"
-                      >
-                        View My Tournaments
-                      </Button>
-                    </>
-                  )}
+                  <Button
+                    onClick={() => navigate("/admin/tournaments/new")}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 rounded-xl h-10"
+                  >
+                    <Plus className="h-4 w-4" /> Launch 5-Step Tournament Wizard
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/admin/tournaments")}
+                    className="text-xs font-bold rounded-xl h-10"
+                  >
+                    View My Tournaments
+                  </Button>
                 </div>
               </Card>
             </div>
