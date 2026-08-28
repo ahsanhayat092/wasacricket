@@ -75,56 +75,27 @@ export default function AuthLayout({
 }: {
   children: ReactNode;
 }) {
-  const { isLoading, user, isAdmin, isScorer } = useAuth();
+  const { isLoading, user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
-
-  // Check if there is an active PIN session in sessionStorage
-  const pinUnlockedTourneys: string[] = useMemo(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const raw = sessionStorage.getItem("scorer_auth_tournaments");
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  const hasPinSession = pinUnlockedTourneys.length > 0;
-  const isCreatingTournament = location.pathname === "/admin/tournaments/new";
-
-  // Redirect scorer away from admin-only pages to scorer dashboard or matches
-  useEffect(() => {
-    if (!isLoading && (user || hasPinSession) && isScorer && !isAdmin) {
-      const isAllowed =
-        isCreatingTournament ||
-        location.pathname === "/scorer/dashboard" ||
-        location.pathname === "/admin/matches" ||
-        location.pathname.startsWith("/admin/matches/");
-      if (!isAllowed) {
-        navigate("/scorer/dashboard", { replace: true });
-      }
-    }
-  }, [isLoading, user, hasPinSession, isScorer, isAdmin, isCreatingTournament, location.pathname, navigate]);
 
   if (isLoading) {
     return <AuthLayoutSkeleton />;
   }
 
-  // If no logged in user and no PIN session, prompt login
-  if (!user && !hasPinSession) {
+  // If no logged in user, prompt login for organizer portal
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
+        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full border rounded-3xl bg-card shadow-xl">
           <div className="flex flex-col items-center gap-4 text-center">
-            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-              <Shield className="h-6 w-6" />
+            <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+              <Shield className="h-7 w-7" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Sign in to Tournament Portal
+            <h1 className="text-2xl font-black tracking-tight">
+              Organizer Workspace
             </h1>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Administrator or Official Scorer credentials are required to access this workspace.
+            <p className="text-xs text-muted-foreground max-w-sm">
+              Sign in to manage your tournaments, schedules, teams, rules, and live match scoring.
             </p>
           </div>
           <div className="space-y-3 w-full">
@@ -133,7 +104,7 @@ export default function AuthLayout({
                 window.location.href = LOGIN_PATH;
               }}
               size="lg"
-              className="w-full"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md"
             >
               Sign in with Google
             </Button>
@@ -141,51 +112,11 @@ export default function AuthLayout({
               <Button
                 variant="outline"
                 size="lg"
-                className="w-full text-amber-500 border-amber-500/40 hover:bg-amber-500/10 font-bold"
+                className="w-full text-amber-500 border-amber-500/40 hover:bg-amber-500/10 font-bold text-xs rounded-xl"
               >
                 <KeyRound className="h-4 w-4 mr-2" /> Enter Scorer PIN
               </Button>
             </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // If user is logged in but has neither admin nor scorer role (and no PIN session), allow tournament creation
-  if (user && !isAdmin && !isScorer && !hasPinSession && !isCreatingTournament) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-6 p-8 max-w-md w-full text-center border rounded-2xl bg-card shadow-sm">
-          <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
-            <KeyRound className="h-6 w-6" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-xl font-bold tracking-tight">
-              Access Permission Pending
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Your account (<strong>{user.email}</strong>) has not been granted Administrator or Scorer privileges yet.
-            </p>
-            <p className="text-xs text-muted-foreground/80 pt-2">
-              Please contact the tournament administrator to add your email address as an Official Scorer or Administrator.
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full">
-            <Button
-              variant="default"
-              onClick={() => (window.location.href = "/admin/tournaments/new")}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
-            >
-              <Trophy className="h-4 w-4 mr-1.5" /> Create Tournament
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => (window.location.href = "/scorer/login")}
-              className="flex-1 text-amber-500"
-            >
-              Scorer PIN Login
-            </Button>
           </div>
         </div>
       </div>
@@ -200,7 +131,7 @@ export default function AuthLayout({
 }
 
 function AuthLayoutContent({ children }: { children: ReactNode }) {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const { tournamentId, tournament, setTournamentId } = useTournament();
   const location = useLocation();
   const navigate = useNavigate();
@@ -222,63 +153,34 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
 
   const isSuperAdmin = user?.email?.toLowerCase() === "ahsanhayat092@gmail.com";
 
-  // List of tournament IDs unlocked via PIN in this browser session
-  const pinUnlockedTourneys: string[] = useMemo(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const raw = sessionStorage.getItem("scorer_auth_tournaments");
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  // Fetch tournaments owned or managed by this user (if Admin)
-  const { data: userAdminTournaments, isLoading: isLoadingAdminTourneys } = useQuery({
+  // Fetch tournaments owned or managed by this user
+  const { data: allowedTournaments = [], isLoading: isLoadingTourneys } = useQuery({
     queryKey: ["user_tournaments", user?.uid, user?.email],
     queryFn: () => getUserTournaments(user?.email, user?.uid),
-    enabled: !!user && isAdmin,
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch tournaments assigned to this user as Scorer (or unlocked via PIN)
-  const { data: userScorerTournaments, isLoading: isLoadingScorerTourneys } = useQuery({
-    queryKey: ["user_scorer_tournaments", user?.email, user?.uid, pinUnlockedTourneys],
-    queryFn: () => getUserScorerTournaments(user?.email, user?.uid, pinUnlockedTourneys),
-    enabled: !isAdmin,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const allowedTournaments = isAdmin ? userAdminTournaments : userScorerTournaments;
-  const isLoadingTourneys = isAdmin ? isLoadingAdminTourneys : isLoadingScorerTourneys;
   const isCreatingNewTournament = location.pathname === "/admin/tournaments/new";
   const isGlobalPath =
-    isCreatingNewTournament ||
-    (isAdmin && location.pathname === "/admin/tournaments");
-
-  const isAuthorizedForCurrentTournament =
-    isSuperAdmin ||
-    isGlobalPath ||
-    (allowedTournaments && allowedTournaments.some((t) => t.id === tournamentId)) ||
-    pinUnlockedTourneys.includes(tournamentId);
+    isCreatingNewTournament || location.pathname === "/admin/tournaments";
 
   // Auto-switch to user's first allowed tournament if active tournamentId doesn't belong to them
   useEffect(() => {
-    if (!isSuperAdmin && !isLoadingTourneys && allowedTournaments && allowedTournaments.length > 0) {
-      const hasCurrent =
-        allowedTournaments.some((t) => t.id === tournamentId) || pinUnlockedTourneys.includes(tournamentId);
+    if (!isSuperAdmin && !isLoadingTourneys && allowedTournaments.length > 0) {
+      const hasCurrent = allowedTournaments.some((t) => t.id === tournamentId);
       if (!hasCurrent) {
         setTournamentId(allowedTournaments[0].id);
       }
     }
-  }, [isSuperAdmin, isLoadingTourneys, allowedTournaments, tournamentId, pinUnlockedTourneys, setTournamentId]);
+  }, [isSuperAdmin, isLoadingTourneys, allowedTournaments, tournamentId, setTournamentId]);
 
   // Prevent flash of unauthorized tournament data while user tournaments are loading
   if (!isSuperAdmin && !isGlobalPath && isLoadingTourneys) {
     return <AuthLayoutSkeleton />;
   }
 
-  const menuItems = isAdmin ? adminMenuItems : scorerMenuItems;
+  const menuItems = adminMenuItems;
   const activeMenuItem = menuItems.find((item) => item.path === location.pathname);
 
   return (

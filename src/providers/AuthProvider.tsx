@@ -143,17 +143,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setState({
           firebaseUser: user,
-          role: isTournamentAdmin ? "admin" : isTournamentScorer || hasPinSession ? "scorer" : null,
-          isAdmin: isTournamentAdmin,
-          isScorer: isTournamentScorer || hasPinSession,
+          role: "admin",
+          isAdmin: true,
+          isScorer: true,
           isLoading: false,
         });
       } catch (err) {
         console.error("Error resolving user role:", err);
         setState({
           firebaseUser: user,
-          role: isSuperAdmin ? "admin" : "scorer",
-          isAdmin: isSuperAdmin,
+          role: "admin",
+          isAdmin: true,
           isScorer: true,
           isLoading: false,
         });
