@@ -131,7 +131,7 @@ export default function AuthLayout({
 }
 
 function AuthLayoutContent({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin = true, isScorer } = useAuth();
   const { tournamentId, tournament, setTournamentId } = useTournament();
   const location = useLocation();
   const navigate = useNavigate();
