@@ -285,7 +285,7 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
     <>
       <Sidebar collapsible="icon" className="border-r">
         <SidebarHeader className="h-16 justify-center border-b px-3">
-          <div className="flex items-center gap-3 w-full">
+          <div className="flex items-center gap-2 w-full">
             <button
               onClick={toggleSidebar}
               className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none shrink-0"
@@ -294,22 +294,66 @@ function AuthLayoutContent({ children }: { children: ReactNode }) {
               <PanelLeft className="h-4 w-4 text-muted-foreground" />
             </button>
             {!isCollapsed && (
-              <div className="flex flex-col leading-tight min-w-0">
-                <span className="font-bold tracking-tight truncate text-sm">
-                  {tournament?.name || "WASA Premier League"}
-                </span>
-                <span className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
-                  {isAdmin ? (
-                    <>
-                      <ShieldCheck className="h-3 w-3 text-emerald-500 inline" /> Admin Workspace
-                    </>
-                  ) : (
-                    <>
-                      <UserCheck className="h-3 w-3 text-amber-500 inline" /> Scorer Workspace
-                    </>
-                  )}
-                </span>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex-1 min-w-0 flex items-center justify-between gap-1 p-1.5 rounded-xl hover:bg-accent/60 transition-colors text-left focus:outline-none group">
+                    <div className="flex flex-col leading-tight min-w-0">
+                      <span className="font-bold tracking-tight truncate text-sm text-foreground">
+                        {tournament?.name || "WASA Premier League"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
+                        {isAdmin ? (
+                          <>
+                            <ShieldCheck className="h-3 w-3 text-emerald-500 inline" /> Organizer Workspace
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-3 w-3 text-amber-500 inline" /> Scorer Workspace
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    {allowedTournaments && allowedTournaments.length > 1 && (
+                      <Layers className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground shrink-0 ml-1" />
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64 p-1.5">
+                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Switch Tournament
+                  </div>
+                  {allowedTournaments?.map((t) => (
+                    <DropdownMenuItem
+                      key={t.id}
+                      onClick={() => {
+                        setTournamentId(t.id);
+                        localStorage.setItem("wasa_active_tournament_id", t.id);
+                      }}
+                      className="cursor-pointer text-xs font-semibold flex items-center justify-between py-2 rounded-lg"
+                    >
+                      <span className="truncate flex-1">{t.name}</span>
+                      {t.id === tournamentId && (
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0 ml-2" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                  <div className="my-1 border-t" />
+                  <DropdownMenuItem
+                    onClick={() => navigate("/admin/tournaments")}
+                    className="cursor-pointer text-xs font-semibold gap-2 py-2 text-emerald-600 dark:text-emerald-400"
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    <span>Manage All Tournaments</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate("/admin/tournaments/new")}
+                    className="cursor-pointer text-xs font-semibold gap-2 py-2 text-primary"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Create New Tournament</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </SidebarHeader>
