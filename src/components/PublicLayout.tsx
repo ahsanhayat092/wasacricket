@@ -72,7 +72,7 @@ export function PublicLayout() {
     { to: "/", label: "Home" },
     { to: "/live-scores", label: "Live Scores", badge: "LIVE" },
     { to: "/tournaments", label: "Tournaments" },
-    { to: "/about", label: "About" },
+    { to: "/about", label: "How It Works" },
   ];
 
   // 2. Tournament-Specific Sub Navigation (when inside /t/:slug)
@@ -437,7 +437,7 @@ export function PublicLayout() {
               <ul className="space-y-1.5 text-muted-foreground">
                 <li><Link to="/live-scores" className="hover:text-emerald-500">Live Scores</Link></li>
                 <li><Link to="/tournaments" className="hover:text-emerald-500">Browse Tournaments</Link></li>
-                <li><Link to="/about" className="hover:text-emerald-500">About Platform</Link></li>
+                <li><Link to="/about" className="hover:text-emerald-500">How It Works Guide</Link></li>
               </ul>
             </div>
 
