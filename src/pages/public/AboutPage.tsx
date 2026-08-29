@@ -23,6 +23,10 @@ import {
   Clock,
   Compass,
   UserCheck,
+  Wifi,
+  WifiOff,
+  Smartphone,
+  RefreshCw,
 } from "lucide-react";
 
 export default function AboutPage() {
@@ -311,6 +315,109 @@ export default function AboutPage() {
           In real grassroots cricket, an organizer is often also a club captain and weekend scorer. Our universal <strong>Workspace Role Switcher</strong> at the top of your screen lets you toggle between your <strong>Organizer Workspace</strong>, <strong>Team Manager Portal</strong>, and <strong>Scorer Cockpit</strong> with a single click.
         </p>
       </Card>
+
+      {/* 4.5. KILLER FEATURE: OFFLINE-FIRST MATCH SCORING */}
+      <section className="space-y-6">
+        <div className="rounded-3xl border-2 border-emerald-500/30 bg-gradient-to-br from-slate-950 via-emerald-950/20 to-slate-950 p-6 sm:p-10 shadow-2xl relative overflow-hidden space-y-8">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Headline & Pitch */}
+          <div className="text-center space-y-3 max-w-2xl mx-auto relative z-10">
+            <Badge className="bg-emerald-500 text-slate-950 font-black text-xs px-3 py-1 gap-1.5 uppercase tracking-wider">
+              <WifiOff className="h-3.5 w-3.5" /> Built For Real-World Grounds
+            </Badge>
+            <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white leading-tight">
+              📶 Cricket Doesn't Stop When the Internet Does.
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Score your entire match offline without missing a single ball. When connectivity returns, your scorecards, ball timelines, and standings synchronize automatically.
+            </p>
+          </div>
+
+          {/* Visual Step-by-Step Flow: ONLINE -> OFFLINE -> SCORE -> RECONNECT -> SYNCED */}
+          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-5 gap-3">
+            <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-center space-y-2 flex flex-col justify-between">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center mx-auto">
+                <Wifi className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-400">Step 1</span>
+                <h4 className="text-xs font-black text-white">ONLINE</h4>
+                <p className="text-[11px] text-slate-400">Match & lineups locked</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-center space-y-2 flex flex-col justify-between">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center mx-auto">
+                <WifiOff className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-amber-400">Step 2</span>
+                <h4 className="text-xs font-black text-white">OFFLINE MODE</h4>
+                <p className="text-[11px] text-slate-400">Ground signal drops</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-sky-500/30 bg-sky-500/10 text-center space-y-2 flex flex-col justify-between">
+              <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 font-bold flex items-center justify-center mx-auto">
+                <Smartphone className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-sky-400">Step 3</span>
+                <h4 className="text-xs font-black text-white">SCORE BALLS</h4>
+                <p className="text-[11px] text-slate-400">0ms instant touch taps</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-center space-y-2 flex flex-col justify-between">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 font-bold flex items-center justify-center mx-auto">
+                <RefreshCw className="h-5 w-5 animate-spin" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-indigo-400">Step 4</span>
+                <h4 className="text-xs font-black text-white">RECONNECT</h4>
+                <p className="text-[11px] text-slate-400">Network handshake</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-emerald-400 bg-emerald-500 text-center space-y-2 flex flex-col justify-between text-slate-950 shadow-lg">
+              <div className="w-10 h-10 rounded-xl bg-slate-950 text-emerald-400 font-bold flex items-center justify-center mx-auto">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-slate-900">Step 5</span>
+                <h4 className="text-xs font-black text-slate-950">AUTO SYNCED</h4>
+                <p className="text-[11px] text-slate-900 font-medium">Cloud & fans updated</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 3 Key Benefits Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10 text-xs text-slate-300">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white block font-bold">Zero Ground Lag</strong>
+                <span className="text-slate-400 text-[11px]">Instant 0ms touch response on every ball without waiting for network roundtrips.</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white block font-bold">100% Data Loss Protection</strong>
+                <span className="text-slate-400 text-[11px]">Every run, wicket, and over is buffered locally in storage until cloud handshake.</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white block font-bold">Instant OBS & Fan Catchup</strong>
+                <span className="text-slate-400 text-[11px]">Upon reconnection, public scorecards, NRR calculations, and broadcast graphics fast-forward.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* 5. Supported Formats */}
       <section className="space-y-6">
