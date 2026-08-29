@@ -189,7 +189,7 @@ export async function downloadSchedulePDF(
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
     doc.text(
-      `WASA Cricket Platform • Page ${i} of ${totalPages}`,
+      `PitchPe Platform • Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 8,
       { align: "center" }
@@ -318,7 +318,7 @@ export async function downloadRulesPDF(
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
     doc.text(
-      `WASA Cricket Platform • Tournament Rules • Page ${i} of ${totalPages}`,
+      `PitchPe Platform • Tournament Rules • Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 8,
       { align: "center" }

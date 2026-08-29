@@ -416,7 +416,9 @@ export default function TournamentWizard() {
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Public URL Slug *</Label>
               <div className="flex items-center rounded-xl border bg-muted/30 px-3 h-10 text-xs font-mono text-muted-foreground">
-                <span className="text-muted-foreground/70">wasacricket.vercel.app/t/</span>
+                <span className="text-muted-foreground/70">
+                  {typeof window !== "undefined" ? window.location.host : "pitchpe.com"}/t/
+                </span>
                 <input
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}

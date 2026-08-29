@@ -711,8 +711,8 @@ export function StoryCardModal({
 
             {/* Card Footer (Branding & Hashtags) */}
             <div className="relative z-10 border-t border-white/10 pt-3 flex items-center justify-between text-[10px] text-slate-400">
-              <span className="font-mono font-bold text-emerald-400">#WASACricket2026</span>
-              <span className="font-medium text-slate-300">officers.wasa.gov.pk</span>
+              <span className="font-mono font-bold text-emerald-400">#PitchPeCricket</span>
+              <span className="font-medium text-slate-300">pitchpe.com</span>
             </div>
           </div>
         </div>

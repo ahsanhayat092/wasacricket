@@ -8,7 +8,7 @@ export default function handler(_req: any, res: any) {
 
   const healthData = {
     status: "healthy",
-    service: "WasaCricket Live Scoring Platform",
+    service: "PitchPe Live Scoring Platform",
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.round(uptime),
     version: "2.5.0",

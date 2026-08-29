@@ -135,7 +135,7 @@ export function ShareTournamentModal({
 
       ctx.fillStyle = "#10b981";
       ctx.font = "italic 14px sans-serif";
-      ctx.fillText("Powered by WasaCricket", 300, 680);
+      ctx.fillText("Powered by PitchPe", 300, 680);
 
       // Download
       const link = document.createElement("a");

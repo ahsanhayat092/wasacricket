@@ -53,8 +53,8 @@ export default function LandingHome() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(16,185,129,0.15),rgba(255,255,255,0))] pointer-events-none" />
 
         <div className="max-w-6xl mx-auto px-4 text-center space-y-6 relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-xs font-bold tracking-wide">
-            <Flame className="h-3.5 w-3.5" /> Next-Gen Cricket Management & Live Scoring Platform
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-xs font-bold tracking-wide">
+            <Flame className="h-3.5 w-3.5 text-amber-400" /> PitchPe — Cricket Tournament & Live Scoring Platform
           </div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-foreground leading-[1.08] max-w-4xl mx-auto">

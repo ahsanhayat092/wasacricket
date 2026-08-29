@@ -1,5 +1,5 @@
 /**
- * Universal & Tournament-Scoped Full-Text and Fuzzy Search Engine for WasaCricket.
+ * Universal & Tournament-Scoped Full-Text and Fuzzy Search Engine for PitchPe.
  * Provides instant (<5ms) tokenized, substring, and Levenshtein fuzzy search across
  * Players, Teams, Matches, and Tournaments.
  */

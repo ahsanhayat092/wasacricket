@@ -179,13 +179,13 @@ export default function ScorerDashboard() {
               <span className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-black text-xs">
                 🏏
               </span>
-              <span className="hidden sm:inline">WASA Cricket</span>
+              <span className="hidden sm:inline">Pitch<span className="text-emerald-500">Pe</span></span>
             </Link>
 
             <span className="text-muted-foreground text-xs hidden sm:inline">/</span>
 
             <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[11px] font-bold gap-1 px-2 py-0.5">
-              <KeyRound className="h-3 w-3" /> Scorer Match Center
+              <KeyRound className="h-3 w-3" /> PitchPe Scoring Center
             </Badge>
           </div>
 

@@ -34,7 +34,7 @@ export default function AboutPage() {
           <Compass className="h-3 w-3" /> Platform Guide & How It Works
         </Badge>
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-          How WASA Cricket Works
+          How PitchPe Works
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
           Every cricket championship brings together four key people: <strong>The Organizer</strong>, <strong>Team Managers</strong>, <strong>Match Scorers</strong>, and <strong>The Fans</strong>. Here is how our ecosystem connects everyone in real-time.

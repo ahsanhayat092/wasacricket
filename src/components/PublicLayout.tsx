@@ -114,16 +114,16 @@ export function PublicLayout() {
       <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between gap-4">
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center gap-2.5 font-bold text-lg shrink-0">
-            <span className="h-9 w-9 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-md">
-              <Trophy className="h-5 w-5 text-amber-300" />
+          <Link to="/" className="flex items-center gap-2.5 font-bold text-lg shrink-0 group">
+            <span className="h-9 w-9 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+              <span className="text-base font-black">🏏</span>
             </span>
             <div className="flex flex-col leading-tight">
-              <span className="font-black tracking-tight text-base">
-                WasaCricket
+              <span className="font-black tracking-tight text-lg text-foreground">
+                Pitch<span className="text-emerald-500">Pe</span>
               </span>
-              <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                Tournament Hub
+              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                Cricket Platform
               </span>
             </div>
           </Link>
@@ -422,20 +422,20 @@ export function PublicLayout() {
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-8">
             <div className="sm:col-span-1 space-y-3">
               <div className="flex items-center gap-2">
-                <span className="h-7 w-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs">
-                  <Trophy className="h-4 w-4 text-amber-300" />
+                <span className="h-7 w-7 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                  🏏
                 </span>
-                <span className="font-black text-base">WasaCricket</span>
+                <span className="font-black text-base">Pitch<span className="text-emerald-500">Pe</span></span>
               </div>
               <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
-                The modern cricket tournament management platform. Live ball-by-ball scoring, mathematical scenario engines, and club management.
+                The modern cricket tournament management & live scoring platform. Tournaments, teams, ball-by-ball scoring, and broadcast overlays.
               </p>
             </div>
 
             <div className="space-y-2 text-xs">
               <h4 className="font-bold text-foreground">Explore</h4>
               <ul className="space-y-1.5 text-muted-foreground">
-                <li><Link to="/live-scores" className="hover:text-emerald-500">Live Scores</Link></li>
+                <li><Link to="/live-scores" className="hover:text-emerald-500">PitchPe Live Scores</Link></li>
                 <li><Link to="/tournaments" className="hover:text-emerald-500">Browse Tournaments</Link></li>
                 <li><Link to="/about" className="hover:text-emerald-500">How It Works Guide</Link></li>
               </ul>
@@ -444,8 +444,8 @@ export function PublicLayout() {
             <div className="space-y-2 text-xs">
               <h4 className="font-bold text-foreground">For Teams</h4>
               <ul className="space-y-1.5 text-muted-foreground">
-                <li><Link to="/team" className="hover:text-emerald-500">Manage Your Team</Link></li>
-                <li><Link to="/team/players" className="hover:text-emerald-500">Player Rosters</Link></li>
+                <li><Link to="/team" className="hover:text-emerald-500">PitchPe Teams Hub</Link></li>
+                <li><Link to="/team/players" className="hover:text-emerald-500">Player Squad Rosters</Link></li>
                 <li><Link to="/team/tournaments" className="hover:text-emerald-500">Join Tournaments</Link></li>
               </ul>
             </div>
@@ -453,19 +453,19 @@ export function PublicLayout() {
             <div className="space-y-2 text-xs">
               <h4 className="font-bold text-foreground">For Organizers & Scorers</h4>
               <ul className="space-y-1.5 text-muted-foreground">
-                <li><Link to="/organizer/signup" className="hover:text-emerald-500">Create Tournament</Link></li>
-                <li><Link to="/scorer/login" className="hover:text-emerald-500">Scorer Portal</Link></li>
-                <li><Link to="/admin" className="hover:text-emerald-500">Organizer Login</Link></li>
+                <li><Link to="/organizer/signup" className="hover:text-emerald-500">PitchPe Tournaments</Link></li>
+                <li><Link to="/scorer/login" className="hover:text-emerald-500">PitchPe Scoring Portal</Link></li>
+                <li><Link to="/admin" className="hover:text-emerald-500">Organizer Workspace</Link></li>
               </ul>
             </div>
           </div>
 
           <div className="pt-6 border-t border-border/40 flex flex-wrap items-center justify-between gap-4 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-3">
-              <p>© 2026 WasaCricket. All Rights Reserved. Play Hard, Win Together!</p>
+              <p>© 2026 PitchPe. All Rights Reserved. Play Hard, Win Together!</p>
               <SystemHealthBadge />
             </div>
-            <p>Sportsmanship • Competition • Excellence</p>
+            <p>Sportsmanship • Competition • Precision</p>
           </div>
         </div>
       </footer>

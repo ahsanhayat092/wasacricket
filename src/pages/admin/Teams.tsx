@@ -460,7 +460,7 @@ export default function AdminTeams() {
                 <UserPlus className="h-5 w-5 text-emerald-500" /> Invite Team to Tournament
               </h3>
               <p className="text-xs text-muted-foreground">
-                Search from all registered cricket teams on PitchPe / WasaCricket and send an official tournament invitation.
+                Search from all registered cricket clubs on PitchPe and send an official tournament invitation.
               </p>
             </div>
 

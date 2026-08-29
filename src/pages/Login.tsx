@@ -104,7 +104,7 @@ export default function Login() {
     try {
       setSubmitting(true);
       await createUserWithEmailAndPassword(auth, email.trim(), password);
-      toast.success("Account created successfully. Welcome to WASA Cricket!");
+      toast.success("Account created successfully. Welcome to PitchPe!");
     } catch (err: unknown) {
       console.error("Sign-up error:", err);
       const code = (err as { code?: string })?.code;
@@ -216,7 +216,7 @@ export default function Login() {
                     id="reset-email"
                     type="email"
                     required
-                    placeholder="admin@wasacricket.com"
+                    placeholder="admin@pitchpe.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-9"
@@ -250,15 +250,13 @@ export default function Login() {
               </div>
             </form>
           ) : (
-            /* Sign In / Sign Up Tabs */
             <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Register</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="signin" className="text-xs">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" className="text-xs">Register</TabsTrigger>
               </TabsList>
 
-              {/* Sign In Tab */}
-              <TabsContent value="signin" className="space-y-4 mt-4">
+              <TabsContent value="signin" className="space-y-4">
                 <form onSubmit={handleEmailSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email" className="text-xs">
@@ -270,7 +268,7 @@ export default function Login() {
                         id="signin-email"
                         type="email"
                         required
-                        placeholder="you@wasacricket.com"
+                        placeholder="you@pitchpe.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-9"
@@ -320,7 +318,6 @@ export default function Login() {
                 </form>
               </TabsContent>
 
-              {/* Register Tab */}
               <TabsContent value="signup" className="space-y-4 mt-4">
                 <form onSubmit={handleEmailSignUp} className="space-y-4">
                   <div className="space-y-2">
@@ -333,7 +330,7 @@ export default function Login() {
                         id="signup-email"
                         type="email"
                         required
-                        placeholder="you@wasacricket.com"
+                        placeholder="you@pitchpe.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-9"
