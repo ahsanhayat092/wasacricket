@@ -306,7 +306,9 @@ export default function LandingHome() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {tournaments?.slice(0, 2).map((t) => {
             const acronym = t.shortName || t.name.split(" ").map((w: string) => w[0]).join("").slice(0, 3).toUpperCase() || "WPL";
-            const isCompleted = t.status === "COMPLETED";
+            const status = (t.status || "ACTIVE").toUpperCase();
+            const isCompleted = status === "COMPLETED";
+            const isUpcoming = status === "UPCOMING";
 
             return (
               <Card
@@ -329,15 +331,17 @@ export default function LandingHome() {
                         <span className="truncate">{t.venueName || "Lahore, Pakistan"}</span>
                       </p>
                     </div>
-                    {/* Status Badge */}
+                    {/* Semantic Status Badge */}
                     <Badge
                       className={`text-[10px] font-bold ${
                         isCompleted
-                          ? "bg-muted text-muted-foreground border-border"
-                          : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                          ? "bg-muted/80 text-muted-foreground border-border"
+                          : isUpcoming
+                          ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                          : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                       }`}
                     >
-                      {t.status || "ACTIVE"}
+                      {status}
                     </Badge>
                   </div>
 

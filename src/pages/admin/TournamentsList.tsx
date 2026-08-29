@@ -124,14 +124,15 @@ export default function TournamentsList() {
                     {(t.formatType || "TAPE_BALL_INDOOR").replace(/_/g, " ")}
                   </Badge>
                   <Badge
-                    variant="outline"
-                    className={`text-[10px] ${
-                      t.status === "COMPLETED"
-                        ? "text-emerald-500 border-emerald-500/30"
-                        : "text-amber-500 border-amber-500/30"
+                    className={`text-[10px] font-bold ${
+                      (t.status || "").toUpperCase() === "COMPLETED"
+                        ? "bg-muted/80 text-muted-foreground border-border"
+                        : (t.status || "").toUpperCase() === "UPCOMING"
+                        ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                        : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                     }`}
                   >
-                    {t.status || "ONGOING"}
+                    {t.status || "ACTIVE"}
                   </Badge>
                 </div>
               </CardHeader>
