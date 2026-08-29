@@ -567,15 +567,23 @@ export async function getMatchById(matchId: string): Promise<{
 } | null> {
   const snap = await getDoc(matchDoc(matchId));
   if (!snap.exists()) return null;
-  const match = { id: snap.id, ...snap.data() } as Match;
+  const tourneyId = match.tournamentId || TOURNAMENT_ID;
 
-  const [teams, players, inningsSnap, standingsSnap, matchesSnap] = await Promise.all([
-    getTeams(),
-    getPlayers(),
+  const [tourneyTeams, players, inningsSnap, standingsSnap, matchesSnap, directTeamA, directTeamB] = await Promise.all([
+    getTeams(tourneyId),
+    getPlayers(tourneyId),
     getDocs(query(inningsCol(), where("matchId", "==", matchId))),
-    getDocs(query(standingsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
-    getDocs(query(matchesCol(), where("tournamentId", "==", TOURNAMENT_ID))),
+    getDocs(query(standingsCol(), where("tournamentId", "==", tourneyId))),
+    getDocs(query(matchesCol(), where("tournamentId", "==", tourneyId))),
+    match.teamAId ? getTeamById(match.teamAId) : Promise.resolve(null),
+    match.teamBId ? getTeamById(match.teamBId) : Promise.resolve(null),
   ]);
+
+  const teamMap = new Map<string, Team>();
+  tourneyTeams.forEach((t) => teamMap.set(t.id, t));
+  if (directTeamA) teamMap.set(directTeamA.id, directTeamA);
+  if (directTeamB) teamMap.set(directTeamB.id, directTeamB);
+  const teams = [...teamMap.values()];
 
   const standings = standingsSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as Standing)

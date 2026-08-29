@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { getTournament, getPlayers } from "@/lib/queries";
-import { subscribeToMatch } from "@/lib/queries";
+import { getTournament, getPlayers, getTeams, getTeamById, subscribeToMatch } from "@/lib/queries";
 import { TeamBadge } from "@/components/TeamBadge";
 import {
   ScorecardView,
@@ -66,27 +65,40 @@ export default function LiveMatch() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const tournamentId = liveData?.match?.tournamentId;
+
   const { data: tournament } = useQuery({
-    queryKey: ["tournament"],
-    queryFn: getTournament,
+    queryKey: ["tournament", tournamentId],
+    queryFn: () => getTournament(tournamentId),
+    enabled: !!tournamentId,
   });
 
   const { data: allPlayers } = useQuery({
-    queryKey: ["players"],
-    queryFn: getPlayers,
+    queryKey: ["players", tournamentId],
+    queryFn: () => getPlayers(tournamentId),
+    enabled: !!tournamentId,
   });
 
-  // Load teams for name lookup
+  // Load teams for name lookup whenever match loads or changes
   useEffect(() => {
-    getSchedule().then((schedule) => {
+    if (!liveData?.match) return;
+    const tourneyId = liveData.match.tournamentId;
+    const { teamAId, teamBId } = liveData.match;
+
+    const fetchPromises: Promise<any>[] = [
+      getTeams(tourneyId),
+      teamAId ? getTeamById(teamAId) : Promise.resolve(null),
+      teamBId ? getTeamById(teamBId) : Promise.resolve(null),
+    ];
+
+    Promise.all(fetchPromises).then(([tourneyTeams, tA, tB]) => {
       const teamMap = new Map<string, Team>();
-      schedule.forEach((m) => {
-        if (m.teamA) teamMap.set(m.teamA.id, m.teamA);
-        if (m.teamB) teamMap.set(m.teamB.id, m.teamB);
-      });
+      (tourneyTeams || []).forEach((t: Team) => teamMap.set(t.id, t));
+      if (tA) teamMap.set(tA.id, tA);
+      if (tB) teamMap.set(tB.id, tB);
       setTeams([...teamMap.values()]);
     });
-  }, []);
+  }, [liveData?.match?.tournamentId, liveData?.match?.teamAId, liveData?.match?.teamBId]);
 
   // Real-time subscription
   useEffect(() => {
