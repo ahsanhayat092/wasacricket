@@ -124,16 +124,19 @@ export default function LiveMatch() {
   const teamA = teamOf(match.teamAId ?? "");
   const teamB = teamOf(match.teamBId ?? "");
 
-  const target = inn1 && inn2 ? inn1.runs + 1 : null;
-  const runsNeeded = target && inn2 ? Math.max(target - inn2.runs, 0) : null;
-  const ballsRemaining = inn2 ? Math.max(quotaBalls - inn2.balls, 0) : null;
+  const teamAScore = match.teamAId ? innings.find((i) => i.battingTeamId === match.teamAId) : undefined;
+  const teamBScore = match.teamBId ? innings.find((i) => i.battingTeamId === match.teamBId) : undefined;
+
+  const target = inn1 && inn2 ? (inn1.runs ?? 0) + 1 : null;
+  const runsNeeded = target && inn2 ? Math.max(target - (inn2.runs ?? 0), 0) : null;
+  const ballsRemaining = inn2 ? Math.max(quotaBalls - (inn2.balls ?? 0), 0) : null;
   const rrr =
     runsNeeded !== null && ballsRemaining && ballsRemaining > 0
       ? ((runsNeeded / ballsRemaining) * 6).toFixed(2)
       : null;
   const crr =
-    current && current.balls > 0
-      ? ((current.runs / current.balls) * 6).toFixed(2)
+    current && (current.balls ?? 0) > 0
+      ? (((current.runs ?? 0) / current.balls) * 6).toFixed(2)
       : "0.00";
 
   const playerName = (id: string) =>
@@ -284,25 +287,17 @@ export default function LiveMatch() {
                   <span className="font-black text-base sm:text-xl tracking-tight">
                     {teamA?.name ?? (isFinal ? "TBD (Rank 1)" : isPlayoff ? "TBD (Rank 2)" : "TBD")}
                   </span>
-                  {inn1?.battingTeamId === teamA?.id && (
+                  {teamAScore ? (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {inn1.runs}/{Math.min(6, inn1.wickets)}
+                        {teamAScore.runs ?? 0}/{Math.min(6, teamAScore.wickets ?? 0)}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal ml-1.5">
-                        ({ballsToOversText(inn1.balls)} ov)
+                        ({ballsToOversText(teamAScore.balls ?? 0)} ov)
                       </span>
                     </div>
-                  )}
-                  {inn2?.battingTeamId === teamA?.id && (
-                    <div className="font-mono">
-                      <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {inn2.runs}/{Math.min(6, inn2.wickets)}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-normal ml-1.5">
-                        ({ballsToOversText(inn2.balls)} ov)
-                      </span>
-                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Yet to bat</span>
                   )}
                 </div>
 
@@ -314,25 +309,17 @@ export default function LiveMatch() {
                   <span className="font-black text-base sm:text-xl tracking-tight">
                     {teamB?.name ?? (isFinal ? "TBD (Playoff Winner)" : isPlayoff ? "TBD (Rank 3)" : "TBD")}
                   </span>
-                  {inn1?.battingTeamId === teamB?.id && (
+                  {teamBScore ? (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {inn1.runs}/{Math.min(6, inn1.wickets)}
+                        {teamBScore.runs ?? 0}/{Math.min(6, teamBScore.wickets ?? 0)}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal ml-1.5">
-                        ({ballsToOversText(inn1.balls)} ov)
+                        ({ballsToOversText(teamBScore.balls ?? 0)} ov)
                       </span>
                     </div>
-                  )}
-                  {inn2?.battingTeamId === teamB?.id && (
-                    <div className="font-mono">
-                      <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {inn2.runs}/{Math.min(6, inn2.wickets)}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-normal ml-1.5">
-                        ({ballsToOversText(inn2.balls)} ov)
-                      </span>
-                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Yet to bat</span>
                   )}
                 </div>
               </div>

@@ -124,8 +124,12 @@ export default function MatchDetail() {
   const lineupA = getLineup(teamAPlayers, match.teamAPlayingVI, match.teamAReserveId);
   const lineupB = getLineup(teamBPlayers, match.teamBPlayingVI, match.teamBReserveId);
 
+  const teamAScore = match.teamA?.id ? innings.find((i) => i.battingTeamId === match.teamA?.id) : undefined;
+  const teamBScore = match.teamB?.id ? innings.find((i) => i.battingTeamId === match.teamB?.id) : undefined;
+
   const isFinal = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
   const isPlayoff = match.stage === "PLAYOFF" || match.stage?.toUpperCase() === "PLAYOFF";
+  const stageLabel = isFinal ? "🏆 Grand Final" : isPlayoff ? "⚔️ Playoff Match" : `Match #${match.matchNumber}`;
 
   return (
     <div className="mx-auto max-w-7xl px-3 sm:px-6 py-6 space-y-6">
@@ -140,6 +144,11 @@ export default function MatchDetail() {
         players={players ?? []}
         innings={innings}
       />
+      <BroadcastModal
+        isOpen={broadcastModalOpen}
+        onClose={() => setBroadcastModalOpen(false)}
+        match={match}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 space-y-6">
@@ -151,33 +160,22 @@ export default function MatchDetail() {
                     variant="outline"
                     className={statusBadgeClass(match.status as MatchStatus)}
                   >
-                    {match.status.replace("_", " ")}
+                    {match.status}
                   </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setStoryModalOpen(true)}
-                    className="h-7 text-xs font-bold gap-1.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 rounded-lg px-2.5"
-                  >
-                    <Camera className="h-3.5 w-3.5" />
-                    <span>Share Story</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setBroadcastModalOpen(true)}
-                    className="h-7 text-xs font-bold gap-1.5 border-red-500/40 text-red-500 hover:bg-red-500/10 rounded-lg px-2.5"
-                  >
-                    <Tv className="h-3.5 w-3.5" />
-                    <span>OBS Overlay</span>
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-2">
-                  <span className={match.stage === "FINAL" ? "text-amber-500 font-extrabold" : match.stage === "PLAYOFF" ? "text-purple-400 font-extrabold" : "text-amber-500 font-extrabold"}>
-                    {match.stage === "FINAL" ? "🏆 Grand Final" : match.stage === "PLAYOFF" ? "⚔️ Playoff Match" : `Match #${match.matchNumber}`}
+                  <span className="text-xs text-muted-foreground font-semibold">
+                    {stageLabel} · {match.oversPerSide ?? (isFinal ? 5 : 4)} Overs Match
                   </span>
-                  <span>•</span>
-                  <span>{formatMatchDateTime(match.day, match.date, match.time)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setStoryModalOpen(true)}
+                    className="gap-1.5 text-xs font-semibold"
+                  >
+                    <Share2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="hidden sm:inline">Share Match Card</span>
+                  </Button>
                 </div>
               </div>
 
@@ -191,14 +189,14 @@ export default function MatchDetail() {
                   <span className="font-black text-base sm:text-xl tracking-tight">
                     {match.teamA?.name ?? (isFinal ? "TBD (Rank 1)" : isPlayoff ? "TBD (Rank 2)" : "TBD")}
                   </span>
-                  {innings.find((i) => i.battingTeamId === match.teamA?.id) ? (
+                  {teamAScore ? (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {innings.find((i) => i.battingTeamId === match.teamA?.id)!.runs}/
-                        {Math.min(6, innings.find((i) => i.battingTeamId === match.teamA?.id)!.wickets)}
+                        {teamAScore.runs ?? 0}/
+                        {Math.min(6, teamAScore.wickets ?? 0)}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1.5 font-normal">
-                        ({ballsToOversText(innings.find((i) => i.battingTeamId === match.teamA?.id)!.balls)} ov)
+                        ({ballsToOversText(teamAScore.balls ?? 0)} ov)
                       </span>
                     </div>
                   ) : (
@@ -217,14 +215,14 @@ export default function MatchDetail() {
                   <span className="font-black text-base sm:text-xl tracking-tight">
                     {match.teamB?.name ?? (isFinal ? "TBD (Playoff Winner)" : isPlayoff ? "TBD (Rank 3)" : "TBD")}
                   </span>
-                  {innings.find((i) => i.battingTeamId === match.teamB?.id) ? (
+                  {teamBScore ? (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {innings.find((i) => i.battingTeamId === match.teamB?.id)!.runs}/
-                        {Math.min(6, innings.find((i) => i.battingTeamId === match.teamB?.id)!.wickets)}
+                        {teamBScore.runs ?? 0}/
+                        {Math.min(6, teamBScore.wickets ?? 0)}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1.5 font-normal">
-                        ({ballsToOversText(innings.find((i) => i.battingTeamId === match.teamB?.id)!.balls)} ov)
+                        ({ballsToOversText(teamBScore.balls ?? 0)} ov)
                       </span>
                     </div>
                   ) : (
