@@ -143,31 +143,30 @@ export function PublicLayout() {
           </nav>
 
           {/* Header Actions (Right) */}
-          <div className="flex items-center gap-2">
-            {/* Player Search Trigger */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={openPlayerSearch}
-              className="gap-1.5 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground h-9"
-              title="Search Players"
-            >
-              <Search className="h-4 w-4 text-emerald-500" />
-              <span className="hidden sm:inline">Search</span>
-            </Button>
+          <div className="flex items-center gap-2.5">
+            {/* Create Tournament CTA (Immediate left of user avatar) */}
+            <Link to={createTournamentPath}>
+              <Button
+                size="sm"
+                className="gap-1.5 text-xs font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black shadow-sm h-9 px-3.5"
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Create Tournament</span>
+              </Button>
+            </Link>
 
             {/* Auth / Workspace Context Area */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl hover:bg-accent transition-colors focus:outline-none border border-border/60">
+                  <button className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl hover:bg-accent transition-colors focus:outline-none border border-border/60">
                     <Avatar className="h-7 w-7 border shrink-0">
                       <AvatarImage src={user.avatar || undefined} />
                       <AvatarFallback className="text-[11px] font-bold bg-emerald-500/10 text-emerald-500">
                         {user.name?.charAt(0).toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-xs font-bold max-w-[100px] truncate hidden sm:inline">
+                    <span className="text-xs font-bold max-w-[110px] truncate hidden sm:inline text-foreground">
                       {user.name || user.email?.split("@")[0]}
                     </span>
                   </button>
@@ -232,27 +231,15 @@ export function PublicLayout() {
               </Link>
             )}
 
-            {/* Create Tournament CTA (Primary Action) */}
-            <Link to={createTournamentPath}>
-              <Button
-                size="sm"
-                className="gap-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm h-9"
-              >
-                <Trophy className="h-3.5 w-3.5 text-amber-300" />
-                <span className="hidden sm:inline">Create Tournament</span>
-              </Button>
-            </Link>
-
-            {/* Universal Full-Text Search Trigger (Cmd + K) */}
+            {/* Far-Right Single Universal Search Trigger (Cmd + K) */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => setUniversalSearchOpen(true)}
-              className="gap-2 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground h-9 px-3 bg-muted/40 border-border/80"
+              className="gap-2 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground h-9 px-2.5 sm:px-3 bg-muted/40 border-border/80"
               title="Search players, teams, matches (Cmd + K)"
             >
-              <Search className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Search</span>
+              <Search className="h-4 w-4 text-emerald-400" />
               <kbd className="hidden md:inline-flex px-1.5 py-0.5 rounded bg-muted border font-mono text-[10px] text-muted-foreground">
                 ⌘K
               </kbd>
@@ -460,12 +447,14 @@ export function PublicLayout() {
             </div>
           </div>
 
-          <div className="pt-6 border-t border-border/40 flex flex-wrap items-center justify-between gap-4 text-[11px] text-muted-foreground">
-            <div className="flex items-center gap-3">
-              <p>© 2026 PitchPe. All Rights Reserved. Play Hard, Win Together!</p>
+          <div className="pt-8 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+            <p className="order-1 text-center sm:text-left">© 2026 PitchPe. All Rights Reserved.</p>
+            <div className="order-3 sm:order-2">
               <SystemHealthBadge />
             </div>
-            <p>Sportsmanship • Competition • Precision</p>
+            <p className="order-2 sm:order-3 text-center sm:text-right text-muted-foreground/80">
+              Sportsmanship • Competition • Precision
+            </p>
           </div>
         </div>
       </footer>
