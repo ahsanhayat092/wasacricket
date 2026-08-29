@@ -95,24 +95,27 @@ export default function LandingHome() {
             </Link>
           </div>
 
-          {/* Feature Bar: Clean Horizontal Row of Small Icon-Label Pairs */}
+          {/* Feature Bar: Single Flat Horizontal Row of text-sm Icon-Label Pairs (No chunky background cards) */}
           <div className="max-w-4xl mx-auto pt-8 border-t border-border/40">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-muted-foreground">
-              <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-card/40 border border-border/60">
+            <div className="flex flex-wrap items-center justify-center gap-y-3 gap-x-6 sm:gap-x-8 text-xs sm:text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Live Scoring: <strong className="text-emerald-400 font-bold">Ball-by-Ball</strong></span>
+                <span>Live Scoring: <strong className="text-emerald-400 font-semibold">Ball-by-Ball</strong></span>
               </div>
-              <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-card/40 border border-border/60">
+              <span className="hidden sm:inline text-border/80">•</span>
+              <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Custom Formats: <strong className="text-foreground font-bold">4 to 50 Overs</strong></span>
+                <span>Custom Formats: <strong className="text-foreground font-semibold">4 to 50 Overs</strong></span>
               </div>
-              <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-card/40 border border-border/60">
+              <span className="hidden sm:inline text-border/80">•</span>
+              <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Scenario Engine: <strong className="text-sky-400 font-bold">Exact Math</strong></span>
+                <span>Scenario Engine: <strong className="text-sky-400 font-semibold">Exact Math</strong></span>
               </div>
-              <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-card/40 border border-border/60">
+              <span className="hidden sm:inline text-border/80">•</span>
+              <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Public Access: <strong className="text-amber-400 font-bold">Zero Login</strong></span>
+                <span>Public Access: <strong className="text-amber-400 font-semibold">Zero Login</strong></span>
               </div>
             </div>
           </div>
@@ -248,9 +251,9 @@ export default function LandingHome() {
 
                       <Link
                         to={`/live/${m.id}`}
-                        className="font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
+                        className="group/link font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
                       >
-                        Scorecard <ArrowRight className="h-3 w-3" />
+                        Scorecard <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover/link:translate-x-1" />
                       </Link>
                     </div>
                   </CardContent>

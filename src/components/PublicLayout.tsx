@@ -448,7 +448,9 @@ export function PublicLayout() {
           </div>
 
           <div className="pt-8 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-            <p className="order-1 text-center sm:text-left">© 2026 PitchPe. All Rights Reserved.</p>
+            <p className="order-1 text-center sm:text-left">
+              © 2026 PitchPe. All Rights Reserved. <span className="text-emerald-500 font-semibold hidden lg:inline">Play Hard, Win Together!</span>
+            </p>
             <div className="order-3 sm:order-2">
               <SystemHealthBadge />
             </div>
