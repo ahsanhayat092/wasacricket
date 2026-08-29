@@ -22,7 +22,7 @@ import {
   Clock,
   Flame,
 } from "lucide-react";
-import { formatMatchDay, type MatchStatus } from "@/lib/cricket";
+import { formatMatchDay, formatMatchDateTime, type MatchStatus } from "@/lib/cricket";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function LandingHome() {
@@ -210,7 +210,15 @@ export default function LandingHome() {
                   </CardHeader>
 
                   <CardContent className="p-4 pt-1 space-y-3">
-                    {/* Result Line */}
+                    {/* Dedicated Date & Time Row for All Cards */}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0" />
+                      <span className="font-medium">
+                        {formatMatchDateTime(m.day, m.date, m.time) || "Schedule TBD"}
+                      </span>
+                    </div>
+
+                    {/* Result Line / Status Indicator */}
                     {isCompleted && (
                       <p className="text-xs font-bold text-emerald-400 truncate flex items-center gap-1.5">
                         <Award className="h-3.5 w-3.5 shrink-0" />
@@ -226,11 +234,9 @@ export default function LandingHome() {
                     )}
 
                     {isUpcoming && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span>
-                          {formatMatchDay(m.day, m.date)} {m.time ? `· ${m.time}` : ""}
-                        </span>
+                      <p className="text-xs text-muted-foreground/90 truncate flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                        <span>Upcoming Fixture · {m.oversPerSide ?? 4} Overs</span>
                       </p>
                     )}
 
