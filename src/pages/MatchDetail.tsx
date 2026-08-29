@@ -124,6 +124,9 @@ export default function MatchDetail() {
   const lineupA = getLineup(teamAPlayers, match.teamAPlayingVI, match.teamAReserveId);
   const lineupB = getLineup(teamBPlayers, match.teamBPlayingVI, match.teamBReserveId);
 
+  const isFinal = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
+  const isPlayoff = match.stage === "PLAYOFF" || match.stage?.toUpperCase() === "PLAYOFF";
+
   return (
     <div className="mx-auto max-w-7xl px-3 sm:px-6 py-6 space-y-6">
       <EventAnimationOverlay
