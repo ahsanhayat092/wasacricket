@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
 import { createManagedTeam, updateManagedTeam } from "@/lib/mutations";
-import { getSchedule } from "@/lib/queries";
+import { getSchedule, getTeamChallenges } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ import {
   Sparkles,
   CheckCircle2,
   Clock,
+  Swords,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 
@@ -41,6 +42,12 @@ export default function TeamDashboard() {
   const { user } = useAuth();
   const { activeTeam, teams, isLoading, players, memberships, refetchTeams } = useTeam();
   const navigate = useNavigate();
+
+  const { data: challenges } = useQuery({
+    queryKey: ["team_challenges", activeTeam?.id],
+    queryFn: () => (activeTeam?.id ? getTeamChallenges(activeTeam.id) : null),
+    enabled: !!activeTeam?.id,
+  });
 
   // Create Team Onboarding State
   const [createName, setCreateName] = useState("");
@@ -313,11 +320,13 @@ export default function TeamDashboard() {
 
         <Card className="border-border/70 p-4 space-y-1">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500 block">
-            PENDING REQUESTS
+            FRIENDLIES & CHALLENGES
           </span>
-          <div className="text-2xl font-black">{pendingMemberships.length}</div>
-          <Link to="/team/requests" className="text-[11px] font-bold text-amber-500 hover:underline">
-            View Requests →
+          <div className="text-2xl font-black">
+            {(challenges?.active.length || 0) + (challenges?.incoming.length || 0)}
+          </div>
+          <Link to="/team/challenges" className="text-[11px] font-bold text-amber-500 hover:underline">
+            Challenge Opponent →
           </Link>
         </Card>
       </div>

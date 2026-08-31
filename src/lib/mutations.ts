@@ -36,11 +36,17 @@ import {
   tournamentMemberDoc,
   tournamentTeamMembershipsCol,
   tournamentTeamMembershipDoc,
+  teamChallengesCol,
+  teamChallengeDoc,
   TOURNAMENT_ID,
   type Tournament,
   type TournamentMember,
   type TournamentTeamMembership,
   type TeamMembershipStatus,
+  type TeamChallenge,
+  type ChallengeStatus,
+  type ChallengeType,
+  type TournamentFormatType,
   type TournamentRole,
   type Team,
   type Player,
@@ -54,12 +60,33 @@ import {
 } from "./firestore";
 import { db } from "./firebase";
 import { recalculateStandings, syncInningsTotals, finalizeMatch } from "./tournament-logic";
+import { validateMatchRules } from "./match-rules-guardrails";
 
 // ---------------------------------------------------------------------------
 // Tournament
 // ---------------------------------------------------------------------------
 
 export async function createTournament(input: Partial<Tournament> & { name: string; formatType?: any }) {
+  // Validate and normalize match rules according to PitchPe cricket guardrails
+  const validation = validateMatchRules({
+    formatPreset: input.formatType || "TAPE_BALL_INDOOR",
+    oversPerSide: input.oversPerSide ?? 4,
+    maxOversPerBowler: input.maxOverPerBowler ?? 1,
+    playersPerTeam: input.playersPerTeam ?? 6,
+    maxDismissals: input.maxWickets,
+    lastManStanding: input.allowLastManStanding ?? true,
+    freeHitOnNoBall: input.freeHitEnabled ?? true,
+    noBallPenalty: input.noBallRuns ?? 1,
+    widePenalty: input.wideRuns ?? 1,
+  });
+
+  if (!validation.valid) {
+    const errorMsg = validation.errors.map((e) => e.message).join(" ");
+    throw new Error(`Tournament match rules validation failed: ${errorMsg}`);
+  }
+
+  const norm = validation.normalizedRules;
+
   const docRef = doc(tournamentsCol());
   const tournamentId = docRef.id;
   const slug = input.slug || input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -69,19 +96,19 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
     shortName: input.shortName || input.name.slice(0, 4).toUpperCase(),
     slug,
     description: input.description || null,
-    formatType: input.formatType || "TAPE_BALL_INDOOR",
+    formatType: norm.formatPreset,
     winPoints: input.winPoints ?? 2,
     tiePoints: input.tiePoints ?? 1,
     noResultPoints: input.noResultPoints ?? 1,
     lossPoints: input.lossPoints ?? 0,
-    oversPerSide: input.oversPerSide ?? 4,
-    maxOverPerBowler: input.maxOverPerBowler ?? 1,
-    playersPerTeam: input.playersPerTeam ?? 6,
-    maxWickets: input.maxWickets ?? 6,
-    allowLastManStanding: input.allowLastManStanding ?? true,
-    wideRuns: input.wideRuns ?? 1,
-    noBallRuns: input.noBallRuns ?? 1,
-    freeHitEnabled: input.freeHitEnabled ?? true,
+    oversPerSide: norm.oversPerSide,
+    maxOverPerBowler: norm.maxOversPerBowler,
+    playersPerTeam: norm.playersPerTeam,
+    maxWickets: norm.maxDismissals,
+    allowLastManStanding: norm.lastManStanding,
+    wideRuns: norm.widePenalty,
+    noBallRuns: norm.noBallPenalty,
+    freeHitEnabled: norm.freeHitOnNoBall,
     playoffFormat: input.playoffFormat ?? "DIRECT_TOP2",
     scorerPin: input.scorerPin || null,
     venueName: input.venueName || "Askari XI, Lahore",
@@ -1484,6 +1511,212 @@ export async function withdrawTournamentRequest(membershipId: string) {
   const memRef = tournamentTeamMembershipDoc(membershipId);
   await updateDoc(memRef, {
     status: "WITHDRAWN",
+    updatedAt: now(),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Team Manager Challenges & Friendly Series Mutations
+// ---------------------------------------------------------------------------
+
+/**
+ * Challenger Team Manager issues a new challenge to an opponent club.
+ */
+export async function createTeamChallenge(input: {
+  challengerTeamId: string;
+  challengerTeamName: string;
+  challengerTeamShortName: string;
+  challengerTeamLogoUrl?: string | null;
+  challengerManagerId: string;
+  challengerManagerEmail: string;
+
+  opponentTeamId: string;
+  opponentTeamName: string;
+  opponentTeamShortName: string;
+  opponentTeamLogoUrl?: string | null;
+  opponentManagerId?: string | null;
+  opponentManagerEmail?: string | null;
+
+  challengeType: ChallengeType;
+  numberOfMatches?: number;
+  formatType: TournamentFormatType;
+  oversPerSide: number;
+  playersPerTeam: number;
+  venue: string;
+  proposedDate: string;
+  proposedTime?: string | null;
+  message?: string | null;
+}): Promise<TeamChallenge> {
+  const numMatches =
+    input.numberOfMatches ||
+    (input.challengeType === "SINGLE"
+      ? 1
+      : input.challengeType === "BEST_OF_3" || input.challengeType === "SERIES_3"
+      ? 3
+      : input.challengeType === "BEST_OF_5"
+      ? 5
+      : input.challengeType === "SERIES_2"
+      ? 2
+      : 1);
+
+  const data: Omit<TeamChallenge, "id"> = {
+    challengerTeamId: input.challengerTeamId,
+    challengerTeamName: input.challengerTeamName.trim(),
+    challengerTeamShortName: input.challengerTeamShortName.trim().toUpperCase(),
+    challengerTeamLogoUrl: input.challengerTeamLogoUrl || null,
+    challengerManagerId: input.challengerManagerId,
+    challengerManagerEmail: input.challengerManagerEmail.trim().toLowerCase(),
+
+    opponentTeamId: input.opponentTeamId,
+    opponentTeamName: input.opponentTeamName.trim(),
+    opponentTeamShortName: input.opponentTeamShortName.trim().toUpperCase(),
+    opponentTeamLogoUrl: input.opponentTeamLogoUrl || null,
+    opponentManagerId: input.opponentManagerId || null,
+    opponentManagerEmail: input.opponentManagerEmail ? input.opponentManagerEmail.trim().toLowerCase() : null,
+
+    challengeType: input.challengeType,
+    numberOfMatches: numMatches,
+    formatType: input.formatType,
+    oversPerSide: Number(input.oversPerSide) || 4,
+    playersPerTeam: Number(input.playersPerTeam) || 6,
+    venue: input.venue.trim() || "Askari XI Ground, Lahore",
+    proposedDate: input.proposedDate.trim(),
+    proposedTime: input.proposedTime?.trim() || "19:00",
+    message: input.message?.trim() || null,
+
+    status: "PENDING",
+    challengerWins: 0,
+    opponentWins: 0,
+    tiedMatches: 0,
+    winnerTeamId: null,
+
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  const docRef = await addDoc(teamChallengesCol(), data);
+  return { id: docRef.id, ...data };
+}
+
+/**
+ * Opponent Team Manager accepts a challenge:
+ * - Updates challenge status to "ACCEPTED"
+ * - Generates 6-digit Scorer PIN
+ * - Automatically creates the match documents and friendly tournament wrapper
+ */
+export async function acceptTeamChallenge(challengeId: string): Promise<TeamChallenge> {
+  const challengeRef = teamChallengeDoc(challengeId);
+  const snap = await getDoc(challengeRef);
+  if (!snap.exists()) throw new Error("Challenge not found.");
+
+  const challenge = { id: snap.id, ...snap.data() } as TeamChallenge;
+  if (challenge.status !== "PENDING") {
+    throw new Error(`Challenge cannot be accepted because status is ${challenge.status}`);
+  }
+
+  // Generate 6-digit Scorer PIN
+  const scorerPin = Math.floor(100000 + Math.random() * 900000).toString();
+  const friendlyTourneyId = `friendly_${challengeId}`;
+
+  // 1. Create or set friendly tournament record so public live view and scorer console work seamlessly
+  const tourneyRef = tournamentDoc(friendlyTourneyId);
+  await setDoc(tourneyRef, {
+    name: `${challenge.challengerTeamName} vs ${challenge.opponentTeamName} Friendly Series`,
+    shortName: "FRIENDLY",
+    description: `Friendly bilateral series between ${challenge.challengerTeamName} and ${challenge.opponentTeamName}`,
+    formatType: challenge.formatType || "TAPE_BALL_INDOOR",
+    oversPerSide: challenge.oversPerSide || 4,
+    playersPerTeam: challenge.playersPerTeam || 6,
+    scorerPin: scorerPin,
+    venueName: challenge.venue,
+    winPoints: 2,
+    tiePoints: 1,
+    lossPoints: 0,
+    noResultPoints: 1,
+    status: "ONGOING",
+    createdAt: now(),
+    updatedAt: now(),
+  });
+
+  // 2. Create the corresponding match documents
+  const matchIds: string[] = [];
+  const totalMatches = challenge.numberOfMatches || 1;
+
+  for (let i = 0; i < totalMatches; i++) {
+    const matchNum = i + 1;
+    const matchData: Omit<Match, "id"> = {
+      tournamentId: friendlyTourneyId,
+      matchNumber: matchNum,
+      stage: "LEAGUE",
+      day: "SUNDAY",
+      date: challenge.proposedDate,
+      time: challenge.proposedTime || "19:00",
+      venue: challenge.venue,
+      oversPerSide: challenge.oversPerSide || 4,
+      status: "UPCOMING",
+      teamAId: challenge.challengerTeamId,
+      teamBId: challenge.opponentTeamId,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+
+    const mRef = await addDoc(matchesCol(), matchData);
+    matchIds.push(mRef.id);
+  }
+
+  // 3. Update challenge document with matchIds and Scorer PIN
+  const updateData: Partial<TeamChallenge> = {
+    status: "ACCEPTED",
+    matchIds,
+    scorerPin,
+    updatedAt: now(),
+  };
+
+  await updateDoc(challengeRef, updateData);
+  return { ...challenge, ...updateData };
+}
+
+/**
+ * Opponent Team Manager declines a challenge.
+ */
+export async function declineTeamChallenge(challengeId: string, reason?: string): Promise<void> {
+  const challengeRef = teamChallengeDoc(challengeId);
+  await updateDoc(challengeRef, {
+    status: "DECLINED",
+    declineReason: reason?.trim() || null,
+    updatedAt: now(),
+  });
+}
+
+/**
+ * Challenger Team Manager cancels / withdraws a pending challenge.
+ */
+export async function withdrawTeamChallenge(challengeId: string): Promise<void> {
+  const challengeRef = teamChallengeDoc(challengeId);
+  await updateDoc(challengeRef, {
+    status: "WITHDRAWN",
+    updatedAt: now(),
+  });
+}
+
+/**
+ * Updates series score tracker when a friendly match finishes.
+ */
+export async function updateChallengeSeriesScore(input: {
+  challengeId: string;
+  challengerWins: number;
+  opponentWins: number;
+  tiedMatches?: number;
+  winnerTeamId?: string | null;
+  status?: ChallengeStatus;
+}): Promise<void> {
+  const challengeRef = teamChallengeDoc(input.challengeId);
+  await updateDoc(challengeRef, {
+    challengerWins: input.challengerWins,
+    opponentWins: input.opponentWins,
+    tiedMatches: input.tiedMatches ?? 0,
+    winnerTeamId: input.winnerTeamId || null,
+    status: input.status || "ACCEPTED",
     updatedAt: now(),
   });
 }

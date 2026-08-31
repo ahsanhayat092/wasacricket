@@ -31,6 +31,8 @@ import {
   Settings2,
   Info,
   Send,
+  AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -38,6 +40,12 @@ import {
   generateTournamentSchedule,
   type FormatPresetConfig,
 } from "@/lib/fixture-generator";
+import {
+  validateMatchRules,
+  calculateMaxDismissals,
+  CANONICAL_PRESETS,
+  type MatchRules,
+} from "@/lib/match-rules-guardrails";
 import type { TournamentFormatType, PlayoffFormatType, MatchDay, Team } from "@/lib/firestore";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -135,21 +143,143 @@ export default function TournamentWizard() {
     }
   };
 
+  // Match Rules Validation & Guardrail Result
+  const matchRulesValidation = useMemo(() => {
+    return validateMatchRules({
+      formatPreset: selectedFormat,
+      oversPerSide,
+      maxOversPerBowler: maxOverPerBowler,
+      playersPerTeam,
+      maxDismissals: maxWickets,
+      lastManStanding: allowLastManStanding,
+      freeHitOnNoBall: freeHitEnabled,
+      noBallPenalty: noBallRuns,
+      widePenalty: wideRuns,
+    });
+  }, [
+    selectedFormat,
+    oversPerSide,
+    maxOverPerBowler,
+    playersPerTeam,
+    maxWickets,
+    allowLastManStanding,
+    freeHitEnabled,
+    noBallRuns,
+    wideRuns,
+  ]);
+
+  const getFieldError = (field: keyof MatchRules) =>
+    matchRulesValidation.errors.find((e) => e.field === field)?.message;
+  const getFieldWarning = (field: keyof MatchRules) =>
+    matchRulesValidation.warnings.find((e) => e.field === field)?.message;
+
   // When format preset is chosen
   const handlePresetSelect = (fmtKey: TournamentFormatType) => {
     setSelectedFormat(fmtKey);
-    const preset = FORMAT_PRESETS[fmtKey];
+    const preset = CANONICAL_PRESETS[fmtKey] || CANONICAL_PRESETS.CUSTOM;
     if (preset) {
       setOversPerSide(preset.oversPerSide);
-      setMaxOverPerBowler(preset.maxOverPerBowler);
+      setMaxOverPerBowler(preset.maxOversPerBowler);
       setPlayersPerTeam(preset.playersPerTeam);
-      setMaxWickets(preset.maxWickets);
-      setAllowLastManStanding(preset.allowLastManStanding);
-      setWideRuns(preset.wideRuns);
-      setNoBallRuns(preset.noBallRuns);
-      setFreeHitEnabled(preset.freeHitEnabled);
+      setMaxWickets(preset.maxDismissals);
+      setAllowLastManStanding(preset.lastManStanding);
+      setWideRuns(preset.widePenalty);
+      setNoBallRuns(preset.noBallPenalty);
+      setFreeHitEnabled(preset.freeHitOnNoBall);
       setPlayoffFormat(preset.playoffFormat);
       setMatchDuration(preset.defaultMatchDurationMinutes);
+    }
+  };
+
+  const handleOversChange = (val: number) => {
+    const safeVal = isNaN(val) ? 0 : val;
+    setOversPerSide(safeVal);
+
+    if (selectedFormat === "TAPE_BALL_INDOOR") {
+      if (safeVal < 4 || safeVal > 8) {
+        setSelectedFormat("CUSTOM");
+      } else {
+        setMaxOverPerBowler(safeVal <= 5 ? 1 : 2);
+      }
+    } else if (selectedFormat === "T10" && safeVal !== 10) {
+      setSelectedFormat("CUSTOM");
+    } else if (selectedFormat === "T20" && safeVal !== 20) {
+      setSelectedFormat("CUSTOM");
+    }
+
+    if (maxOverPerBowler > safeVal && safeVal > 0) {
+      setMaxOverPerBowler(safeVal);
+    }
+  };
+
+  const handleMaxBowlerChange = (val: number) => {
+    const safeVal = isNaN(val) ? 0 : val;
+    setMaxOverPerBowler(safeVal);
+
+    if (selectedFormat === "T10" && safeVal !== 2) {
+      setSelectedFormat("CUSTOM");
+    } else if (selectedFormat === "T20" && safeVal !== 4) {
+      setSelectedFormat("CUSTOM");
+    } else if (selectedFormat === "TAPE_BALL_INDOOR" && safeVal > 2) {
+      setSelectedFormat("CUSTOM");
+    }
+  };
+
+  const handlePlayersChange = (val: number) => {
+    const safeVal = isNaN(val) ? 0 : val;
+    setPlayersPerTeam(safeVal);
+
+    if ((selectedFormat === "T10" || selectedFormat === "T20") && safeVal !== 11) {
+      setSelectedFormat("CUSTOM");
+    } else if (selectedFormat === "TAPE_BALL_INDOOR" && safeVal !== 6) {
+      setSelectedFormat("CUSTOM");
+    }
+
+    const newMaxDismissals = calculateMaxDismissals(safeVal, allowLastManStanding);
+    setMaxWickets(newMaxDismissals);
+  };
+
+  const handleLmsChange = (val: boolean) => {
+    setAllowLastManStanding(val);
+
+    if ((selectedFormat === "T10" || selectedFormat === "T20") && val === true) {
+      setSelectedFormat("CUSTOM");
+    } else if (selectedFormat === "TAPE_BALL_INDOOR" && val === false) {
+      setSelectedFormat("CUSTOM");
+    }
+
+    const newMaxDismissals = calculateMaxDismissals(playersPerTeam, val);
+    setMaxWickets(newMaxDismissals);
+  };
+
+  const handleDismissalsChange = (val: number) => {
+    const safeVal = isNaN(val) ? 0 : val;
+    setMaxWickets(safeVal);
+    if (selectedFormat !== "CUSTOM") {
+      setSelectedFormat("CUSTOM");
+    }
+  };
+
+  const handleWideChange = (val: number) => {
+    const safeVal = isNaN(val) ? 0 : val;
+    setWideRuns(safeVal);
+    if (safeVal !== 1 && selectedFormat !== "CUSTOM") {
+      setSelectedFormat("CUSTOM");
+    }
+  };
+
+  const handleNoBallChange = (val: number) => {
+    const safeVal = isNaN(val) ? 0 : val;
+    setNoBallRuns(safeVal);
+    if (safeVal !== 1 && selectedFormat !== "CUSTOM") {
+      setSelectedFormat("CUSTOM");
+    }
+  };
+
+  const handleFreeHitChange = (val: boolean) => {
+    setFreeHitEnabled(val);
+    if (!val && (selectedFormat === "TAPE_BALL_INDOOR" || selectedFormat === "T10" || selectedFormat === "T20")) {
+      setSelectedFormat("CUSTOM");
     }
   };
 
@@ -547,9 +677,9 @@ export default function TournamentWizard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { type: "TAPE_BALL_INDOOR", label: "🏏 Tape-Ball / Indoor", desc: "4–8 Overs, LMS, Free Hits" },
-                { type: "T10_LEAGUE", label: "⚡ T10 League", desc: "10 Overs, 2 overs/bowler, 11 Players" },
-                { type: "T20_STANDARD", label: "🏆 T20 Standard", desc: "20 Overs, 4 overs/bowler, ICC T20" },
-                { type: "CUSTOM_ENGINE", label: "⚙️ Custom Engine", desc: "Fully custom overs & rules" },
+                { type: "T10", label: "⚡ T10 League", desc: "10 Overs, 2 overs/bowler, 11 Players" },
+                { type: "T20", label: "🏆 T20 Standard", desc: "20 Overs, 4 overs/bowler, ICC T20" },
+                { type: "CUSTOM", label: "⚙️ Custom Engine", desc: "Fully custom overs & rules" },
               ].map((p) => {
                 const isSelected = selectedFormat === p.type;
                 return (
@@ -571,10 +701,19 @@ export default function TournamentWizard() {
 
             {/* Custom Rules Grid */}
             <div className="space-y-4 pt-2 border-t">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Match Rule Configuration
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Match Rule Configuration
+                </h3>
+                {selectedFormat === "CUSTOM" && (
+                  <Badge variant="outline" className="text-[10px] font-bold text-amber-500 border-amber-500/30">
+                    Custom Configuration Active
+                  </Badge>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {/* 1. Overs Per Side */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold">Overs Per Side</Label>
                   <Input
@@ -582,82 +721,167 @@ export default function TournamentWizard() {
                     min={1}
                     max={50}
                     value={oversPerSide}
-                    onChange={(e) => setOversPerSide(parseInt(e.target.value, 10) || 4)}
-                    className="h-9 text-xs font-bold"
+                    onChange={(e) => handleOversChange(parseInt(e.target.value, 10))}
+                    className={`h-9 text-xs font-bold ${getFieldError("oversPerSide") ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   />
+                  {getFieldError("oversPerSide") && (
+                    <p className="text-[11px] font-semibold text-red-500 leading-tight">
+                      {getFieldError("oversPerSide")}
+                    </p>
+                  )}
                 </div>
 
+                {/* 2. Max Overs Per Bowler */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold">Max Overs Per Bowler</Label>
                   <Input
                     type="number"
                     min={1}
-                    max={10}
+                    max={oversPerSide || 10}
                     value={maxOverPerBowler}
-                    onChange={(e) => setMaxOverPerBowler(parseInt(e.target.value, 10) || 1)}
-                    className="h-9 text-xs font-bold"
+                    onChange={(e) => handleMaxBowlerChange(parseInt(e.target.value, 10))}
+                    className={`h-9 text-xs font-bold ${getFieldError("maxOversPerBowler") ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   />
+                  {getFieldError("maxOversPerBowler") && (
+                    <p className="text-[11px] font-semibold text-red-500 leading-tight">
+                      {getFieldError("maxOversPerBowler")}
+                    </p>
+                  )}
+                  {!getFieldError("maxOversPerBowler") && getFieldWarning("maxOversPerBowler") && (
+                    <p className="text-[11px] font-medium text-amber-500 leading-tight">
+                      {getFieldWarning("maxOversPerBowler")}
+                    </p>
+                  )}
                 </div>
 
+                {/* 3. Players Per Team */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold">Players Per Team (Fielding)</Label>
                   <Input
                     type="number"
                     min={2}
-                    max={11}
+                    max={15}
                     value={playersPerTeam}
-                    onChange={(e) => setPlayersPerTeam(parseInt(e.target.value, 10) || 6)}
-                    className="h-9 text-xs font-bold"
+                    onChange={(e) => handlePlayersChange(parseInt(e.target.value, 10))}
+                    className={`h-9 text-xs font-bold ${getFieldError("playersPerTeam") ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   />
+                  {getFieldError("playersPerTeam") && (
+                    <p className="text-[11px] font-semibold text-red-500 leading-tight">
+                      {getFieldError("playersPerTeam")}
+                    </p>
+                  )}
                 </div>
 
+                {/* 4. Max Dismissals */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold">Max Dismissals (All Out)</Label>
                   <Input
                     type="number"
                     min={1}
-                    max={11}
+                    max={playersPerTeam}
                     value={maxWickets}
-                    onChange={(e) => setMaxWickets(parseInt(e.target.value, 10) || 6)}
-                    className="h-9 text-xs font-bold"
+                    onChange={(e) => handleDismissalsChange(parseInt(e.target.value, 10))}
+                    className={`h-9 text-xs font-bold ${getFieldError("maxDismissals") ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   />
+                  {getFieldError("maxDismissals") && (
+                    <p className="text-[11px] font-semibold text-red-500 leading-tight">
+                      {getFieldError("maxDismissals")}
+                    </p>
+                  )}
                 </div>
               </div>
 
+              {/* Toggles and Extras Rules */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t">
+                {/* LMS Toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
                   <div>
                     <Label className="text-xs font-bold">Last Man Standing (LMS)</Label>
                     <p className="text-[11px] text-muted-foreground">Allows lone batsman to continue alone</p>
                   </div>
-                  <Switch checked={allowLastManStanding} onCheckedChange={setAllowLastManStanding} />
+                  <Switch checked={allowLastManStanding} onCheckedChange={handleLmsChange} />
                 </div>
 
+                {/* Free Hit Toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
                   <div>
                     <Label className="text-xs font-bold">Free Hit on No-Ball</Label>
                     <p className="text-[11px] text-muted-foreground">Next delivery is an un-dismissable free hit</p>
                   </div>
-                  <Switch checked={freeHitEnabled} onCheckedChange={setFreeHitEnabled} />
+                  <Switch checked={freeHitEnabled} onCheckedChange={handleFreeHitChange} />
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                  <div>
-                    <Label className="text-xs font-bold">No-Ball + Wide Extra</Label>
-                    <p className="text-[11px] text-muted-foreground">1 penalty run added to score</p>
+                {/* Extras Penalty (No-Ball & Wide) */}
+                <div className="p-3 rounded-lg border bg-card space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold">Extra Penalties</Label>
+                    <Badge variant="secondary" className="font-bold text-[10px]">
+                      +{noBallRuns} NB / +{wideRuns} W
+                    </Badge>
                   </div>
-                  <Badge variant="secondary" className="font-bold">
-                    +1 Run
-                  </Badge>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-muted-foreground">No-Ball Run</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={noBallRuns}
+                        onChange={(e) => handleNoBallChange(parseInt(e.target.value, 10))}
+                        className="h-7 text-xs font-bold"
+                      />
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-muted-foreground">Wide Run</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={wideRuns}
+                        onChange={(e) => handleWideChange(parseInt(e.target.value, 10))}
+                        className="h-7 text-xs font-bold"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Validation Alerts */}
+            {!matchRulesValidation.valid && matchRulesValidation.errors.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-400 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-red-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>Cannot continue — Please fix match rule configuration:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-0.5 pl-1">
+                  {matchRulesValidation.errors.map((e, idx) => (
+                    <li key={idx}>{e.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {matchRulesValidation.valid && matchRulesValidation.warnings.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-amber-400">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>Configuration Note:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-0.5 pl-1">
+                  {matchRulesValidation.warnings.map((w, idx) => (
+                    <li key={idx}>{w.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="flex justify-between pt-4 border-t">
               <Button variant="outline" onClick={() => setCurrentStep(1)} className="gap-2">
                 <ArrowLeft className="h-4 w-4" /> Back
               </Button>
               <Button
+                disabled={!matchRulesValidation.valid}
                 onClick={() => setCurrentStep(3)}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2"
               >

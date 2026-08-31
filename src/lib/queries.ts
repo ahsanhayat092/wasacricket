@@ -25,6 +25,8 @@ import {
   tournamentMembersCol,
   tournamentTeamMembershipsCol,
   tournamentTeamMembershipDoc,
+  teamChallengesCol,
+  teamChallengeDoc,
   teamDoc,
   matchDoc,
   playerDoc,
@@ -33,6 +35,7 @@ import {
   type TournamentMember,
   type TournamentTeamMembership,
   type TournamentRole,
+  type TeamChallenge,
   type Team,
   type Player,
   type Match,
@@ -1765,6 +1768,128 @@ export async function getOpenTournaments(): Promise<Tournament[]> {
     return list.filter((t) => t.status !== "COMPLETED");
   } catch (err) {
     console.error("Error loading open tournaments:", err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Team Challenges & Friendly Matches Queries
+// ---------------------------------------------------------------------------
+
+export type TeamChallengesGrouped = {
+  incoming: TeamChallenge[];
+  outgoing: TeamChallenge[];
+  active: TeamChallenge[];
+  completed: TeamChallenge[];
+  all: TeamChallenge[];
+};
+
+/**
+ * Fetch all challenges involving a team (both as challenger and opponent)
+ */
+export async function getTeamChallenges(teamId: string): Promise<TeamChallengesGrouped> {
+  if (!teamId) {
+    return { incoming: [], outgoing: [], active: [], completed: [], all: [] };
+  }
+
+  try {
+    const [challengerSnap, opponentSnap] = await Promise.all([
+      getDocs(query(teamChallengesCol(), where("challengerTeamId", "==", teamId))),
+      getDocs(query(teamChallengesCol(), where("opponentTeamId", "==", teamId))),
+    ]);
+
+    const challengeMap = new Map<string, TeamChallenge>();
+
+    for (const doc of [...challengerSnap.docs, ...opponentSnap.docs]) {
+      challengeMap.set(doc.id, { id: doc.id, ...doc.data() } as TeamChallenge);
+    }
+
+    const all = [...challengeMap.values()].sort((a, b) =>
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+
+    const incoming = all.filter((c) => c.opponentTeamId === teamId && c.status === "PENDING");
+    const outgoing = all.filter((c) => c.challengerTeamId === teamId && c.status === "PENDING");
+    const active = all.filter((c) => c.status === "ACCEPTED");
+    const completed = all.filter((c) => c.status === "COMPLETED" || c.status === "DECLINED" || c.status === "WITHDRAWN");
+
+    return { incoming, outgoing, active, completed, all };
+  } catch (err) {
+    console.error("Error loading team challenges:", err);
+    return { incoming: [], outgoing: [], active: [], completed: [], all: [] };
+  }
+}
+
+/**
+ * Fetch a single challenge by ID with its generated matches
+ */
+export async function getChallengeById(challengeId: string): Promise<{
+  challenge: TeamChallenge;
+  matches: HydratedMatch[];
+} | null> {
+  try {
+    const snap = await getDoc(teamChallengeDoc(challengeId));
+    if (!snap.exists()) return null;
+
+    const challenge = { id: snap.id, ...snap.data() } as TeamChallenge;
+    let matches: HydratedMatch[] = [];
+
+    if (challenge.matchIds && challenge.matchIds.length > 0) {
+      const matchFetches = challenge.matchIds.map(async (mId) => {
+        const mSnap = await getDoc(matchDoc(mId));
+        if (mSnap.exists()) {
+          const mData = { id: mSnap.id, ...mSnap.data() } as Match;
+          const [tA, tB, inningsSnap] = await Promise.all([
+            mData.teamAId ? getDoc(teamDoc(mData.teamAId)) : Promise.resolve(null),
+            mData.teamBId ? getDoc(teamDoc(mData.teamBId)) : Promise.resolve(null),
+            getDocs(query(inningsCol(), where("matchId", "==", mId))),
+          ]);
+
+          const teamA = tA && tA.exists() ? ({ id: tA.id, ...tA.data() } as Team) : null;
+          const teamB = tB && tB.exists() ? ({ id: tB.id, ...tB.data() } as Team) : null;
+          const innings = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+
+          return {
+            ...mData,
+            teamA,
+            teamB,
+            tossWinner: null,
+            winningTeam: null,
+            innings,
+          } as HydratedMatch;
+        }
+        return null;
+      });
+
+      const resolved = await Promise.all(matchFetches);
+      matches = resolved.filter((m): m is HydratedMatch => m !== null);
+    }
+
+    return { challenge, matches };
+  } catch (err) {
+    console.error("Error loading challenge by ID:", err);
+    return null;
+  }
+}
+
+/**
+ * Fetch all registered clubs/teams in PitchPe available to be challenged (excluding own team)
+ */
+export async function getAvailableOpponentTeams(currentTeamId?: string): Promise<Team[]> {
+  try {
+    const snap = await getDocs(teamsCol());
+    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+    // Filter out current team and deduplicate by name/id
+    const filtered = all.filter((t) => t.id !== currentTeamId && t.name && t.name.trim().length > 0);
+    const unique = new Map<string, Team>();
+    for (const t of filtered) {
+      if (!unique.has(t.id)) {
+        unique.set(t.id, t);
+      }
+    }
+    return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error("Error loading available opponent teams:", err);
     return [];
   }
 }

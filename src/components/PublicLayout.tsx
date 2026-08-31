@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 import { UniversalSearchDialog } from "@/components/UniversalSearchDialog";
 import { SystemHealthBadge } from "@/components/SystemHealthBadge";
+import { PitchPeLogo } from "@/components/PitchPeLogo";
 
 export function PublicLayout() {
   const { theme, toggle } = useTheme();
@@ -114,19 +115,7 @@ export function PublicLayout() {
       <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between gap-4">
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center gap-2.5 font-bold text-lg shrink-0 group">
-            <span className="h-9 w-9 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-              <span className="text-base font-black">🏏</span>
-            </span>
-            <div className="flex flex-col leading-tight">
-              <span className="font-black tracking-tight text-lg text-foreground">
-                Pitch<span className="text-emerald-500">Pe</span>
-              </span>
-              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                Cricket Platform
-              </span>
-            </div>
-          </Link>
+          <PitchPeLogo variant="compact" className="h-8 sm:h-9 w-auto" linkTo="/" />
 
           {/* Desktop Public Navigation (Center) */}
           <nav className="hidden md:flex items-center gap-1 ml-4 flex-1">
@@ -409,10 +398,7 @@ export function PublicLayout() {
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-8">
             <div className="sm:col-span-1 space-y-3">
               <div className="flex items-center gap-2">
-                <span className="h-7 w-7 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-black text-xs shadow-sm">
-                  🏏
-                </span>
-                <span className="font-black text-base">Pitch<span className="text-emerald-500">Pe</span></span>
+                <PitchPeLogo variant="compact" className="h-7 w-auto" linkTo="/" />
               </div>
               <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
                 The modern cricket tournament management & live scoring platform. Tournaments, teams, ball-by-ball scoring, and broadcast overlays.

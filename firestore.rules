@@ -66,6 +66,22 @@ service cloud.firestore {
         isSuperAdmin() ||
         isTournamentAdmin(tourneyId) ||
         (
+          exists(/databases/$(database)/documents/tournaments/$(tourneyId)) &&
+          (
+            (
+              'scorers' in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data &&
+              (
+                request.auth.uid in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.scorers ||
+                request.auth.token.email in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.scorers
+              )
+            ) ||
+            (
+              'scorerEmails' in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data &&
+              request.auth.token.email in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.scorerEmails
+            )
+          )
+        ) ||
+        (
           exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)) &&
           get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)).data.role == 'SCORER'
         )
@@ -76,7 +92,6 @@ service cloud.firestore {
     // Team Authorization Helpers
     // -------------------------------------------------------------------------
 
-    // Check if user is manager/owner of a team
     function isTeamManager(teamId) {
       return isSignedIn() && (
         isSuperAdmin() ||
@@ -91,7 +106,6 @@ service cloud.firestore {
       );
     }
 
-    // Check if user can score a match
     function canScoreMatch(tourneyId) {
       return isSignedIn() && (
         isSuperAdmin() ||
@@ -99,7 +113,6 @@ service cloud.firestore {
       );
     }
 
-    // Data validation helper
     function isValidNonEmptyString(val, maxLen) {
       return val is string && val.size() > 0 && val.size() <= maxLen;
     }
@@ -110,7 +123,6 @@ service cloud.firestore {
     match /tournaments/{tournamentId} {
       allow read: if true;
 
-      // Creation requires authenticated user and valid name & ownerId/ownerEmail
       allow create: if isSignedIn() &&
         isValidNonEmptyString(request.resource.data.name, 120) &&
         (
@@ -119,7 +131,6 @@ service cloud.firestore {
           isSuperAdmin()
         );
 
-      // Update / Delete strictly requires owner or super admin; prevents changing ownerId unless super admin
       allow update: if isSignedIn() &&
         isTournamentOwner(tournamentId) &&
         (
@@ -138,7 +149,6 @@ service cloud.firestore {
     match /teams/{teamId} {
       allow read: if true;
 
-      // Creation requires team manager UID binding or tournament admin creating for tournament
       allow create: if isSignedIn() &&
         isValidNonEmptyString(request.resource.data.name, 100) &&
         (
@@ -148,7 +158,6 @@ service cloud.firestore {
           isSuperAdmin()
         );
 
-      // Updates/Deletes restricted to team manager, tournament admin, or super admin
       allow update: if isSignedIn() && (
         isSuperAdmin() ||
         (resource.data.ownerId == request.auth.uid) ||
@@ -172,12 +181,11 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // 4. PLAYERS COLLECTION (Multi-Team & Multi-Tournament Enabled)
+    // 4. PLAYERS COLLECTION
     // =========================================================================
     match /players/{playerId} {
       allow read: if true;
 
-      // Creation: Team Managers can add players to their roster, Tournament Admins to tournament squads
       allow create: if isSignedIn() &&
         isValidNonEmptyString(request.resource.data.name, 100) &&
         (
@@ -186,8 +194,6 @@ service cloud.firestore {
           (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId))
         );
 
-      // Updates: Authorized for the Team Manager of the roster entry, or Tournament Admin of the tournament,
-      // or a Team Manager adding/updating participation for their team without blocking multi-team play
       allow update: if isSignedIn() && (
         isSuperAdmin() ||
         (resource.data.teamId != null && isTeamManager(resource.data.teamId)) ||
@@ -196,7 +202,6 @@ service cloud.firestore {
         (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId))
       );
 
-      // Deletes: Only the specific team's manager or tournament admin can delete that specific roster entry
       allow delete: if isSignedIn() && (
         isSuperAdmin() ||
         (resource.data.teamId != null && isTeamManager(resource.data.teamId)) ||
@@ -210,63 +215,119 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if true;
 
-      // Match creation and deletion strictly restricted to Tournament Admins (no null bypass!)
       allow create: if isSignedIn() && (
-        request.resource.data.tournamentId != null &&
-        isTournamentAdmin(request.resource.data.tournamentId)
+        isSuperAdmin() ||
+        (
+          request.resource.data.tournamentId != null &&
+          isTournamentAdmin(request.resource.data.tournamentId)
+        ) ||
+        (
+          request.resource.data.teamAId != null &&
+          isTeamManager(request.resource.data.teamAId)
+        ) ||
+        (
+          request.resource.data.teamBId != null &&
+          isTeamManager(request.resource.data.teamBId)
+        )
       );
 
       allow delete: if isSignedIn() && (
-        resource.data.tournamentId != null &&
-        isTournamentAdmin(resource.data.tournamentId)
+        isSuperAdmin() ||
+        (
+          resource.data.tournamentId != null &&
+          isTournamentAdmin(resource.data.tournamentId)
+        ) ||
+        (
+          resource.data.teamAId != null &&
+          isTeamManager(resource.data.teamAId)
+        )
       );
 
-      // Match updates allowed for Tournament Admins (fixtures, config) and Scorers (toss, lineups, POTM, events)
       allow update: if isSignedIn() && (
-        resource.data.tournamentId != null &&
-        canScoreMatch(resource.data.tournamentId)
+        isSuperAdmin() ||
+        (
+          resource.data.tournamentId != null &&
+          canScoreMatch(resource.data.tournamentId)
+        ) ||
+        (
+          request.resource.data.tournamentId != null &&
+          canScoreMatch(request.resource.data.tournamentId)
+        ) ||
+        (
+          resource.data.teamAId != null &&
+          isTeamManager(resource.data.teamAId)
+        ) ||
+        (
+          resource.data.teamBId != null &&
+          isTeamManager(resource.data.teamBId)
+        )
       );
 
-      // Match Subcollections: strictly restricted to authorized scorers/admins for this tournament
       match /{subcollection=**} {
         allow read: if true;
         allow write: if isSignedIn() && (
-          resource.data.tournamentId != null &&
-          canScoreMatch(resource.data.tournamentId)
+          isSuperAdmin() ||
+          (
+            resource.data.tournamentId != null &&
+            canScoreMatch(resource.data.tournamentId)
+          ) ||
+          (
+            resource.data.teamAId != null &&
+            isTeamManager(resource.data.teamAId)
+          ) ||
+          (
+            resource.data.teamBId != null &&
+            isTeamManager(resource.data.teamBId)
+          )
         );
       }
     }
 
     // =========================================================================
-    // 6. INNINGS & SCORECARD COLLECTIONS
+    // 6. INNINGS & SCORECARD COLLECTIONS (BATCH WRITE & MANAGER COMPLIANT)
     // =========================================================================
     match /innings/{inningsId} {
       allow read: if true;
 
       allow create: if isSignedIn() && (
+        isSuperAdmin() ||
         (request.resource.data.tournamentId != null && canScoreMatch(request.resource.data.tournamentId)) ||
-        (request.resource.data.matchId != null && exists(/databases/$(database)/documents/matches/$(request.resource.data.matchId)) && canScoreMatch(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId)) ||
-        isSuperAdmin()
+        (
+          request.resource.data.matchId != null &&
+          exists(/databases/$(database)/documents/matches/$(request.resource.data.matchId)) &&
+          (
+            canScoreMatch(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId) ||
+            isTeamManager(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.teamAId) ||
+            isTeamManager(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.teamBId)
+          )
+        )
       );
 
       allow update: if isSignedIn() && (
+        isSuperAdmin() ||
         (resource.data.tournamentId != null && canScoreMatch(resource.data.tournamentId)) ||
         (request.resource.data.tournamentId != null && canScoreMatch(request.resource.data.tournamentId)) ||
-        (resource.data.matchId != null && exists(/databases/$(database)/documents/matches/$(resource.data.matchId)) && canScoreMatch(get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.tournamentId)) ||
-        isSuperAdmin()
+        (
+          resource.data.matchId != null &&
+          exists(/databases/$(database)/documents/matches/$(resource.data.matchId)) &&
+          (
+            canScoreMatch(get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.tournamentId) ||
+            isTeamManager(get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.teamAId) ||
+            isTeamManager(get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.teamBId)
+          )
+        )
       );
 
       allow delete: if isSignedIn() && (
-        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
-        isSuperAdmin()
+        isSuperAdmin() ||
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId))
       );
 
-      // Innings Subcollections: restricted to authorized scorers/admins
       match /{subcollection=**} {
         allow read: if true;
         allow write: if isSignedIn() && (
-          (resource.data.tournamentId != null && canScoreMatch(resource.data.tournamentId)) ||
-          isSuperAdmin()
+          isSuperAdmin() ||
+          (resource.data.tournamentId != null && canScoreMatch(resource.data.tournamentId))
         );
       }
     }
@@ -275,14 +336,23 @@ service cloud.firestore {
       allow read: if true;
 
       allow create, update: if isSignedIn() && (
+        isSuperAdmin() ||
         (request.resource.data.tournamentId != null && canScoreMatch(request.resource.data.tournamentId)) ||
-        (request.resource.data.inningsId != null && exists(/databases/$(database)/documents/innings/$(request.resource.data.inningsId)) && canScoreMatch(get(/databases/$(database)/documents/innings/$(request.resource.data.inningsId)).data.tournamentId)) ||
-        isSuperAdmin()
+        (
+          request.resource.data.matchId != null &&
+          exists(/databases/$(database)/documents/matches/$(request.resource.data.matchId)) &&
+          canScoreMatch(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId)
+        ) ||
+        (
+          request.resource.data.inningsId != null &&
+          exists(/databases/$(database)/documents/innings/$(request.resource.data.inningsId)) &&
+          canScoreMatch(get(/databases/$(database)/documents/innings/$(request.resource.data.inningsId)).data.tournamentId)
+        )
       );
 
       allow delete: if isSignedIn() && (
-        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
-        isSuperAdmin()
+        isSuperAdmin() ||
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId))
       );
     }
 
@@ -290,14 +360,23 @@ service cloud.firestore {
       allow read: if true;
 
       allow create, update: if isSignedIn() && (
+        isSuperAdmin() ||
         (request.resource.data.tournamentId != null && canScoreMatch(request.resource.data.tournamentId)) ||
-        (request.resource.data.inningsId != null && exists(/databases/$(database)/documents/innings/$(request.resource.data.inningsId)) && canScoreMatch(get(/databases/$(database)/documents/innings/$(request.resource.data.inningsId)).data.tournamentId)) ||
-        isSuperAdmin()
+        (
+          request.resource.data.matchId != null &&
+          exists(/databases/$(database)/documents/matches/$(request.resource.data.matchId)) &&
+          canScoreMatch(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId)
+        ) ||
+        (
+          request.resource.data.inningsId != null &&
+          exists(/databases/$(database)/documents/innings/$(request.resource.data.inningsId)) &&
+          canScoreMatch(get(/databases/$(database)/documents/innings/$(request.resource.data.inningsId)).data.tournamentId)
+        )
       );
 
       allow delete: if isSignedIn() && (
-        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
-        isSuperAdmin()
+        isSuperAdmin() ||
+        (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId))
       );
     }
 
@@ -308,20 +387,18 @@ service cloud.firestore {
       allow read: if true;
 
       allow write: if isSignedIn() && (
+        isSuperAdmin() ||
         (request.resource.data.tournamentId != null && isTournamentScorer(request.resource.data.tournamentId)) ||
-        (resource.data.tournamentId != null && isTournamentScorer(resource.data.tournamentId)) ||
-        isSuperAdmin()
+        (resource.data.tournamentId != null && isTournamentScorer(resource.data.tournamentId))
       );
     }
 
     // =========================================================================
-    // 8. TOURNAMENT MEMBERS (CIRCULAR DEPENDENCY FIXED & ESCALATION PROTECTED)
+    // 8. TOURNAMENT MEMBERS
     // =========================================================================
     match /tournamentMembers/{memberId} {
-      // Authenticated users can read tournament member assignments
       allow read: if isSignedIn();
 
-      // Tournament Owner or Super Admin can create/update/delete members
       allow create: if isSignedIn() && (
         isSuperAdmin() ||
         (
@@ -354,13 +431,11 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // 9. TOURNAMENT TEAM MEMBERSHIPS (REQUEST & INVITATION LIFECYCLE)
+    // 9. TOURNAMENT TEAM MEMBERSHIPS
     // =========================================================================
     match /tournamentTeamMemberships/{membershipId} {
       allow read: if true;
 
-      // Creation: Team Managers can request for own team with status "PENDING";
-      // Tournament Admins can invite teams with status "INVITED" or "ACCEPTED"
       allow create: if isSignedIn() && (
         isSuperAdmin() ||
         (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId)) ||
@@ -371,7 +446,6 @@ service cloud.firestore {
         )
       );
 
-      // Update: Tournament Admins can approve/reject; Team Managers can accept/decline for own team / update squad
       allow update: if isSignedIn() && (
         isSuperAdmin() ||
         (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
@@ -388,16 +462,15 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // 10. USER PROFILES (PRIVACY ISOLATED)
+    // 10. USER PROFILES
     // =========================================================================
     match /users/{userId} {
-      // Prevent mass-harvesting: user profiles readable & writable only by owner or super admin
       allow read: if isUser(userId) || isSuperAdmin();
       allow write: if isUser(userId) || isSuperAdmin();
     }
 
     // =========================================================================
-    // 11. SYSTEM ADMINISTRATORS (CIRCULAR DEPENDENCY FIXED)
+    // 11. SYSTEM ADMINISTRATORS
     // =========================================================================
     match /system_admins/{adminId} {
       allow read: if isSignedIn() && (
@@ -406,6 +479,49 @@ service cloud.firestore {
         request.auth.uid == 'org_ahsanhayat092_gmail_com'
       );
       allow write: if isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 12. TEAM CHALLENGES & FRIENDLIES
+    // =========================================================================
+    match /teamChallenges/{challengeId} {
+      allow read: if true;
+
+      allow create: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          request.resource.data.challengerTeamId != null &&
+          isTeamManager(request.resource.data.challengerTeamId)
+        )
+      );
+
+      allow update: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          resource.data.challengerTeamId != null &&
+          isTeamManager(resource.data.challengerTeamId)
+        ) ||
+        (
+          resource.data.opponentTeamId != null &&
+          isTeamManager(resource.data.opponentTeamId)
+        ) ||
+        (
+          request.resource.data.challengerTeamId != null &&
+          isTeamManager(request.resource.data.challengerTeamId)
+        ) ||
+        (
+          request.resource.data.opponentTeamId != null &&
+          isTeamManager(request.resource.data.opponentTeamId)
+        )
+      );
+
+      allow delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          resource.data.challengerTeamId != null &&
+          isTeamManager(resource.data.challengerTeamId)
+        )
+      );
     }
   }
 }

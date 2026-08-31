@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="100%" height="100%" fill="none">
+  <!-- White Monochrome Icon Mark -->
+  <g transform="translate(4, 0)">
+    <path d="M 18 16 L 46 16 C 58 16 66 24 66 36 C 66 48 58 56 46 56 L 30 56 L 30 70 L 18 70 Z" 
+          stroke="#FFFFFF" stroke-width="6.5" stroke-linejoin="miter" stroke-miterlimit="4" fill="none" />
+    <g transform="rotate(-45 40 40)">
+      <rect x="35" y="8" width="10" height="58" rx="1.5" fill="#FFFFFF" />
+      <line x1="35" y1="24" x2="45" y2="24" stroke="#0F172A" stroke-width="2" />
+      <line x1="35" y1="48" x2="45" y2="48" stroke="#0F172A" stroke-width="2" />
+      <polygon points="40, -1 30, 11 50, 11" fill="#FFFFFF" />
+    </g>
+  </g>
+
+  <!-- White Typography -->
+  <text x="96" y="52" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'Inter', 'Segoe UI', sans-serif" font-size="40" font-weight="900" letter-spacing="-0.03em">
+    <tspan fill="#FFFFFF">PitchPe</tspan>
+  </text>
+</svg>

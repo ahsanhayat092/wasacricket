@@ -35,6 +35,7 @@ import {
   Users,
   Inbox,
   Sparkles,
+  Swords,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useLocation, useNavigate, Link, Outlet } from "react-router";
@@ -48,6 +49,7 @@ const teamNavItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/team" },
   { icon: Users, label: "Players & Roster", path: "/team/players" },
   { icon: Trophy, label: "Tournaments", path: "/team/tournaments" },
+  { icon: Swords, label: "Challenges & Friendlies", path: "/team/challenges" },
   { icon: Inbox, label: "Requests & Invites", path: "/team/requests" },
 ];
 

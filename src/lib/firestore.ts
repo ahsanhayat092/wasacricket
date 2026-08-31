@@ -128,6 +128,59 @@ export type TournamentTeamMembership = {
   updatedAt: string;
 };
 
+// ---------------------------------------------------------------------------
+// Team Manager Challenges & Friendly Matches / Bilateral Series
+// ---------------------------------------------------------------------------
+export type ChallengeStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "WITHDRAWN" | "COMPLETED";
+export type ChallengeType = "SINGLE" | "BEST_OF_3" | "BEST_OF_5" | "SERIES_2" | "SERIES_3";
+
+export type TeamChallenge = {
+  id: string;
+  // Challenger Club Details
+  challengerTeamId: string;
+  challengerTeamName: string;
+  challengerTeamShortName: string;
+  challengerTeamLogoUrl?: string | null;
+  challengerManagerId: string;
+  challengerManagerEmail: string;
+
+  // Opponent Club Details
+  opponentTeamId: string;
+  opponentTeamName: string;
+  opponentTeamShortName: string;
+  opponentTeamLogoUrl?: string | null;
+  opponentManagerId?: string | null;
+  opponentManagerEmail?: string | null;
+
+  // Match / Series Parameters
+  challengeType: ChallengeType;
+  numberOfMatches: number;
+  formatType: TournamentFormatType;
+  oversPerSide: number;
+  playersPerTeam: number;
+  venue: string;
+  proposedDate: string;
+  proposedTime?: string | null;
+  message?: string | null;
+
+  // Lifecycle & Status
+  status: ChallengeStatus;
+  declineReason?: string | null;
+
+  // Generated Matches & Scorer PIN
+  matchIds?: string[];
+  scorerPin?: string;
+
+  // Series Scoreboard Tracker
+  challengerWins?: number;
+  opponentWins?: number;
+  tiedMatches?: number;
+  winnerTeamId?: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED" | "NO_RESULT";
 export type MatchStage = "LEAGUE" | "PLAYOFF" | "FINAL";
 export type MatchDay = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
@@ -358,6 +411,7 @@ export const battingScoresCol = () => typedCollection<Omit<BattingScore, "id">>(
 export const bowlingScoresCol = () => typedCollection<Omit<BowlingScore, "id">>("bowlingScores");
 export const standingsCol = () => typedCollection<Omit<Standing, "id">>("standings");
 export const usersCol = () => typedCollection<Omit<UserAccount, "id">>("users");
+export const teamChallengesCol = () => typedCollection<Omit<TeamChallenge, "id">>("teamChallenges");
 
 // Individual doc refs
 export const teamDoc = (id: string) => typedDoc<Omit<Team, "id">>("teams", id);
@@ -366,6 +420,7 @@ export const matchDoc = (id: string) => typedDoc<Omit<Match, "id">>("matches", i
 export const inningsDoc = (id: string) => typedDoc<Omit<Innings, "id">>("innings", id);
 export const standingDoc = (id: string) => typedDoc<Omit<Standing, "id">>("standings", id);
 export const userDoc = (id: string) => typedDoc<Omit<UserAccount, "id">>("users", id);
+export const teamChallengeDoc = (id: string) => typedDoc<Omit<TeamChallenge, "id">>("teamChallenges", id);
 
 /** Snap helper: converts a Firestore DocumentSnapshot to a typed object with id. */
 export function snapToDoc<T extends { id: string }>(

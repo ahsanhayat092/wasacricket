@@ -36,6 +36,7 @@ import TeamDashboard from "./pages/team/TeamDashboard";
 import TeamPlayers from "./pages/team/TeamPlayers";
 import TeamTournaments from "./pages/team/TeamTournaments";
 import TeamRequests from "./pages/team/TeamRequests";
+import TeamChallenges from "./pages/team/TeamChallenges";
 
 // Organizer / Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -83,6 +84,7 @@ export default function App() {
               <Route path="dashboard" element={<TeamDashboard />} />
               <Route path="players" element={<TeamPlayers />} />
               <Route path="tournaments" element={<TeamTournaments />} />
+              <Route path="challenges" element={<TeamChallenges />} />
               <Route path="requests" element={<TeamRequests />} />
             </Route>
 

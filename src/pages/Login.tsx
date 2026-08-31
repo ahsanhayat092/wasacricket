@@ -16,6 +16,7 @@ import { useNavigate } from "react-router";
 import { useFirebaseAuth } from "@/providers/AuthProvider";
 import { Trophy, Mail, Lock, KeyRound, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { PitchPeLogo } from "@/components/PitchPeLogo";
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -143,16 +144,14 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950">
       <Card className="w-full max-w-md border-border/40 bg-card/90 backdrop-blur shadow-2xl">
         <CardHeader className="text-center space-y-2 pb-4">
-          <div className="flex justify-center">
-            <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center ring-1 ring-emerald-500/20">
-              <Trophy className="h-7 w-7 text-emerald-400" />
-            </div>
+          <div className="flex justify-center pb-1">
+            <PitchPeLogo variant="compact" className="h-10 w-auto" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
-            WASA Premier League
+            PitchPe Workspace
           </CardTitle>
           <CardDescription className="text-xs">
-            Sign in to access the Admin & Official Scorer Workspace
+            Sign in to access the Organizer & Official Scorer Workspace
           </CardDescription>
         </CardHeader>
 
