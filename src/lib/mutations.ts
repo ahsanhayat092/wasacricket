@@ -344,8 +344,48 @@ export async function createMatch(input: {
   time?: string | null;
   venue?: string | null;
   oversPerSide?: number | null;
+  maxOverPerBowler?: number | null;
+  playersPerTeam?: number | null;
+  maxWickets?: number | null;
+  allowLastManStanding?: boolean | null;
+  wideRuns?: number | null;
+  noBallRuns?: number | null;
+  freeHitEnabled?: boolean | null;
+  formatType?: TournamentFormatType | null;
 }) {
   const tId = input.tournamentId || TOURNAMENT_ID;
+
+  // Retrieve tournament rules if not explicitly supplied
+  let overs = input.oversPerSide;
+  let maxBowler = input.maxOverPerBowler;
+  let players = input.playersPerTeam;
+  let wickets = input.maxWickets;
+  let lms = input.allowLastManStanding;
+  let wide = input.wideRuns;
+  let noBall = input.noBallRuns;
+  let freeHit = input.freeHitEnabled;
+  let format = input.formatType;
+
+  if (overs === undefined || maxBowler === undefined || players === undefined || wickets === undefined || lms === undefined) {
+    try {
+      const tSnap = await getDoc(tournamentDoc(tId));
+      if (tSnap.exists()) {
+        const tData = tSnap.data() as Tournament;
+        overs = overs ?? tData.oversPerSide ?? 4;
+        maxBowler = maxBowler ?? tData.maxOverPerBowler ?? (overs <= 5 ? 1 : 2);
+        players = players ?? tData.playersPerTeam ?? 6;
+        wickets = wickets ?? tData.maxWickets ?? 6;
+        lms = lms ?? tData.allowLastManStanding ?? true;
+        wide = wide ?? tData.wideRuns ?? 1;
+        noBall = noBall ?? tData.noBallRuns ?? 1;
+        freeHit = freeHit ?? tData.freeHitEnabled ?? true;
+        format = format ?? tData.formatType ?? "TAPE_BALL_INDOOR";
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   const ref = await addDoc(matchesCol(), {
     tournamentId: tId,
     matchNumber: input.matchNumber,
@@ -356,7 +396,15 @@ export async function createMatch(input: {
     date: input.date ?? null,
     time: input.time ?? null,
     venue: input.venue ?? "Askari XI, Lahore",
-    oversPerSide: input.oversPerSide ?? 4,
+    oversPerSide: overs ?? 4,
+    maxOverPerBowler: maxBowler ?? 1,
+    playersPerTeam: players ?? 6,
+    maxWickets: wickets ?? 6,
+    allowLastManStanding: lms ?? true,
+    wideRuns: wide ?? 1,
+    noBallRuns: noBall ?? 1,
+    freeHitEnabled: freeHit ?? true,
+    formatType: format ?? "TAPE_BALL_INDOOR",
     status: "UPCOMING" as const,
     tossWinnerId: null,
     tossDecision: null,
@@ -1653,6 +1701,14 @@ export async function acceptTeamChallenge(challengeId: string): Promise<TeamChal
       time: challenge.proposedTime || "19:00",
       venue: challenge.venue,
       oversPerSide: challenge.oversPerSide || 4,
+      maxOverPerBowler: (challenge.oversPerSide || 4) <= 5 ? 1 : 2,
+      playersPerTeam: challenge.playersPerTeam || 6,
+      maxWickets: challenge.playersPerTeam || 6,
+      allowLastManStanding: true,
+      wideRuns: 1,
+      noBallRuns: 1,
+      freeHitEnabled: true,
+      formatType: challenge.formatType || "TAPE_BALL_INDOOR",
       status: "UPCOMING",
       teamAId: challenge.challengerTeamId,
       teamBId: challenge.opponentTeamId,

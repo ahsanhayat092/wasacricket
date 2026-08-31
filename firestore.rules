@@ -24,10 +24,9 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // Tournament Authorization Helpers
+    // Tournament Authorization Helpers (Supports both UID and Email keys)
     // -------------------------------------------------------------------------
 
-    // Check if user is the OWNER of a tournament
     function isTournamentOwner(tourneyId) {
       return isSignedIn() && (
         isSuperAdmin() ||
@@ -41,11 +40,15 @@ service cloud.firestore {
         (
           exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)) &&
           get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)).data.role == 'OWNER'
+        ) ||
+        (
+          request.auth.token.email != null &&
+          exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.token.email)) &&
+          get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.token.email)).data.role == 'OWNER'
         )
       );
     }
 
-    // Check if user is OWNER or ADMIN (roster, fixtures, operations, assign scorers)
     function isTournamentAdmin(tourneyId) {
       return isSignedIn() && (
         isSuperAdmin() ||
@@ -56,11 +59,18 @@ service cloud.firestore {
             get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)).data.role == 'ADMIN' ||
             get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)).data.role == 'OWNER'
           )
+        ) ||
+        (
+          request.auth.token.email != null &&
+          exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.token.email)) &&
+          (
+            get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.token.email)).data.role == 'ADMIN' ||
+            get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.token.email)).data.role == 'OWNER'
+          )
         )
       );
     }
 
-    // Check if user is assigned as SCORER, ADMIN, or OWNER for a tournament
     function isTournamentScorer(tourneyId) {
       return isSignedIn() && (
         isSuperAdmin() ||
@@ -72,11 +82,12 @@ service cloud.firestore {
               'scorers' in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data &&
               (
                 request.auth.uid in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.scorers ||
-                request.auth.token.email in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.scorers
+                (request.auth.token.email != null && request.auth.token.email in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.scorers)
               )
             ) ||
             (
               'scorerEmails' in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data &&
+              request.auth.token.email != null &&
               request.auth.token.email in get(/databases/$(database)/documents/tournaments/$(tourneyId)).data.scorerEmails
             )
           )
@@ -84,6 +95,11 @@ service cloud.firestore {
         (
           exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)) &&
           get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.uid)).data.role == 'SCORER'
+        ) ||
+        (
+          request.auth.token.email != null &&
+          exists(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.token.email)) &&
+          get(/databases/$(database)/documents/tournamentMembers/$(tourneyId + '_' + request.auth.token.email)).data.role == 'SCORER'
         )
       );
     }
@@ -99,8 +115,8 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/teams/$(teamId)) &&
           (
             get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid ||
-            get(/databases/$(database)/documents/teams/$(teamId)).data.ownerEmail == request.auth.token.email ||
-            get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == ('tm_' + request.auth.token.email)
+            (request.auth.token.email != null && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerEmail == request.auth.token.email) ||
+            (request.auth.token.email != null && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == ('tm_' + request.auth.token.email))
           )
         )
       );
@@ -338,10 +354,15 @@ service cloud.firestore {
       allow create, update: if isSignedIn() && (
         isSuperAdmin() ||
         (request.resource.data.tournamentId != null && canScoreMatch(request.resource.data.tournamentId)) ||
+        (resource.data.tournamentId != null && canScoreMatch(resource.data.tournamentId)) ||
         (
           request.resource.data.matchId != null &&
           exists(/databases/$(database)/documents/matches/$(request.resource.data.matchId)) &&
-          canScoreMatch(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId)
+          (
+            canScoreMatch(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId) ||
+            isTeamManager(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.teamAId) ||
+            isTeamManager(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.teamBId)
+          )
         ) ||
         (
           request.resource.data.inningsId != null &&
@@ -362,10 +383,15 @@ service cloud.firestore {
       allow create, update: if isSignedIn() && (
         isSuperAdmin() ||
         (request.resource.data.tournamentId != null && canScoreMatch(request.resource.data.tournamentId)) ||
+        (resource.data.tournamentId != null && canScoreMatch(resource.data.tournamentId)) ||
         (
           request.resource.data.matchId != null &&
           exists(/databases/$(database)/documents/matches/$(request.resource.data.matchId)) &&
-          canScoreMatch(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId)
+          (
+            canScoreMatch(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.tournamentId) ||
+            isTeamManager(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.teamAId) ||
+            isTeamManager(get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.teamBId)
+          )
         ) ||
         (
           request.resource.data.inningsId != null &&
@@ -388,8 +414,8 @@ service cloud.firestore {
 
       allow write: if isSignedIn() && (
         isSuperAdmin() ||
-        (request.resource.data.tournamentId != null && isTournamentScorer(request.resource.data.tournamentId)) ||
-        (resource.data.tournamentId != null && isTournamentScorer(resource.data.tournamentId))
+        (request.resource.data.tournamentId != null && canScoreMatch(request.resource.data.tournamentId)) ||
+        (resource.data.tournamentId != null && canScoreMatch(resource.data.tournamentId))
       );
     }
 

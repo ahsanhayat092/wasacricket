@@ -197,6 +197,14 @@ export type Match = {
   time?: string | null;
   venue?: string | null;
   oversPerSide?: number | null;
+  maxOverPerBowler?: number | null;
+  playersPerTeam?: number | null;
+  maxWickets?: number | null;
+  allowLastManStanding?: boolean | null;
+  wideRuns?: number | null;
+  noBallRuns?: number | null;
+  freeHitEnabled?: boolean | null;
+  formatType?: TournamentFormatType | null;
   status: MatchStatus;
   tossWinnerId?: string | null;
   tossDecision?: "BAT" | "BOWL" | null;
