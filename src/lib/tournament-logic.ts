@@ -83,12 +83,25 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
   }
   const quotaBalls = (tournament.oversPerSide || 4) * 6;
 
-  let teams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
-  if (teams.length === 0 && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
+  let rawTeams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+  if (rawTeams.length === 0 && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
     const allTeams = await getDocs(teamsCol());
-    teams = allTeams.docs
+    rawTeams = allTeams.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Team)
       .filter((t) => !t.tournamentId || t.tournamentId === "main" || t.tournamentId === TOURNAMENT_ID);
+  }
+
+  // Deduplicate teams by ID and clean name
+  const seenTeamIds = new Set<string>();
+  const seenTeamNames = new Set<string>();
+  const teams: Team[] = [];
+  for (const t of rawTeams) {
+    const cleanName = (t.name || "").trim().toLowerCase();
+    if (!seenTeamIds.has(t.id) && (!cleanName || !seenTeamNames.has(cleanName))) {
+      seenTeamIds.add(t.id);
+      if (cleanName) seenTeamNames.add(cleanName);
+      teams.push(t);
+    }
   }
 
   let allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
@@ -318,9 +331,12 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
   );
 
   const batch = writeBatch(db);
+  const activeDocIds = new Set<string>();
+
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const docId = tournamentId === TOURNAMENT_ID ? r.teamId : `${tournamentId}_${r.teamId}`;
+    activeDocIds.add(docId);
     const standingRef = doc(standingsCol(), docId);
     const scenario = scenarioResults.get(r.teamId);
 
@@ -357,6 +373,14 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
       updatedAt: now(),
     });
   }
+
+  // Delete obsolete or duplicate standings documents for this tournament
+  for (const docSnap of existingStandingsSnap.docs) {
+    if (!activeDocIds.has(docSnap.id)) {
+      batch.delete(docSnap.ref);
+    }
+  }
+
   await batch.commit();
 
   await maybeGeneratePlayoffAndFinalFixtures(allMatches, rows);

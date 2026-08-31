@@ -380,9 +380,14 @@ export async function getTeams(idOrContext?: any): Promise<Team[]> {
 
   const combined = [...directTeams, ...membershipTeams];
   const uniqueMap = new Map<string, Team>();
+  const uniqueNameMap = new Map<string, Team>();
+
   for (const t of combined) {
-    if (!uniqueMap.has(t.id)) {
+    const cleanName = (t.name || "").trim().toLowerCase();
+    // Prioritize direct tournament team over generic fallback
+    if (!uniqueMap.has(t.id) && !uniqueNameMap.has(cleanName)) {
       uniqueMap.set(t.id, t);
+      if (cleanName) uniqueNameMap.set(cleanName, t);
     }
   }
   const result = Array.from(uniqueMap.values());
@@ -721,7 +726,7 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
           return !data.tournamentId || data.tournamentId === "main" || data.tournamentId === TOURNAMENT_ID;
         });
         if (filteredDocs.length > 0) {
-          return filteredDocs
+          const rawList = filteredDocs
             .map((d) => {
               const raw = d.data() as any;
               const nrr =
@@ -740,13 +745,32 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
                 (b.nrr ?? 0) - (a.nrr ?? 0) ||
                 ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
                 (a.position || 0) - (b.position || 0),
-            )
+            );
+
+          const seenIds = new Set<string>();
+          const seenNames = new Set<string>();
+          return rawList
+            .filter((s) => {
+              const cName = (s.team?.name || "").trim().toLowerCase();
+              if (seenIds.has(s.teamId) || (cName && seenNames.has(cName))) return false;
+              seenIds.add(s.teamId);
+              if (cName) seenNames.add(cName);
+              return true;
+            })
             .map((s, idx) => ({ ...s, position: idx + 1 }));
         }
       }
 
       // Synthesize clean initial standings for teams in this tournament
-      return teams.map((team, idx) => ({
+      const seenInitialNames = new Set<string>();
+      const uniqueInitialTeams = teams.filter((team) => {
+        const cName = (team.name || "").trim().toLowerCase();
+        if (cName && seenInitialNames.has(cName)) return false;
+        if (cName) seenInitialNames.add(cName);
+        return true;
+      });
+
+      return uniqueInitialTeams.map((team, idx) => ({
         id: `init_${team.id}`,
         tournamentId,
         teamId: team.id,
@@ -786,10 +810,22 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
           (b.nrr ?? 0) - (a.nrr ?? 0) ||
           ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
           (a.position || 0) - (b.position || 0),
-      )
-      .map((s, idx) => ({ ...s, position: idx + 1 }));
+      );
 
-    return standings;
+    const seenTeamIds = new Set<string>();
+    const seenTeamNames = new Set<string>();
+
+    return standings
+      .filter((s) => {
+        const cleanName = (s.team?.name || "").trim().toLowerCase();
+        if (seenTeamIds.has(s.teamId) || (cleanName && seenTeamNames.has(cleanName))) {
+          return false;
+        }
+        seenTeamIds.add(s.teamId);
+        if (cleanName) seenTeamNames.add(cleanName);
+        return true;
+      })
+      .map((s, idx) => ({ ...s, position: idx + 1 }));
   } catch (err) {
     console.error("Error loading standings:", err);
     return [];
