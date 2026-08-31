@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { getSchedule } from "@/lib/queries";
-import { useTournament } from "@/context/TournamentContext";
+import { getAllPlatformMatches } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,21 +22,22 @@ import {
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 
 export default function PublicLiveScores() {
-  const { tournamentId } = useTournament();
-  const [filter, setFilter] = useState<"LIVE" | "UPCOMING" | "ALL">("LIVE");
+  const [filter, setFilter] = useState<"LIVE" | "UPCOMING" | "COMPLETED" | "ALL">("LIVE");
 
-  const { data: matches, isLoading } = useQuery({
-    queryKey: ["schedule", tournamentId],
-    queryFn: () => getSchedule(tournamentId),
-    refetchInterval: 5000, // auto-refresh live scores
+  const { data: matches = [], isLoading } = useQuery({
+    queryKey: ["all_platform_live_matches"],
+    queryFn: getAllPlatformMatches,
+    refetchInterval: 3000, // 3s real-time refresh for live scores
   });
 
-  const liveMatches = matches?.filter((m) => m.status === "LIVE") ?? [];
-  const upcomingMatches = matches?.filter((m) => m.status === "SCHEDULED" || m.status === "UPCOMING") ?? [];
+  const liveMatches = matches.filter((m) => m.status === "LIVE");
+  const upcomingMatches = matches.filter((m) => m.status === "SCHEDULED" || m.status === "UPCOMING");
+  const completedMatches = matches.filter((m) => m.status === "COMPLETED" || m.status === "NO_RESULT" || m.status === "ABANDONED");
 
-  const filteredMatches = matches?.filter((m) => {
+  const filteredMatches = matches.filter((m) => {
     if (filter === "LIVE") return m.status === "LIVE";
     if (filter === "UPCOMING") return m.status === "SCHEDULED" || m.status === "UPCOMING";
+    if (filter === "COMPLETED") return m.status === "COMPLETED" || m.status === "NO_RESULT" || m.status === "ABANDONED";
     return true;
   });
 
@@ -67,11 +67,12 @@ export default function PublicLiveScores() {
         </div>
 
         {/* Filter Controls */}
-        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-2xl border">
+        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-2xl border flex-wrap">
           {[
-            { key: "LIVE", label: `Live Now (${liveMatches.length})` },
+            { key: "LIVE", label: `Live (${liveMatches.length})` },
             { key: "UPCOMING", label: `Upcoming (${upcomingMatches.length})` },
-            { key: "ALL", label: "All Matches" },
+            { key: "COMPLETED", label: `Completed (${completedMatches.length})` },
+            { key: "ALL", label: `All (${matches.length})` },
           ].map((tab) => (
             <Button
               key={tab.key}
@@ -116,12 +117,19 @@ export default function PublicLiveScores() {
                 )}
 
                 <CardHeader className="pb-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-muted-foreground">
-                      {m.stage === "FINAL" ? "🏆 Grand Final" : m.stage === "PLAYOFF" ? "⚔️ Playoff Match" : `Match #${m.matchNumber}`}
-                    </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs font-bold text-muted-foreground truncate">
+                        {m.stage === "FINAL" ? "🏆 Grand Final" : m.stage === "PLAYOFF" ? "⚔️ Playoff Match" : `Match #${m.matchNumber}`}
+                      </span>
+                      {m.tournamentName && (
+                        <Badge variant="secondary" className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-0 truncate max-w-[130px]">
+                          {m.tournamentName}
+                        </Badge>
+                      )}
+                    </div>
                     {!isLive && (
-                      <Badge variant="outline" className={`text-[10px] ${statusBadgeClass(m.status as MatchStatus)}`}>
+                      <Badge variant="outline" className={`text-[10px] shrink-0 ${statusBadgeClass(m.status as MatchStatus)}`}>
                         {m.status}
                       </Badge>
                     )}

@@ -552,6 +552,47 @@ export async function getSchedule(idOrContext?: any): Promise<HydratedMatch[]> {
   }
 }
 
+export async function getAllPlatformMatches(): Promise<(HydratedMatch & { tournamentName?: string; tournamentSlug?: string })[]> {
+  try {
+    const [matchesSnap, allTeams, inningsSnap, tournamentsSnap] = await Promise.all([
+      getDocs(matchesCol()),
+      getAllTeams(),
+      getDocs(inningsCol()),
+      getDocs(tournamentsCol()),
+    ]);
+
+    const tourneyMap = new Map<string, Tournament>();
+    tournamentsSnap.docs.forEach((d) => tourneyMap.set(d.id, { id: d.id, ...d.data() } as Tournament));
+
+    const allInnings = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+    const rawMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
+
+    const hydrated = rawMatches.map((m) => {
+      const h = hydrateMatch(m, allTeams, allInnings);
+      const t = tourneyMap.get(m.tournamentId);
+      if (t) {
+        (h as any).tournamentName = t.name;
+        (h as any).tournamentSlug = t.slug || t.id;
+      }
+      return h as HydratedMatch & { tournamentName?: string; tournamentSlug?: string };
+    });
+
+    return hydrated.sort((a, b) => {
+      const statusWeight = (s: string) => {
+        if (s === "LIVE") return 3;
+        if (s === "UPCOMING" || s === "SCHEDULED") return 2;
+        return 1;
+      };
+      const weightDiff = statusWeight(b.status) - statusWeight(a.status);
+      if (weightDiff !== 0) return weightDiff;
+      return (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || "");
+    });
+  } catch (err) {
+    console.error("Error loading all platform matches:", err);
+    return [];
+  }
+}
+
 export async function getResults(idOrContext?: any): Promise<HydratedMatch[]> {
   const all = await getSchedule(idOrContext);
   return all.filter(

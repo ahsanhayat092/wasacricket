@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { getTournaments, getSchedule } from "@/lib/queries";
+import { getTournaments, getAllPlatformMatches } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,9 +40,10 @@ export default function LandingHome() {
     queryFn: getTournaments,
   });
 
-  const { data: matches } = useQuery({
-    queryKey: ["schedule"],
-    queryFn: () => getSchedule(),
+  const { data: matches = [] } = useQuery({
+    queryKey: ["all_platform_landing_matches"],
+    queryFn: getAllPlatformMatches,
+    refetchInterval: 3000,
   });
 
   const liveMatches = matches?.filter((m) => m.status === "LIVE") ?? [];
