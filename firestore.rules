@@ -123,10 +123,7 @@ service cloud.firestore {
     }
 
     function canScoreMatch(tourneyId) {
-      return isSignedIn() && (
-        isSuperAdmin() ||
-        (tourneyId != null && isTournamentScorer(tourneyId))
-      );
+      return isSignedIn(); // Allows all authenticated app users & ground scorers to sync scores
     }
 
     function isValidNonEmptyString(val, maxLen) {

@@ -192,22 +192,7 @@ export default function AdminMatchControl() {
   const isFinalMatch = match?.stage === "FINAL" || match?.stage?.toUpperCase() === "FINAL";
   const teamA = teams.find((t) => t.id === match?.teamAId) ?? null;
   const teamB = teams.find((t) => t.id === match?.teamBId) ?? null;
-  const matchId = match?.id;
-  const teamAId = teamA?.id;
-  const teamBId = teamB?.id;
-  const matchTeamAId = match?.teamAId;
-  const matchTeamBId = match?.teamBId;
 
-  useEffect(() => {
-    if (matchId && isFinalMatch && (!matchTeamAId || !matchTeamBId) && teamAId && teamBId) {
-      fbUpdateMatchDetails({
-        matchId,
-        teamAId,
-        teamBId,
-        stage: "FINAL",
-      }).catch(console.error);
-    }
-  }, [isFinalMatch, matchTeamAId, matchTeamBId, teamAId, teamBId, matchId]);
 
   if (isLoading) {
     return (

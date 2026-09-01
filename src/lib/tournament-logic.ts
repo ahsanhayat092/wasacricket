@@ -718,6 +718,25 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
 
   // STRICT RULE: Do not populate playoff/final until all league matches are done
   if (!allLeagueDone) {
+    // Ensure any unplayed playoff or final fixture remains strictly TBD (teamAId: null, teamBId: null)
+    if (playoffMatch && playoffMatch.status !== "COMPLETED" && playoffMatch.status !== "LIVE") {
+      if (playoffMatch.teamAId !== null || playoffMatch.teamBId !== null) {
+        await updateDoc(matchDoc(playoffMatch.id), {
+          teamAId: null,
+          teamBId: null,
+          updatedAt: now(),
+        });
+      }
+    }
+    if (finalMatch && finalMatch.status !== "COMPLETED" && finalMatch.status !== "LIVE") {
+      if (finalMatch.teamAId !== null || finalMatch.teamBId !== null) {
+        await updateDoc(matchDoc(finalMatch.id), {
+          teamAId: null,
+          teamBId: null,
+          updatedAt: now(),
+        });
+      }
+    }
     return;
   }
 
@@ -741,10 +760,10 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
     }
   }
 
-  // Determine Playoff Winner for Final Team B
+  // Determine Playoff Winner for Final Team B (MUST be completed with a winningTeamId)
   let playoffWinnerId: string | null = null;
-  if (playoffMatch && (playoffMatch.status === "COMPLETED" || playoffMatch.winningTeamId)) {
-    playoffWinnerId = playoffMatch.winningTeamId ?? null;
+  if (playoffMatch && playoffMatch.status === "COMPLETED" && playoffMatch.winningTeamId) {
+    playoffWinnerId = playoffMatch.winningTeamId;
   }
 
   // Update Final fixture (Rank 1 vs Rank 2 if no playoff, or Rank 1 vs Playoff Winner if playoff exists)
@@ -754,18 +773,15 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
 
     if (
       finalMatch.teamAId !== desiredTeamA ||
-      (desiredTeamB && finalMatch.teamBId !== desiredTeamB) ||
+      finalMatch.teamBId !== (desiredTeamB ?? null) ||
       finalMatch.stage !== "FINAL"
     ) {
-      const updatePayload: Record<string, unknown> = {
+      await updateDoc(matchDoc(finalMatch.id), {
         teamAId: desiredTeamA,
+        teamBId: desiredTeamB ?? null,
         stage: "FINAL",
         updatedAt: now(),
-      };
-      if (desiredTeamB) {
-        updatePayload.teamBId = desiredTeamB;
-      }
-      await updateDoc(matchDoc(finalMatch.id), updatePayload);
+      });
     }
   }
 }
