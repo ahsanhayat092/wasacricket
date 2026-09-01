@@ -225,7 +225,7 @@ export default function AdminMatchControl() {
       try {
         navigator.clipboard.writeText(overlayUrl);
         toast.success("📺 OBS Browser Source URL copied to clipboard!");
-      } catch {}
+      } catch { }
     }
     setBroadcastModalOpen(true);
   };
@@ -536,82 +536,82 @@ function QuickAddPlayerDialog({
             </DialogDescription>
           </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold">Player Name *</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Usama Tariq"
-              className="h-9 text-xs"
-              autoFocus
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          <form onSubmit={handleSubmit} className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Playing Role</Label>
-              <Select value={role} onValueChange={(val: any) => setRole(val)}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Batsman">Batsman</SelectItem>
-                  <SelectItem value="Bowler">Bowler</SelectItem>
-                  <SelectItem value="All-rounder">All-rounder</SelectItem>
-                  <SelectItem value="Wicketkeeper">Wicketkeeper</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-bold">Player Name *</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Usama Tariq"
+                className="h-9 text-xs"
+                autoFocus
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Playing Role</Label>
+                <Select value={role} onValueChange={(val: any) => setRole(val)}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Batsman">Batsman</SelectItem>
+                    <SelectItem value="Bowler">Bowler</SelectItem>
+                    <SelectItem value="All-rounder">All-rounder</SelectItem>
+                    <SelectItem value="Wicketkeeper">Wicketkeeper</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Designation</Label>
+                <Select value={designation} onValueChange={(val: any) => setDesignation(val)}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Team Member">Team Member</SelectItem>
+                    <SelectItem value="Captain">Captain (C)</SelectItem>
+                    <SelectItem value="Vice Captain">Vice Captain (VC)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Designation</Label>
-              <Select value={designation} onValueChange={(val: any) => setDesignation(val)}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Team Member">Team Member</SelectItem>
-                  <SelectItem value="Captain">Captain (C)</SelectItem>
-                  <SelectItem value="Vice Captain">Vice Captain (VC)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-bold">Jersey Number (Optional)</Label>
+              <Input
+                type="number"
+                value={jerseyNumber}
+                onChange={(e) => setJerseyNumber(e.target.value)}
+                placeholder="e.g. 10"
+                className="h-9 text-xs"
+              />
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold">Jersey Number (Optional)</Label>
-            <Input
-              type="number"
-              value={jerseyNumber}
-              onChange={(e) => setJerseyNumber(e.target.value)}
-              placeholder="e.g. 10"
-              className="h-9 text-xs"
-            />
-          </div>
-
-          <DialogFooter className="pt-3 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              disabled={addPlayerMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={addPlayerMutation.isPending}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
-            >
-              {addPlayerMutation.isPending ? "Adding Player..." : "Add to Squad"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+            <DialogFooter className="pt-3 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onClose}
+                disabled={addPlayerMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={addPlayerMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+              >
+                {addPlayerMutation.isPending ? "Adding Player..." : "Add to Squad"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
       )}
     </Dialog>
   );
@@ -831,11 +831,10 @@ function PlayerCorrectionDialog({
                       <div
                         key={p.id}
                         onClick={() => togglePlayerA(p.id)}
-                        className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                          isSelected
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${isSelected
                             ? "bg-emerald-500/15 border-emerald-500/50 font-semibold"
                             : "hover:bg-muted/40 border-border opacity-70"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <Checkbox checked={isSelected} />
@@ -906,11 +905,10 @@ function PlayerCorrectionDialog({
                       <div
                         key={p.id}
                         onClick={() => togglePlayerB(p.id)}
-                        className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                          isSelected
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${isSelected
                             ? "bg-emerald-500/15 border-emerald-500/50 font-semibold"
                             : "hover:bg-muted/40 border-border opacity-70"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <Checkbox checked={isSelected} />
@@ -1013,19 +1011,19 @@ function PlayerCorrectionDialog({
                     <SelectContent>
                       {swapType === "batting"
                         ? batRows
-                            ?.filter((b) => b.batted || b.balls > 0 || b.runs > 0)
-                            .map((b) => (
-                              <SelectItem key={b.playerId} value={b.playerId}>
-                                {b.name} ({b.runs} runs, {b.balls} balls)
-                              </SelectItem>
-                            ))
+                          ?.filter((b) => b.batted || b.balls > 0 || b.runs > 0)
+                          .map((b) => (
+                            <SelectItem key={b.playerId} value={b.playerId}>
+                              {b.name} ({b.runs} runs, {b.balls} balls)
+                            </SelectItem>
+                          ))
                         : bowlRows
-                            ?.filter((b) => b.bowled || b.balls > 0)
-                            .map((b) => (
-                              <SelectItem key={b.playerId} value={b.playerId}>
-                                {b.name} ({b.wickets}w, {b.runs}r, {ballsToOversText(b.balls)} ov)
-                              </SelectItem>
-                            ))}
+                          ?.filter((b) => b.bowled || b.balls > 0)
+                          .map((b) => (
+                            <SelectItem key={b.playerId} value={b.playerId}>
+                              {b.name} ({b.wickets}w, {b.runs}r, {ballsToOversText(b.balls)} ov)
+                            </SelectItem>
+                          ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1287,11 +1285,10 @@ function StartMatchCard({
                     <div
                       key={p.id}
                       onClick={() => togglePlayerA(p.id)}
-                      className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                        isSelected
+                      className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${isSelected
                           ? "bg-emerald-500/15 border-emerald-500/50 font-semibold"
                           : "hover:bg-muted/40 border-border opacity-70"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox checked={isSelected} />
@@ -1364,11 +1361,10 @@ function StartMatchCard({
                     <div
                       key={p.id}
                       onClick={() => togglePlayerB(p.id)}
-                      className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                        isSelected
+                      className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${isSelected
                           ? "bg-emerald-500/15 border-emerald-500/50 font-semibold"
                           : "hover:bg-muted/40 border-border opacity-70"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox checked={isSelected} />
@@ -1625,7 +1621,9 @@ function InningsLiveConsole({
   const isFinal = match.stage === "FINAL";
   const maxMatchOvers = Number(match.oversPerSide) || (isFinal ? 5 : 4);
   const maxLegalBallsInnings = maxMatchOvers * 6;
-  const maxWickets = Number(match.playersPerTeam) || 6;
+  const totalPlayersInTeam = Number(match.playersPerTeam) || 6;
+  const lmsEnabled = match.allowLastManStanding ?? true;
+  const maxWickets = Number(match.maxWickets) || (lmsEnabled ? totalPlayersInTeam : Math.max(1, totalPlayersInTeam - 1));
   const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
 
   const totalBatterRuns = useMemo(
@@ -1986,7 +1984,7 @@ function InningsLiveConsole({
               onInningsCompleted?.();
             }, 400);
           })
-          .catch(() => {});
+          .catch(() => { });
         const reason = isAllOut ? "All Out (6 wickets fallen)" : `${maxMatchOvers} Overs Completed`;
         toast.success(
           `🏁 1st Innings Complete (${reason})! Target for 2nd Innings is ${newTotalRuns + 1} runs.`,
@@ -2004,7 +2002,7 @@ function InningsLiveConsole({
               onAutoFinalizeMatch?.();
             }, 400);
           })
-          .catch(() => {});
+          .catch(() => { });
         if (targetReached) {
           const wicketsRemaining = Math.max(1, 6 - newTotalWickets);
           toast.success(
@@ -2453,11 +2451,11 @@ function InningsLiveConsole({
     newBowl = newBowl.map((b) =>
       b.playerId === currentBowlerId
         ? {
-            ...b,
-            bowled: true,
-            runs: b.runs + totalRunsThisBall,
-            noBalls: b.noBalls + 1,
-          }
+          ...b,
+          bowled: true,
+          runs: b.runs + totalRunsThisBall,
+          noBalls: b.noBalls + 1,
+        }
         : b,
     );
 
@@ -3103,13 +3101,12 @@ function InningsLiveConsole({
                       type="button"
                       disabled={isInningsFinished || readOnly || !currentBowlerId}
                       variant={runs === 4 ? "default" : runs === 6 ? "default" : "outline"}
-                      className={`h-14 sm:h-16 text-lg sm:text-2xl font-black font-mono rounded-xl transition-all shadow-sm ${
-                        runs === 4
+                      className={`h-14 sm:h-16 text-lg sm:text-2xl font-black font-mono rounded-xl transition-all shadow-sm ${runs === 4
                           ? "bg-amber-600 hover:bg-amber-500 text-white"
                           : runs === 6
                             ? "bg-emerald-600 hover:bg-emerald-500 text-white"
                             : "hover:bg-accent"
-                      }`}
+                        }`}
                       onClick={() => recordBall(runs)}
                     >
                       {runs === 0 ? "• Dot" : runs}
@@ -3333,22 +3330,22 @@ function InningsLiveConsole({
                         disabled={readOnly || !r.batted}
                       />
                     </TableCell>
-                  <TableCell>
-                    <Input
-                      value={r.dismissal}
-                      disabled={readOnly || !r.isOut}
-                      onChange={(e) => {
-                        const updated = [...batRows];
-                        updated[i].dismissal = e.target.value;
-                        setBatRows(updated);
-                      }}
-                      placeholder="e.g. c Bowler b Bowler"
-                      className="h-8 text-xs"
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                    <TableCell>
+                      <Input
+                        value={r.dismissal}
+                        disabled={readOnly || !r.isOut}
+                        onChange={(e) => {
+                          const updated = [...batRows];
+                          updated[i].dismissal = e.target.value;
+                          setBatRows(updated);
+                        }}
+                        placeholder="e.g. c Bowler b Bowler"
+                        className="h-8 text-xs"
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -4205,11 +4202,10 @@ function PlayingVIEditor({
                     <div
                       key={p.id}
                       onClick={() => togglePlayerA(p.id)}
-                      className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                        isSelected
+                      className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${isSelected
                           ? "bg-emerald-500/10 border-emerald-500/40 text-foreground font-semibold"
                           : "hover:bg-muted/40 border-border"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <Checkbox checked={isSelected} />
@@ -4295,11 +4291,10 @@ function PlayingVIEditor({
                     <div
                       key={p.id}
                       onClick={() => togglePlayerB(p.id)}
-                      className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                        isSelected
+                      className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${isSelected
                           ? "bg-emerald-500/10 border-emerald-500/40 text-foreground font-semibold"
                           : "hover:bg-muted/40 border-border"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <Checkbox checked={isSelected} />
