@@ -31,6 +31,7 @@ import {
   matchDoc,
   playerDoc,
   TOURNAMENT_ID,
+  getDocsChunkedIn,
   type Tournament,
   type TournamentMember,
   type TournamentTeamMembership,
@@ -677,15 +678,15 @@ export async function getMatchById(matchId: string): Promise<{
     .sort((a, b) => a.inningsNumber - b.inningsNumber);
 
   const inningsIds = inningsList.map((i) => i.id);
-  const [battingSnap, bowlingSnap] = inningsIds.length
+  const [battingDocs, bowlingDocs] = inningsIds.length
     ? await Promise.all([
-        getDocs(query(battingScoresCol(), where("inningsId", "in", inningsIds))),
-        getDocs(query(bowlingScoresCol(), where("inningsId", "in", inningsIds))),
+        getDocsChunkedIn(battingScoresCol(), "inningsId", inningsIds),
+        getDocsChunkedIn(bowlingScoresCol(), "inningsId", inningsIds),
       ])
-    : [{ docs: [] }, { docs: [] }];
+    : [[], []];
 
-  const battingAll = battingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
-  const bowlingAll = bowlingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
+  const battingAll = battingDocs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
+  const bowlingAll = bowlingDocs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
 
   const playerName = (id: string) =>
     players.find((p) => p.id === id)?.name ?? "Unknown";
@@ -1559,15 +1560,15 @@ export async function getMatchWorkspace(matchId: string) {
       .sort((a, b) => a.inningsNumber - b.inningsNumber);
     const inningsIds = inningsList.map((i) => i.id);
 
-    const [battingSnap, bowlingSnap] = inningsIds.length
+    const [battingDocs, bowlingDocs] = inningsIds.length
       ? await Promise.all([
-          getDocs(query(battingScoresCol(), where("inningsId", "in", inningsIds))),
-          getDocs(query(bowlingScoresCol(), where("inningsId", "in", inningsIds))),
+          getDocsChunkedIn(battingScoresCol(), "inningsId", inningsIds),
+          getDocsChunkedIn(bowlingScoresCol(), "inningsId", inningsIds),
         ])
-      : [{ docs: [] }, { docs: [] }];
+      : [[], []];
 
-    const battingAll = battingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
-    const bowlingAll = bowlingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
+    const battingAll = battingDocs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
+    const bowlingAll = bowlingDocs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
 
     return {
       match,
@@ -1659,15 +1660,15 @@ export function subscribeToMatch(
     const inningsList = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
     const inningsIds = inningsList.map((i) => i.id);
 
-    const [battingSnap, bowlingSnap] = inningsIds.length
+    const [battingDocs, bowlingDocs] = inningsIds.length
       ? await Promise.all([
-          getDocs(query(battingScoresCol(), where("inningsId", "in", inningsIds))),
-          getDocs(query(bowlingScoresCol(), where("inningsId", "in", inningsIds))),
+          getDocsChunkedIn(battingScoresCol(), "inningsId", inningsIds),
+          getDocsChunkedIn(bowlingScoresCol(), "inningsId", inningsIds),
         ])
-      : [{ docs: [] }, { docs: [] }];
+      : [[], []];
 
-    const battingAll = battingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
-    const bowlingAll = bowlingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
+    const battingAll = battingDocs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
+    const bowlingAll = bowlingDocs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
 
     const playerName = (id: string) =>
       playersList.find((p) => p.id === id)?.name ?? "Player";

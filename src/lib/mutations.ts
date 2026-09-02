@@ -39,6 +39,7 @@ import {
   teamChallengesCol,
   teamChallengeDoc,
   TOURNAMENT_ID,
+  getDocsChunkedIn,
   type Tournament,
   type TournamentMember,
   type TournamentTeamMembership,
@@ -178,8 +179,8 @@ export async function deleteTournament(tournamentId: string) {
   // Also clean up match innings
   const matchIds = tMatches.docs.map((d) => d.id);
   if (matchIds.length > 0) {
-    const tInnings = await getDocs(query(inningsCol(), where("matchId", "in", matchIds.slice(0, 30))));
-    tInnings.docs.forEach((d) => batch.delete(d.ref));
+    const tInnings = await getDocsChunkedIn(inningsCol(), "matchId", matchIds);
+    tInnings.forEach((d) => batch.delete(d.ref));
   }
 
   await batch.commit();

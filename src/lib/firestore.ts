@@ -8,6 +8,9 @@
 import {
   collection,
   doc,
+  query,
+  where,
+  getDocs,
   CollectionReference,
   DocumentReference,
   type DocumentData,
@@ -441,4 +444,31 @@ export function snapToDoc<T extends { id: string }>(
 
 export function now(): string {
   return new Date().toISOString();
+}
+
+/**
+ * Safely executes Firestore `where(field, "in", values)` queries by breaking
+ * large arrays into chunks of 30 items or fewer, completely preventing
+ * FirebaseError: 'IN' supports up to 30 comparison values.
+ */
+export async function getDocsChunkedIn(
+  colRef: any,
+  field: string,
+  values: (string | null | undefined)[],
+  chunkSize = 30,
+) {
+  if (!values || values.length === 0) return [];
+  const validValues = Array.from(new Set(values.filter((v): v is string => Boolean(v))));
+  if (validValues.length === 0) return [];
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < validValues.length; i += chunkSize) {
+    chunks.push(validValues.slice(i, i + chunkSize));
+  }
+
+  const results = await Promise.all(
+    chunks.map((chunk) => getDocs(query(colRef, where(field, "in", chunk)))),
+  );
+
+  return results.flatMap((snap) => snap.docs);
 }

@@ -39,6 +39,7 @@ import {
   type Player,
   type HydratedMatch,
   now,
+  getDocsChunkedIn,
 } from "./firestore";
 import { db } from "./firebase";
 import {
@@ -120,7 +121,7 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
   );
 
   const allInnings = completedIds.length
-    ? (await getDocs(query(inningsCol(), where("matchId", "in", completedIds)))).docs.map(
+    ? (await getDocsChunkedIn(inningsCol(), "matchId", completedIds)).map(
         (d) => ({ id: d.id, ...d.data() }) as Innings,
       )
     : [];
@@ -1050,21 +1051,20 @@ export async function getTournamentBattingStats(schedule: HydratedMatch[]) {
   const completed = schedule.filter((m) => m.status === "COMPLETED");
   if (completed.length === 0) return [];
 
+  const tId = schedule[0]?.tournamentId || TOURNAMENT_ID;
   const matchIds = completed.map((m) => m.id);
-  const inningsSnap = await getDocs(
-    query(inningsCol(), where("matchId", "in", matchIds)),
-  );
-  const inningsList = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+  const inningsDocs = await getDocsChunkedIn(inningsCol(), "matchId", matchIds);
+  const inningsList = inningsDocs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
   const inningsIds = inningsList.map((i) => i.id);
   if (inningsIds.length === 0) return [];
 
-  const [battingSnap, playersSnap, teamsSnap] = await Promise.all([
-    getDocs(query(battingScoresCol(), where("inningsId", "in", inningsIds))),
+  const [battingDocs, playersSnap, teamsSnap] = await Promise.all([
+    getDocsChunkedIn(battingScoresCol(), "inningsId", inningsIds),
     getDocs(playersCol()),
-    getDocs(query(teamsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
+    getDocs(query(teamsCol(), where("tournamentId", "==", tId))),
   ]);
 
-  const scores = battingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
+  const scores = battingDocs.map((d) => ({ id: d.id, ...d.data() }) as BattingScore);
   const allPlayers = playersSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
   const allTeams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
 
@@ -1109,21 +1109,20 @@ export async function getTournamentBowlingStats(schedule: HydratedMatch[]) {
   const completed = schedule.filter((m) => m.status === "COMPLETED");
   if (completed.length === 0) return [];
 
+  const tId = schedule[0]?.tournamentId || TOURNAMENT_ID;
   const matchIds = completed.map((m) => m.id);
-  const inningsSnap = await getDocs(
-    query(inningsCol(), where("matchId", "in", matchIds)),
-  );
-  const inningsList = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+  const inningsDocs = await getDocsChunkedIn(inningsCol(), "matchId", matchIds);
+  const inningsList = inningsDocs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
   const inningsIds = inningsList.map((i) => i.id);
   if (inningsIds.length === 0) return [];
 
-  const [bowlingSnap, playersSnap, teamsSnap] = await Promise.all([
-    getDocs(query(bowlingScoresCol(), where("inningsId", "in", inningsIds))),
+  const [bowlingDocs, playersSnap, teamsSnap] = await Promise.all([
+    getDocsChunkedIn(bowlingScoresCol(), "inningsId", inningsIds),
     getDocs(playersCol()),
-    getDocs(query(teamsCol(), where("tournamentId", "==", TOURNAMENT_ID))),
+    getDocs(query(teamsCol(), where("tournamentId", "==", tId))),
   ]);
 
-  const scores = bowlingSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
+  const scores = bowlingDocs.map((d) => ({ id: d.id, ...d.data() }) as BowlingScore);
   const allPlayers = playersSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
   const allTeams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
 
@@ -1187,10 +1186,8 @@ export async function getTournamentSummaryStats(schedule: HydratedMatch[]) {
   }
 
   const matchIds = completed.map((m) => m.id);
-  const inningsSnap = await getDocs(
-    query(inningsCol(), where("matchId", "in", matchIds)),
-  );
-  const inningsList = inningsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
+  const inningsDocs = await getDocsChunkedIn(inningsCol(), "matchId", matchIds);
+  const inningsList = inningsDocs.map((d) => ({ id: d.id, ...d.data() }) as Innings);
 
   const totalRuns = inningsList.reduce((s, i) => s + i.runs, 0);
   const totalWickets = inningsList.reduce((s, i) => s + i.wickets, 0);
