@@ -24,6 +24,8 @@ import {
   Medal,
   ArrowRight,
   Share2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { Link } from "react-router";
 import { useEffect, useState } from "react";
@@ -33,7 +35,7 @@ import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 export default function Home() {
   const { tournamentId, tournament: contextTournament } = useTournament();
   const [shareOpen, setShareOpen] = useState(false);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["overview", tournamentId],
     queryFn: () => getOverview(tournamentId),
     refetchInterval: 15000,
@@ -53,6 +55,23 @@ export default function Home() {
       return () => clearTimeout(timer);
     }
   }, [data?.champion]);
+
+  if (error && !data) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-16 text-center space-y-4">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+          <AlertCircle className="h-6 w-6" />
+        </div>
+        <h2 className="text-xl font-bold">Failed to load tournament overview</h2>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          {(error as Error)?.message || "An unexpected error occurred while fetching tournament details."}
+        </p>
+        <Button onClick={() => refetch()} variant="outline" className="gap-2">
+          <RefreshCw className="h-4 w-4" /> Try Again
+        </Button>
+      </div>
+    );
+  }
 
   if (isLoading || !data) {
     return (
