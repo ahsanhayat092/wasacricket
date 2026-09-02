@@ -746,7 +746,11 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
   const maxWickets = Number(tournament?.maxWickets || lastLeagueMatch?.maxWickets) || (tournament?.allowLastManStanding ? playersPerTeam : Math.max(1, playersPerTeam - 1));
   const allowLastManStanding = tournament?.allowLastManStanding ?? lastLeagueMatch?.allowLastManStanding ?? false;
 
-  const isPagePlayoff = tournament?.playoffFormat === "PAGE_PLAYOFF_TOP3" && sortedRows.length >= 3;
+  const isPagePlayoff =
+    tournament?.playoffFormat === "PAGE_PLAYOFF_TOP3" &&
+    sortedRows.length >= 3 &&
+    sortedRows[1]?.qualificationStatus !== "QUALIFIED_FINAL" &&
+    (playoffMatch != null || sortedRows[2]?.qualificationStatus !== "ELIMINATED");
 
   // 3. Handle Playoff match if tournament uses PAGE_PLAYOFF_TOP3
   if (isPagePlayoff) {

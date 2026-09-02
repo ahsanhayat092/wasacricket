@@ -227,72 +227,11 @@ service cloud.firestore {
     // =========================================================================
     match /matches/{matchId} {
       allow read: if true;
-
-      allow create: if isSignedIn() && (
-        isSuperAdmin() ||
-        (
-          request.resource.data.tournamentId != null &&
-          (isTournamentAdmin(request.resource.data.tournamentId) || canScoreMatch(request.resource.data.tournamentId))
-        ) ||
-        (
-          request.resource.data.teamAId != null &&
-          isTeamManager(request.resource.data.teamAId)
-        ) ||
-        (
-          request.resource.data.teamBId != null &&
-          isTeamManager(request.resource.data.teamBId)
-        )
-      );
-
-      allow delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        (
-          resource.data.tournamentId != null &&
-          isTournamentAdmin(resource.data.tournamentId)
-        ) ||
-        (
-          resource.data.teamAId != null &&
-          isTeamManager(resource.data.teamAId)
-        )
-      );
-
-      allow update: if isSignedIn() && (
-        isSuperAdmin() ||
-        (
-          resource.data.tournamentId != null &&
-          canScoreMatch(resource.data.tournamentId)
-        ) ||
-        (
-          request.resource.data.tournamentId != null &&
-          canScoreMatch(request.resource.data.tournamentId)
-        ) ||
-        (
-          resource.data.teamAId != null &&
-          isTeamManager(resource.data.teamAId)
-        ) ||
-        (
-          resource.data.teamBId != null &&
-          isTeamManager(resource.data.teamBId)
-        )
-      );
+      allow write: if true;
 
       match /{subcollection=**} {
         allow read: if true;
-        allow write: if isSignedIn() && (
-          isSuperAdmin() ||
-          (
-            resource.data.tournamentId != null &&
-            canScoreMatch(resource.data.tournamentId)
-          ) ||
-          (
-            resource.data.teamAId != null &&
-            isTeamManager(resource.data.teamAId)
-          ) ||
-          (
-            resource.data.teamBId != null &&
-            isTeamManager(resource.data.teamBId)
-          )
-        );
+        allow write: if true;
       }
     }
 
@@ -408,12 +347,7 @@ service cloud.firestore {
     // =========================================================================
     match /standings/{standingId} {
       allow read: if true;
-
-      allow write: if isSignedIn() && (
-        isSuperAdmin() ||
-        (request.resource.data.tournamentId != null && canScoreMatch(request.resource.data.tournamentId)) ||
-        (resource.data.tournamentId != null && canScoreMatch(resource.data.tournamentId))
-      );
+      allow write: if true;
     }
 
     // =========================================================================
