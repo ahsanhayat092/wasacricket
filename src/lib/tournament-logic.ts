@@ -798,10 +798,27 @@ export async function syncInningsTotals(inningsId: string) {
   if (!snap.exists()) throw new Error("Innings not found");
   const inn = { id: snap.id, ...snap.data() } as Innings;
 
-  const [battingSnap, bowlingSnap] = await Promise.all([
+  const [battingSnap, bowlingSnap, matchSnap] = await Promise.all([
     getDocs(query(battingScoresCol(), where("inningsId", "==", inningsId))),
     getDocs(query(bowlingScoresCol(), where("inningsId", "==", inningsId))),
+    inn.matchId ? getDoc(matchDoc(inn.matchId)) : Promise.resolve(null),
   ]);
+
+  const matchData = matchSnap && matchSnap.exists() ? (matchSnap.data() as Match) : null;
+  const lineupCount = Math.max(
+    matchData?.teamAPlayingVI?.length || 0,
+    matchData?.teamBPlayingVI?.length || 0,
+    battingSnap.size || 0,
+  );
+  const totalPlayersInTeam = lineupCount > 0 ? lineupCount : (Number(matchData?.playersPerTeam) || 11);
+  const lmsEnabled = totalPlayersInTeam >= 10 ? false : (matchData?.allowLastManStanding ?? (totalPlayersInTeam <= 8));
+  const maxWickets = Number(
+    matchData?.maxWickets && matchData.maxWickets > 0 && matchData.maxWickets !== 6 && totalPlayersInTeam >= 10
+      ? 10
+      : matchData?.maxWickets && matchData.maxWickets > 0
+        ? matchData.maxWickets
+        : (lmsEnabled ? totalPlayersInTeam : Math.max(1, totalPlayersInTeam - 1))
+  );
 
   const batting = battingSnap.docs.map((d) => d.data() as BattingScore);
   const bowling = bowlingSnap.docs.map((d) => d.data() as BowlingScore);
@@ -810,9 +827,10 @@ export async function syncInningsTotals(inningsId: string) {
   const extras =
     inn.wides + inn.noBalls + inn.byes + inn.legByes + inn.penaltyRuns;
   const runs = batRuns + extras;
-  const wickets = Math.min(6, batting.filter((b) => b.isOut).length);
+  const recordedOuts = batting.filter((b) => b.isOut).length;
+  const wickets = Math.min(maxWickets, battingSnap.empty ? (inn.wickets ?? 0) : Math.max(inn.wickets ?? 0, recordedOuts));
   const balls = bowling.reduce((s, b) => s + b.balls, 0);
-  const allOut = wickets >= 6;
+  const allOut = wickets >= maxWickets;
 
   await updateDoc(inningsDoc(inningsId), { runs, wickets, balls, allOut, updatedAt: now() });
   return { runs, wickets, balls, allOut };

@@ -776,8 +776,20 @@ export async function saveInnings(input: {
 
   // Dynamic Match Configuration from match document
   const maxOvers = Number(match.oversPerSide) || (match.stage === "FINAL" ? 5 : 4);
-  const maxBalls = maxOvers * 6;
-  const maxWickets = Number(match.playersPerTeam) || 11;
+  const lineupSquadCount = Math.max(
+    match.teamAPlayingVI?.length || 0,
+    match.teamBPlayingVI?.length || 0,
+    input.batting?.length || 0,
+  );
+  const totalPlayersInTeam = lineupSquadCount > 0 ? lineupSquadCount : (Number(match.playersPerTeam) || 11);
+  const lmsEnabled = totalPlayersInTeam >= 10 ? false : (match.allowLastManStanding ?? (totalPlayersInTeam <= 8));
+  const maxWickets = Number(
+    match.maxWickets && match.maxWickets > 0 && match.maxWickets !== 6 && totalPlayersInTeam >= 10
+      ? 10
+      : match.maxWickets && match.maxWickets > 0
+        ? match.maxWickets
+        : (lmsEnabled ? totalPlayersInTeam : Math.max(1, totalPlayersInTeam - 1))
+  );
 
   // Process batting records
   let outCount = 0;

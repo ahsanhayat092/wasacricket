@@ -193,7 +193,7 @@ export default function MatchDetail() {
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
                         {teamAScore.runs ?? 0}/
-                        {Math.min(6, teamAScore.wickets ?? 0)}
+                        {teamAScore.wickets ?? 0}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1.5 font-normal">
                         ({ballsToOversText(teamAScore.balls ?? 0)} ov)
@@ -219,7 +219,7 @@ export default function MatchDetail() {
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
                         {teamBScore.runs ?? 0}/
-                        {Math.min(6, teamBScore.wickets ?? 0)}
+                        {teamBScore.wickets ?? 0}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1.5 font-normal">
                         ({ballsToOversText(teamBScore.balls ?? 0)} ov)

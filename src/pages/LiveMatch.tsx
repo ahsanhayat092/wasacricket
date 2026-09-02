@@ -302,7 +302,7 @@ export default function LiveMatch() {
                   {teamAScore ? (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {teamAScore.runs ?? 0}/{Math.min(6, teamAScore.wickets ?? 0)}
+                        {teamAScore.runs ?? 0}/{teamAScore.wickets ?? 0}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal ml-1.5">
                         ({ballsToOversText(teamAScore.balls ?? 0)} ov)
@@ -324,7 +324,7 @@ export default function LiveMatch() {
                   {teamBScore ? (
                     <div className="font-mono">
                       <span className="text-2xl sm:text-3xl font-black text-foreground">
-                        {teamBScore.runs ?? 0}/{Math.min(6, teamBScore.wickets ?? 0)}
+                        {teamBScore.runs ?? 0}/{teamBScore.wickets ?? 0}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal ml-1.5">
                         ({ballsToOversText(teamBScore.balls ?? 0)} ov)
