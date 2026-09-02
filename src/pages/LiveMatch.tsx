@@ -126,7 +126,7 @@ export default function LiveMatch() {
   const { match, innings } = liveData;
   const isFinal = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
   const isPlayoff = match.stage === "PLAYOFF" || match.stage?.toUpperCase() === "PLAYOFF";
-  const matchOvers = Number(match.oversPerSide) || (isFinal ? 5 : 4);
+  const matchOvers = Number(match.oversPerSide) || 10;
   const quotaBalls = matchOvers * 6;
 
   const inn1 = innings.find((i) => i.inningsNumber === 1);

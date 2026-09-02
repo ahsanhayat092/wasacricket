@@ -1619,10 +1619,10 @@ function InningsLiveConsole({
 
   // Calculated Totals & Match Configuration (dynamic based on match.oversPerSide)
   const isFinal = match.stage === "FINAL";
-  const maxMatchOvers = Number(match.oversPerSide) || (isFinal ? 5 : 4);
+  const maxMatchOvers = Number(match.oversPerSide) || 10;
   const maxLegalBallsInnings = maxMatchOvers * 6;
-  const totalPlayersInTeam = Number(match.playersPerTeam) || 6;
-  const lmsEnabled = match.allowLastManStanding ?? true;
+  const totalPlayersInTeam = Number(match.playersPerTeam) || 11;
+  const lmsEnabled = match.allowLastManStanding ?? false;
   const maxWickets = Number(match.maxWickets) || (lmsEnabled ? totalPlayersInTeam : Math.max(1, totalPlayersInTeam - 1));
   const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
 
@@ -1651,11 +1651,17 @@ function InningsLiveConsole({
   const currentNonStriker = batRows.find((b) => b.playerId === nonStrikerId);
   const currentBowler = bowlRows.find((b) => b.playerId === currentBowlerId);
 
+  // Dynamic max overs per bowler quota (e.g. 2 overs in T10, 4 overs in T20)
+  const configuredMaxOverPerBowler = Number(match.maxOverPerBowler) || (maxMatchOvers <= 5 ? 1 : Math.ceil(maxMatchOvers / 5));
+
   // Check how many bowlers have bowled 2 overs (in Final)
-  const bowlersWith2Overs = bowlRows.filter((b) => b.balls >= 12);
+  const bowlersWith2Overs = bowlRows.filter((b) => b.balls >= (configuredMaxOverPerBowler * 6));
   const alreadyHas2OverBowler = bowlersWith2Overs.length >= 1;
 
   const getBowlerMaxBalls = (playerId: string) => {
+    if (configuredMaxOverPerBowler > 1) {
+      return configuredMaxOverPerBowler * 6;
+    }
     if (!isFinal) return 6; // League: strictly 1 over (6 balls) max
     // Final: 1 bowler can bowl up to 2 overs (12 balls), others 1 over (6 balls)
     const bowler = bowlRows.find((b) => b.playerId === playerId);

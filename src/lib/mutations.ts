@@ -775,7 +775,7 @@ export async function saveInnings(input: {
   }
 
   // Dynamic Match Configuration from match document
-  const maxOvers = Number(match.oversPerSide) || (match.stage === "FINAL" ? 5 : 4);
+  const maxOvers = Number(match.oversPerSide) || 10;
   const lineupSquadCount = Math.max(
     match.teamAPlayingVI?.length || 0,
     match.teamBPlayingVI?.length || 0,

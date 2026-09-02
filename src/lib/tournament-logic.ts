@@ -746,14 +746,20 @@ export async function syncKnockoutFixtures(
       if (existing.status !== "COMPLETED" && existing.status !== "LIVE") {
         const needsA = existing.teamAId !== (desiredTeamA ?? null);
         const needsB = existing.teamBId !== (desiredTeamB ?? null);
-        if (needsA || needsB) {
+        const needsOvers = existing.oversPerSide !== oversPerSide;
+        if (needsA || needsB || needsOvers) {
           await updateDoc(matchDoc(existing.id), {
             teamAId: desiredTeamA ?? null,
             teamBId: desiredTeamB ?? null,
+            oversPerSide,
+            maxOverPerBowler,
+            "rules.oversPerSide": oversPerSide,
+            "rules.maxOverPerBowler": maxOverPerBowler,
             updatedAt: now(),
           });
           existing.teamAId = desiredTeamA ?? null;
           existing.teamBId = desiredTeamB ?? null;
+          existing.oversPerSide = oversPerSide;
         }
       }
       return existing;

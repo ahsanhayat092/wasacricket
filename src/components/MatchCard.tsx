@@ -24,7 +24,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
   const isFinal = stage === "FINAL";
   const isPlayoff = stage === "PLAYOFF" || stage === "ELIMINATOR";
   const isKnockout = stage && stage !== "LEAGUE";
-  const matchOvers = Number(match.oversPerSide) || (isFinal ? 5 : 4);
+  const matchOvers = Number(match.oversPerSide) || 10;
   const quotaBalls = matchOvers * 6;
 
   const stageLabel = stageBadgeText(match.stage, match.matchNumber);
