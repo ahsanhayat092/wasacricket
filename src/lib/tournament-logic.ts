@@ -663,41 +663,25 @@ export function calculateScenarioQualifications(
 }
 
 // ---------------------------------------------------------------------------
-// Auto-populate Playoff (Rank 2 vs Rank 3) and Grand Final (Rank 1 vs Playoff Winner)
+// Universal Knockout Stage Synchronization Engine
+// Strictly follows tournament.playoffFormat:
+// 1. DIRECT_TOP2: Grand Final (Rank 1 vs Rank 2)
+// 2. PAGE_PLAYOFF_TOP3: Playoff (Rank 2 vs Rank 3) -> Grand Final (Rank 1 vs Playoff Winner)
+// 3. IPL_TOP4: Qualifier 1 (Rank 1 vs Rank 2), Eliminator (Rank 3 vs Rank 4), Qualifier 2 (Loser Q1 vs Winner Elim), Grand Final (Winner Q1 vs Winner Q2)
+// 4. SEMI_FINALS: Semi 1 (Rank 1 vs Rank 4), Semi 2 (Rank 2 vs Rank 3), Grand Final (Winner SF1 vs Winner SF2)
+// 5. NONE: Pure league, Rank 1 crowned champion directly upon league completion
 // ---------------------------------------------------------------------------
 
-export async function maybeGeneratePlayoffAndFinalFixtures(
+export async function syncKnockoutFixtures(
   allMatches: Match[],
   sortedRows: { teamId: string }[],
   tournament?: Tournament,
 ) {
   if (!sortedRows || sortedRows.length < 2) return;
+  const playoffFormat: PlayoffFormatType = tournament?.playoffFormat || "DIRECT_TOP2";
 
-  // If tournament explicitly disables playoffs, do not generate
-  if (tournament?.playoffFormat === "NONE") return;
-
-  // 1. Identify Playoff and Final matches strictly by stage name
-  let playoffMatch = allMatches.find(
-    (m) =>
-      m.stage === "PLAYOFF" ||
-      m.stage === "playoff" ||
-      m.stage?.toUpperCase() === "PLAYOFF",
-  );
-
-  let finalMatch = allMatches.find(
-    (m) =>
-      m.stage === "FINAL" ||
-      m.stage === "final" ||
-      m.stage?.toUpperCase() === "FINAL",
-  );
-
-  // 2. Identify all league matches (excluding playoff and final)
   const leagueMatches = allMatches.filter(
-    (m) =>
-      m.id !== playoffMatch?.id &&
-      m.id !== finalMatch?.id &&
-      m.stage?.toUpperCase() !== "PLAYOFF" &&
-      m.stage?.toUpperCase() !== "FINAL",
+    (m) => !m.stage || m.stage.toUpperCase() === "LEAGUE"
   );
 
   const allLeagueDone =
@@ -709,34 +693,6 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
         m.status === "ABANDONED",
     );
 
-  // STRICT RULE: Do not populate playoff/final until all league matches are done
-  if (!allLeagueDone) {
-    if (playoffMatch && playoffMatch.status !== "COMPLETED" && playoffMatch.status !== "LIVE") {
-      if (playoffMatch.teamAId !== null || playoffMatch.teamBId !== null) {
-        await updateDoc(matchDoc(playoffMatch.id), {
-          teamAId: null,
-          teamBId: null,
-          updatedAt: now(),
-        });
-      }
-    }
-    if (finalMatch && finalMatch.status !== "COMPLETED" && finalMatch.status !== "LIVE") {
-      if (finalMatch.teamAId !== null || finalMatch.teamBId !== null) {
-        await updateDoc(matchDoc(finalMatch.id), {
-          teamAId: null,
-          teamBId: null,
-          updatedAt: now(),
-        });
-      }
-    }
-    return;
-  }
-
-  const rank1Id = sortedRows[0].teamId;
-  const rank2Id = sortedRows[1]?.teamId;
-  const rank3Id = sortedRows[2]?.teamId;
-
-  const maxLeagueNum = allMatches.reduce((max, m) => Math.max(max, m.matchNumber || 0), 0);
   const lastLeagueMatch = leagueMatches[leagueMatches.length - 1];
   const tId = tournament?.id || lastLeagueMatch?.tournamentId || TOURNAMENT_ID;
   const venue = tournament?.venueName || lastLeagueMatch?.venue || "Askari XI, Lahore";
@@ -746,80 +702,70 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
   const maxWickets = Number(tournament?.maxWickets || lastLeagueMatch?.maxWickets) || (tournament?.allowLastManStanding ? playersPerTeam : Math.max(1, playersPerTeam - 1));
   const allowLastManStanding = tournament?.allowLastManStanding ?? lastLeagueMatch?.allowLastManStanding ?? false;
 
-  const isPagePlayoff =
-    tournament?.playoffFormat === "PAGE_PLAYOFF_TOP3" &&
-    sortedRows.length >= 3 &&
-    sortedRows[1]?.qualificationStatus !== "QUALIFIED_FINAL" &&
-    (playoffMatch != null || sortedRows[2]?.qualificationStatus !== "ELIMINATED");
-
-  // 3. Handle Playoff match if tournament uses PAGE_PLAYOFF_TOP3
-  if (isPagePlayoff) {
-    if (!playoffMatch) {
-      const newPlayoffRef = await addDoc(matchesCol(), {
-        tournamentId: tId,
-        matchNumber: maxLeagueNum + 1,
-        stage: "PLAYOFF",
-        teamAId: rank2Id,
-        teamBId: rank3Id,
-        oversPerSide,
-        maxOverPerBowler,
-        playersPerTeam,
-        maxWickets,
-        allowLastManStanding,
-        venue,
-        day: lastLeagueMatch?.day || "SATURDAY",
-        date: lastLeagueMatch?.date || new Date().toISOString().split("T")[0],
-        time: "6:00 PM",
-        status: "UPCOMING",
-        tossWinnerId: null,
-        tossDecision: null,
-        winningTeamId: null,
-        resultText: null,
-        createdAt: now(),
-        updatedAt: now(),
-      });
-      playoffMatch = {
-        id: newPlayoffRef.id,
-        tournamentId: tId,
-        matchNumber: maxLeagueNum + 1,
-        stage: "PLAYOFF",
-        teamAId: rank2Id,
-        teamBId: rank3Id,
-        status: "UPCOMING",
-      } as Match;
-    } else if (playoffMatch.status !== "COMPLETED" && playoffMatch.status !== "LIVE") {
-      if (
-        playoffMatch.teamAId !== rank2Id ||
-        playoffMatch.teamBId !== rank3Id ||
-        playoffMatch.stage !== "PLAYOFF"
-      ) {
-        await updateDoc(matchDoc(playoffMatch.id), {
-          teamAId: rank2Id,
-          teamBId: rank3Id,
-          stage: "PLAYOFF",
+  // Case 5: Pure League format (NONE)
+  if (playoffFormat === "NONE") {
+    if (allLeagueDone && sortedRows[0]?.teamId) {
+      if (tournament?.championTeamId !== sortedRows[0].teamId) {
+        await updateDoc(tournamentDoc(tId), {
+          championTeamId: sortedRows[0].teamId,
           updatedAt: now(),
         });
       }
     }
+    return;
   }
 
-  // 4. Determine Playoff Winner for Final Team B
-  let playoffWinnerId: string | null = null;
-  if (playoffMatch && playoffMatch.status === "COMPLETED" && playoffMatch.winningTeamId) {
-    playoffWinnerId = playoffMatch.winningTeamId;
+  // Precondition: If league is not completed, enforce TBD on all unplayed knockout matches
+  if (!allLeagueDone) {
+    for (const m of allMatches) {
+      if (m.stage && m.stage.toUpperCase() !== "LEAGUE" && m.status !== "COMPLETED" && m.status !== "LIVE") {
+        if (m.teamAId !== null || m.teamBId !== null) {
+          await updateDoc(matchDoc(m.id), {
+            teamAId: null,
+            teamBId: null,
+            updatedAt: now(),
+          });
+        }
+      }
+    }
+    return;
   }
 
-  const desiredTeamA = rank1Id;
-  const desiredTeamB = isPagePlayoff ? playoffWinnerId : rank2Id;
+  // Helper to find, update, or create a knockout fixture
+  let nextMatchNumber = allMatches.reduce((max, m) => Math.max(max, m.matchNumber || 0), 0) + 1;
 
-  // 5. Handle Final match (Create if absent, Update if exists)
-  if (!finalMatch) {
-    const finalMatchNum = (playoffMatch?.matchNumber ? playoffMatch.matchNumber + 1 : maxLeagueNum + 1);
-    const newFinalRef = await addDoc(matchesCol(), {
+  async function ensureKnockoutFixture(
+    stage: string,
+    desiredTeamA: string | null,
+    desiredTeamB: string | null,
+    defaultDay = "SUNDAY",
+    defaultTime = "Finals",
+  ): Promise<Match> {
+    const existing = allMatches.find((m) => m.stage?.toUpperCase() === stage.toUpperCase());
+    if (existing) {
+      if (existing.status !== "COMPLETED" && existing.status !== "LIVE") {
+        const needsA = existing.teamAId !== (desiredTeamA ?? null);
+        const needsB = existing.teamBId !== (desiredTeamB ?? null);
+        if (needsA || needsB) {
+          await updateDoc(matchDoc(existing.id), {
+            teamAId: desiredTeamA ?? null,
+            teamBId: desiredTeamB ?? null,
+            updatedAt: now(),
+          });
+          existing.teamAId = desiredTeamA ?? null;
+          existing.teamBId = desiredTeamB ?? null;
+        }
+      }
+      return existing;
+    }
+
+    // Match does not exist yet -> create it
+    const createdMatchNum = nextMatchNumber++;
+    const ref = await addDoc(matchesCol(), {
       tournamentId: tId,
-      matchNumber: finalMatchNum,
-      stage: "FINAL",
-      teamAId: desiredTeamA,
+      matchNumber: createdMatchNum,
+      stage: stage.toUpperCase(),
+      teamAId: desiredTeamA ?? null,
       teamBId: desiredTeamB ?? null,
       oversPerSide,
       maxOverPerBowler,
@@ -827,9 +773,9 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
       maxWickets,
       allowLastManStanding,
       venue,
-      day: lastLeagueMatch?.day || "SUNDAY",
+      day: lastLeagueMatch?.day || defaultDay,
       date: lastLeagueMatch?.date || new Date().toISOString().split("T")[0],
-      time: "Finals",
+      time: defaultTime,
       status: "UPCOMING",
       tossWinnerId: null,
       tossDecision: null,
@@ -838,33 +784,73 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
       createdAt: now(),
       updatedAt: now(),
     });
-    finalMatch = {
-      id: newFinalRef.id,
+
+    const newMatch = {
+      id: ref.id,
       tournamentId: tId,
-      matchNumber: finalMatchNum,
-      stage: "FINAL",
-      teamAId: desiredTeamA,
+      matchNumber: createdMatchNum,
+      stage: stage.toUpperCase(),
+      teamAId: desiredTeamA ?? null,
       teamBId: desiredTeamB ?? null,
       status: "UPCOMING",
+      oversPerSide,
     } as Match;
-  } else if (finalMatch.status !== "COMPLETED" && finalMatch.status !== "LIVE") {
-    if (
-      finalMatch.teamAId !== desiredTeamA ||
-      finalMatch.teamBId !== (desiredTeamB ?? null) ||
-      finalMatch.stage !== "FINAL"
-    ) {
-      await updateDoc(matchDoc(finalMatch.id), {
-        teamAId: desiredTeamA,
-        teamBId: desiredTeamB ?? null,
-        stage: "FINAL",
-        updatedAt: now(),
-      });
-    }
+    allMatches.push(newMatch);
+    return newMatch;
+  }
+
+  const rank1Id = sortedRows[0]?.teamId ?? null;
+  const rank2Id = sortedRows[1]?.teamId ?? null;
+  const rank3Id = sortedRows[2]?.teamId ?? null;
+  const rank4Id = sortedRows[3]?.teamId ?? null;
+
+  // Case 1: DIRECT_TOP2
+  if (playoffFormat === "DIRECT_TOP2") {
+    await ensureKnockoutFixture("FINAL", rank1Id, rank2Id, "SUNDAY", "8:00 PM");
+    return;
+  }
+
+  // Case 2: PAGE_PLAYOFF_TOP3
+  if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
+    const playoffMatch = await ensureKnockoutFixture("PLAYOFF", rank2Id, rank3Id, "SATURDAY", "6:00 PM");
+    const playoffWinnerId = playoffMatch.status === "COMPLETED" && playoffMatch.winningTeamId ? playoffMatch.winningTeamId : null;
+    await ensureKnockoutFixture("FINAL", rank1Id, playoffWinnerId, "SUNDAY", "8:00 PM");
+    return;
+  }
+
+  // Case 3: IPL_TOP4 (Qualifier 1, Eliminator, Qualifier 2, Final)
+  if (playoffFormat === "IPL_TOP4") {
+    const q1 = await ensureKnockoutFixture("QUALIFIER_1", rank1Id, rank2Id, "FRIDAY", "8:00 PM");
+    const elim = await ensureKnockoutFixture("ELIMINATOR", rank3Id, rank4Id, "SATURDAY", "4:00 PM");
+
+    const q1WinnerId = q1.status === "COMPLETED" && q1.winningTeamId ? q1.winningTeamId : null;
+    const q1LoserId = q1.status === "COMPLETED" && q1.winningTeamId
+      ? (q1.winningTeamId === q1.teamAId ? q1.teamBId : q1.teamAId)
+      : null;
+    const elimWinnerId = elim.status === "COMPLETED" && elim.winningTeamId ? elim.winningTeamId : null;
+
+    const q2 = await ensureKnockoutFixture("QUALIFIER_2", q1LoserId, elimWinnerId, "SATURDAY", "8:00 PM");
+    const q2WinnerId = q2.status === "COMPLETED" && q2.winningTeamId ? q2.winningTeamId : null;
+
+    await ensureKnockoutFixture("FINAL", q1WinnerId, q2WinnerId, "SUNDAY", "8:00 PM");
+    return;
+  }
+
+  // Case 4: SEMI_FINALS (Semi 1: 1 vs 4, Semi 2: 2 vs 3, Final: Winner SF1 vs Winner SF2)
+  if (playoffFormat === "SEMI_FINALS") {
+    const sf1 = await ensureKnockoutFixture("SEMI_1", rank1Id, rank4Id, "SATURDAY", "4:00 PM");
+    const sf2 = await ensureKnockoutFixture("SEMI_2", rank2Id, rank3Id, "SATURDAY", "8:00 PM");
+
+    const sf1WinnerId = sf1.status === "COMPLETED" && sf1.winningTeamId ? sf1.winningTeamId : null;
+    const sf2WinnerId = sf2.status === "COMPLETED" && sf2.winningTeamId ? sf2.winningTeamId : null;
+
+    await ensureKnockoutFixture("FINAL", sf1WinnerId, sf2WinnerId, "SUNDAY", "8:00 PM");
+    return;
   }
 }
 
-// Aliases for backward compatibility
-export const maybeGenerateFinalFixture = maybeGeneratePlayoffAndFinalFixtures;
+export const maybeGeneratePlayoffAndFinalFixtures = syncKnockoutFixtures;
+export const maybeGenerateFinalFixture = syncKnockoutFixtures;
 
 // ---------------------------------------------------------------------------
 // Innings totals sync

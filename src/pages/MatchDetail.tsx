@@ -17,6 +17,7 @@ import {
   ballsToOversText,
   formatMatchDay,
   formatMatchDateTime,
+  stageBadgeText,
   type MatchStatus,
 } from "@/lib/cricket";
 import { StoryCardModal } from "@/components/StoryCardModal";
@@ -129,7 +130,7 @@ export default function MatchDetail() {
 
   const isFinal = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
   const isPlayoff = match.stage === "PLAYOFF" || match.stage?.toUpperCase() === "PLAYOFF";
-  const stageLabel = isFinal ? "🏆 Grand Final" : isPlayoff ? "⚔️ Playoff Match" : `Match #${match.matchNumber}`;
+  const stageLabel = stageBadgeText(match.stage, match.matchNumber);
 
   return (
     <div className="mx-auto max-w-7xl px-3 sm:px-6 py-6 space-y-6">

@@ -11,14 +11,16 @@ import { TeamBadge } from "@/components/TeamBadge";
 import { fmtNrr } from "@/lib/cricket";
 import { Link } from "react-router";
 import { cn } from "@/lib/utils";
-import type { StandingWithTeam } from "@/lib/firestore";
+import type { StandingWithTeam, PlayoffFormatType } from "@/lib/firestore";
 
 export function StandingsTable({
   rows,
   compact = false,
+  playoffFormat = "DIRECT_TOP2",
 }: {
   rows: StandingWithTeam[];
   compact?: boolean;
+  playoffFormat?: PlayoffFormatType;
 }) {
   return (
     <div className="rounded-lg border overflow-hidden overflow-x-auto">
@@ -38,45 +40,69 @@ export function StandingsTable({
         </TableHeader>
         <TableBody>
           {rows.map((s) => {
-            const hasPlayoffs = rows.some(
-              (r) =>
-                r.qualificationStatus === "QUALIFIED_PLAYOFF" ||
-                r.qualificationStatus === "QUALIFIED_TOP3",
-            );
-            const qualifyingCutoff = hasPlayoffs ? 3 : 2;
-            const isTopRanked = s.position <= qualifyingCutoff;
+            const allPlayed = rows.every((r) => r.played > 0);
 
-            const isQualifiedFinal =
-              s.qualificationStatus === "QUALIFIED_FINAL" ||
-              (!hasPlayoffs && s.position <= 2) ||
-              (hasPlayoffs && s.position === 1);
+            // Format-aware qualification cutoff
+            const cutoff =
+              playoffFormat === "NONE"
+                ? 1
+                : playoffFormat === "PAGE_PLAYOFF_TOP3"
+                  ? 3
+                  : playoffFormat === "IPL_TOP4" || playoffFormat === "SEMI_FINALS"
+                    ? 4
+                    : 2;
 
-            const isQualifiedPlayoff =
-              hasPlayoffs &&
-              (s.qualificationStatus === "QUALIFIED_PLAYOFF" ||
-                s.position === 2 ||
-                s.position === 3);
-
-            const isQualifiedTop3 =
-              hasPlayoffs &&
-              (s.qualificationStatus === "QUALIFIED_TOP3" ||
-                s.guaranteedTop3 ||
-                s.position <= 3);
-
+            const isTopRanked = s.position <= cutoff;
             const isEliminated =
               !isTopRanked &&
-              (s.qualificationStatus === "ELIMINATED" ||
-                s.eliminated ||
-                rows.every((r) => r.played > 0));
+              (s.qualificationStatus === "ELIMINATED" || s.eliminated || allPlayed);
+
+            // Badges by format
+            let badgeText: string | null = null;
+            let badgeClass = "";
+
+            if (!isEliminated) {
+              if (playoffFormat === "DIRECT_TOP2") {
+                if (s.position <= 2) {
+                  badgeText = "🏆 GRAND FINAL (Q)";
+                  badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
+                }
+              } else if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
+                if (s.position === 1) {
+                  badgeText = "🏆 GRAND FINAL (Q)";
+                  badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
+                } else if (s.position === 2 || s.position === 3) {
+                  badgeText = "⚔️ PLAYOFF (Q)";
+                  badgeClass = "bg-purple-500/20 text-purple-400 border-purple-500/40";
+                }
+              } else if (playoffFormat === "IPL_TOP4") {
+                if (s.position <= 2) {
+                  badgeText = "🔥 QUALIFIER 1 (Q)";
+                  badgeClass = "bg-orange-500/20 text-orange-400 border-orange-500/40";
+                } else if (s.position === 3 || s.position === 4) {
+                  badgeText = "⚔️ ELIMINATOR (Q)";
+                  badgeClass = "bg-purple-500/20 text-purple-400 border-purple-500/40";
+                }
+              } else if (playoffFormat === "SEMI_FINALS") {
+                if (s.position <= 4) {
+                  badgeText = "🎯 SEMI-FINAL (Q)";
+                  badgeClass = "bg-blue-500/20 text-blue-400 border-blue-500/40";
+                }
+              } else if (playoffFormat === "NONE") {
+                if (s.position === 1) {
+                  badgeText = "🏆 CHAMPION (Q)";
+                  badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
+                }
+              }
+            }
 
             return (
               <TableRow
                 key={s.teamId}
                 className={cn(
-                  isQualifiedFinal && "bg-amber-500/5 border-l-2 border-l-amber-500",
-                  !isQualifiedFinal && (isQualifiedPlayoff || isQualifiedTop3) && "bg-purple-500/5 border-l-2 border-l-purple-500",
+                  badgeText && "bg-emerald-500/5 border-l-2 border-l-emerald-500",
                   isEliminated && "opacity-75 bg-muted/10",
-                  !s.qualificationStatus && s.position === 1 && "bg-amber-500/[0.02]",
+                  !badgeText && s.position === 1 && "bg-amber-500/[0.02]",
                 )}
               >
                 <TableCell className="font-bold">
@@ -96,20 +122,10 @@ export function StandingsTable({
                       {s.team?.name}
                     </span>
 
-                    {/* Mathematically derived Scenario Badges */}
-                    {isQualifiedFinal && (
-                      <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-bold hover:bg-amber-500/30">
-                        🏆 GRAND FINAL (Q)
-                      </Badge>
-                    )}
-                    {!isQualifiedFinal && isQualifiedPlayoff && (
-                      <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/40 text-[10px] font-bold hover:bg-purple-500/30">
-                        ⚔️ PLAYOFF (Q)
-                      </Badge>
-                    )}
-                    {!isQualifiedFinal && !isQualifiedPlayoff && isQualifiedTop3 && (
-                      <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold hover:bg-emerald-500/30">
-                        🟢 TOP 3 (Q)
+                    {/* Format-Specific Qualification Badges */}
+                    {badgeText && (
+                      <Badge className={cn("text-[10px] font-bold border", badgeClass)}>
+                        {badgeText}
                       </Badge>
                     )}
                     {isEliminated && (

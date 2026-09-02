@@ -31,7 +31,7 @@ import { useTournament } from "@/context/TournamentContext";
 import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 
 export default function Home() {
-  const { tournamentId } = useTournament();
+  const { tournamentId, tournament } = useTournament();
   const [shareOpen, setShareOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["overview", tournamentId],
@@ -306,7 +306,7 @@ export default function Home() {
               Full table & NRR breakdown →
             </Link>
           </div>
-          <StandingsTable rows={standings} compact />
+          <StandingsTable rows={standings} compact playoffFormat={tournament?.playoffFormat} />
         </section>
 
         {/* Top performers */}

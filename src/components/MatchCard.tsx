@@ -7,6 +7,9 @@ import {
   ballsToOversText,
   formatMatchDay,
   formatMatchDateTime,
+  stageBadgeText,
+  stageBadgeClass,
+  stageTeamPlaceholders,
   type MatchStatus,
 } from "@/lib/cricket";
 import { CalendarDays, MapPin, Zap, Trophy, Target, Clock } from "lucide-react";
@@ -17,16 +20,15 @@ export type { HydratedMatch };
 
 export function MatchCard({ match }: { match: HydratedMatch }) {
   const to = `/live/${match.id}`;
-  const isPlayoff = match.stage === "PLAYOFF" || match.stage?.toUpperCase() === "PLAYOFF";
-  const isFinal = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
+  const stage = match.stage?.toUpperCase();
+  const isFinal = stage === "FINAL";
+  const isPlayoff = stage === "PLAYOFF" || stage === "ELIMINATOR";
+  const isKnockout = stage && stage !== "LEAGUE";
   const matchOvers = Number(match.oversPerSide) || (isFinal ? 5 : 4);
   const quotaBalls = matchOvers * 6;
 
-  const stageLabel = isFinal
-    ? "🏆 Grand Final"
-    : isPlayoff
-      ? "⚔️ Playoff (Rank 2 vs 3)"
-      : `Match #${match.matchNumber}`;
+  const stageLabel = stageBadgeText(match.stage, match.matchNumber);
+  const placeholders = stageTeamPlaceholders(match.stage);
 
   const innings = match.innings ?? [];
   const inn1 = innings.find((i) => i.inningsNumber === 1);
@@ -111,7 +113,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
                           : "text-muted-foreground font-semibold"
                     }`}
                   >
-                    {match.teamA?.name ?? (isFinal ? "TBD (Rank 1)" : isPlayoff ? "TBD (Rank 2)" : "TBD")}
+                    {match.teamA?.name ?? placeholders.teamA}
                   </span>
                   {currentlyBattingTeam?.id === match.teamAId && match.status === "LIVE" && (
                     <span className="text-[10px] text-emerald-500 font-semibold flex items-center gap-1">
@@ -153,7 +155,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
                           : "text-muted-foreground font-semibold"
                     }`}
                   >
-                    {match.teamB?.name ?? (isFinal ? "TBD (Playoff Winner)" : isPlayoff ? "TBD (Rank 3)" : "TBD")}
+                    {match.teamB?.name ?? placeholders.teamB}
                   </span>
                   {currentlyBattingTeam?.id === match.teamBId && match.status === "LIVE" && (
                     <span className="text-[10px] text-emerald-500 font-semibold flex items-center gap-1">

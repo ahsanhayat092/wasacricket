@@ -23,7 +23,7 @@ import { useState } from "react";
 import { useTournament } from "@/context/TournamentContext";
 
 export default function AdminPointsTable() {
-  const { tournamentId } = useTournament();
+  const { tournamentId, tournament } = useTournament();
   const { data: rows, isLoading } = useQuery({
     queryKey: ["standings", tournamentId],
     queryFn: () => getStandings(tournamentId),
@@ -58,7 +58,7 @@ export default function AdminPointsTable() {
         </Button>
       </div>
 
-      <StandingsTable rows={rows} />
+      <StandingsTable rows={rows} playoffFormat={tournament?.playoffFormat} />
 
       <div>
         <h2 className="text-lg font-semibold mb-2">Tie-break control</h2>
