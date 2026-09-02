@@ -254,7 +254,7 @@ export default function AdminMatchControl() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {formatMatchDateTime(match.day, match.date, match.time)} · {match.venue ?? "Askari XI, Lahore"} · {match.oversPerSide ?? 10} Overs Match
+              {formatMatchDateTime(match.day, match.date, match.time)} · {match.venue ?? "Askari XI, Lahore"} · {match.oversPerSide ?? (match.stage === "FINAL" ? 5 : 4)} Overs Match
             </p>
           </div>
         </div>

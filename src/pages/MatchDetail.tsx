@@ -305,7 +305,7 @@ export default function MatchDetail() {
                       Innings {currentInnings.inningsNumber}
                     </span>
                   </div>
-                  <RecentBalls balls={currentInnings.recentBalls} maxOversToShow={match.stage === "FINAL" ? 5 : 4} />
+                  <RecentBalls balls={currentInnings.recentBalls} maxOversToShow={Number(match.oversPerSide) || (match.stage === "FINAL" ? 5 : 4)} />
                 </div>
               )}
 
@@ -361,7 +361,7 @@ export default function MatchDetail() {
                 inn2={inn2}
                 teamA={teamA}
                 teamB={teamB}
-                maxOvers={match.stage === "FINAL" ? 5 : 4}
+                maxOvers={Number(match.oversPerSide) || (match.stage === "FINAL" ? 5 : 4)}
               />
             </TabsContent>
 
@@ -654,7 +654,7 @@ export default function MatchDetail() {
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="flex items-center gap-1.5"><Flame className="h-3.5 w-3.5 text-indigo-400" /> Format</span>
-                  <span className="font-semibold text-foreground">{match.stage === "FINAL" ? 5 : 4} Overs per side • Tape Ball</span>
+                  <span className="font-semibold text-foreground">{Number(match.oversPerSide) || (match.stage === "FINAL" ? 5 : 4)} Overs per side • {match.formatType?.replace(/_/g, " ") || "Cricket"}</span>
                 </div>
               </div>
             </CardContent>

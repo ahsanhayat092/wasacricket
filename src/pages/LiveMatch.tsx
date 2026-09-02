@@ -125,7 +125,7 @@ export default function LiveMatch() {
   const { match, innings } = liveData;
   const isFinal = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
   const isPlayoff = match.stage === "PLAYOFF" || match.stage?.toUpperCase() === "PLAYOFF";
-  const matchOvers = isFinal ? 5 : 4;
+  const matchOvers = Number(match.oversPerSide) || (isFinal ? 5 : 4);
   const quotaBalls = matchOvers * 6;
 
   const inn1 = innings.find((i) => i.inningsNumber === 1);
@@ -427,7 +427,7 @@ export default function LiveMatch() {
                     </span>
                     <span className="text-[10px] text-muted-foreground">Live Delivery Feed</span>
                   </div>
-                  <RecentBalls balls={current.recentBalls} maxOversToShow={isFinal ? 5 : 4} />
+                  <RecentBalls balls={current.recentBalls} maxOversToShow={matchOvers} />
                 </div>
               )}
             </CardContent>
@@ -493,7 +493,7 @@ export default function LiveMatch() {
                 inn2={inn2}
                 teamA={teamA}
                 teamB={teamB}
-                maxOvers={isFinal ? 5 : 4}
+                maxOvers={matchOvers}
               />
             </TabsContent>
 

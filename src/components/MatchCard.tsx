@@ -19,7 +19,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
   const to = `/live/${match.id}`;
   const isPlayoff = match.stage === "PLAYOFF" || match.stage?.toUpperCase() === "PLAYOFF";
   const isFinal = match.stage === "FINAL" || match.stage?.toUpperCase() === "FINAL";
-  const matchOvers = isFinal ? 5 : 4;
+  const matchOvers = Number(match.oversPerSide) || (isFinal ? 5 : 4);
   const quotaBalls = matchOvers * 6;
 
   const stageLabel = isFinal
