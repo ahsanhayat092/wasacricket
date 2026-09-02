@@ -383,7 +383,7 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
 
   await batch.commit();
 
-  await maybeGeneratePlayoffAndFinalFixtures(allMatches, rows);
+  await maybeGeneratePlayoffAndFinalFixtures(allMatches, rows, tournament);
   return rows;
 }
 
@@ -669,10 +669,14 @@ export function calculateScenarioQualifications(
 export async function maybeGeneratePlayoffAndFinalFixtures(
   allMatches: Match[],
   sortedRows: { teamId: string }[],
+  tournament?: Tournament,
 ) {
-  if (!sortedRows || sortedRows.length < 3) return;
+  if (!sortedRows || sortedRows.length < 2) return;
 
-  // 1. Identify Playoff and Final matches
+  // If tournament explicitly disables playoffs, do not generate
+  if (tournament?.playoffFormat === "NONE") return;
+
+  // 1. Identify Playoff and Final matches strictly by stage name
   let playoffMatch = allMatches.find(
     (m) =>
       m.stage === "PLAYOFF" ||
@@ -686,17 +690,6 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
       m.stage === "final" ||
       m.stage?.toUpperCase() === "FINAL",
   );
-
-  // Fallbacks if stage not explicitly set
-  if (!playoffMatch && allMatches.length > 0) {
-    playoffMatch = allMatches.find((m) => m.matchNumber === 10);
-  }
-  if (!finalMatch && allMatches.length > 0) {
-    finalMatch = allMatches.find(
-      (m) =>
-        m.matchNumber === 11 || (m.matchNumber >= 10 && m.id !== playoffMatch?.id),
-    );
-  }
 
   // 2. Identify all league matches (excluding playoff and final)
   const leagueMatches = allMatches.filter(
@@ -718,7 +711,6 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
 
   // STRICT RULE: Do not populate playoff/final until all league matches are done
   if (!allLeagueDone) {
-    // Ensure any unplayed playoff or final fixture remains strictly TBD (teamAId: null, teamBId: null)
     if (playoffMatch && playoffMatch.status !== "COMPLETED" && playoffMatch.status !== "LIVE") {
       if (playoffMatch.teamAId !== null || playoffMatch.teamBId !== null) {
         await updateDoc(matchDoc(playoffMatch.id), {
@@ -741,36 +733,117 @@ export async function maybeGeneratePlayoffAndFinalFixtures(
   }
 
   const rank1Id = sortedRows[0].teamId;
-  const rank2Id = sortedRows[1].teamId;
-  const rank3Id = sortedRows[2].teamId;
+  const rank2Id = sortedRows[1]?.teamId;
+  const rank3Id = sortedRows[2]?.teamId;
 
-  // Update Playoff fixture (Rank 2 vs Rank 3)
-  if (playoffMatch && playoffMatch.status !== "COMPLETED" && playoffMatch.status !== "LIVE") {
-    if (
-      playoffMatch.teamAId !== rank2Id ||
-      playoffMatch.teamBId !== rank3Id ||
-      playoffMatch.stage !== "PLAYOFF"
-    ) {
-      await updateDoc(matchDoc(playoffMatch.id), {
+  const maxLeagueNum = allMatches.reduce((max, m) => Math.max(max, m.matchNumber || 0), 0);
+  const lastLeagueMatch = leagueMatches[leagueMatches.length - 1];
+  const tId = tournament?.id || lastLeagueMatch?.tournamentId || TOURNAMENT_ID;
+  const venue = tournament?.venueName || lastLeagueMatch?.venue || "Askari XI, Lahore";
+  const oversPerSide = Number(tournament?.oversPerSide || lastLeagueMatch?.oversPerSide) || 4;
+  const maxOverPerBowler = Number(tournament?.maxOverPerBowler || lastLeagueMatch?.maxOverPerBowler) || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5));
+  const playersPerTeam = Number(tournament?.playersPerTeam || lastLeagueMatch?.playersPerTeam) || 11;
+  const maxWickets = Number(tournament?.maxWickets || lastLeagueMatch?.maxWickets) || (tournament?.allowLastManStanding ? playersPerTeam : Math.max(1, playersPerTeam - 1));
+  const allowLastManStanding = tournament?.allowLastManStanding ?? lastLeagueMatch?.allowLastManStanding ?? false;
+
+  const isPagePlayoff = tournament?.playoffFormat === "PAGE_PLAYOFF_TOP3" && sortedRows.length >= 3;
+
+  // 3. Handle Playoff match if tournament uses PAGE_PLAYOFF_TOP3
+  if (isPagePlayoff) {
+    if (!playoffMatch) {
+      const newPlayoffRef = await addDoc(matchesCol(), {
+        tournamentId: tId,
+        matchNumber: maxLeagueNum + 1,
+        stage: "PLAYOFF",
         teamAId: rank2Id,
         teamBId: rank3Id,
-        stage: "PLAYOFF",
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        venue,
+        day: lastLeagueMatch?.day || "SATURDAY",
+        date: lastLeagueMatch?.date || new Date().toISOString().split("T")[0],
+        time: "6:00 PM",
+        status: "UPCOMING",
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        createdAt: now(),
         updatedAt: now(),
       });
+      playoffMatch = {
+        id: newPlayoffRef.id,
+        tournamentId: tId,
+        matchNumber: maxLeagueNum + 1,
+        stage: "PLAYOFF",
+        teamAId: rank2Id,
+        teamBId: rank3Id,
+        status: "UPCOMING",
+      } as Match;
+    } else if (playoffMatch.status !== "COMPLETED" && playoffMatch.status !== "LIVE") {
+      if (
+        playoffMatch.teamAId !== rank2Id ||
+        playoffMatch.teamBId !== rank3Id ||
+        playoffMatch.stage !== "PLAYOFF"
+      ) {
+        await updateDoc(matchDoc(playoffMatch.id), {
+          teamAId: rank2Id,
+          teamBId: rank3Id,
+          stage: "PLAYOFF",
+          updatedAt: now(),
+        });
+      }
     }
   }
 
-  // Determine Playoff Winner for Final Team B (MUST be completed with a winningTeamId)
+  // 4. Determine Playoff Winner for Final Team B
   let playoffWinnerId: string | null = null;
   if (playoffMatch && playoffMatch.status === "COMPLETED" && playoffMatch.winningTeamId) {
     playoffWinnerId = playoffMatch.winningTeamId;
   }
 
-  // Update Final fixture (Rank 1 vs Rank 2 if no playoff, or Rank 1 vs Playoff Winner if playoff exists)
-  if (finalMatch && finalMatch.status !== "COMPLETED" && finalMatch.status !== "LIVE") {
-    const desiredTeamA = rank1Id;
-    const desiredTeamB = playoffMatch ? playoffWinnerId : rank2Id;
+  const desiredTeamA = rank1Id;
+  const desiredTeamB = isPagePlayoff ? playoffWinnerId : rank2Id;
 
+  // 5. Handle Final match (Create if absent, Update if exists)
+  if (!finalMatch) {
+    const finalMatchNum = (playoffMatch?.matchNumber ? playoffMatch.matchNumber + 1 : maxLeagueNum + 1);
+    const newFinalRef = await addDoc(matchesCol(), {
+      tournamentId: tId,
+      matchNumber: finalMatchNum,
+      stage: "FINAL",
+      teamAId: desiredTeamA,
+      teamBId: desiredTeamB ?? null,
+      oversPerSide,
+      maxOverPerBowler,
+      playersPerTeam,
+      maxWickets,
+      allowLastManStanding,
+      venue,
+      day: lastLeagueMatch?.day || "SUNDAY",
+      date: lastLeagueMatch?.date || new Date().toISOString().split("T")[0],
+      time: "Finals",
+      status: "UPCOMING",
+      tossWinnerId: null,
+      tossDecision: null,
+      winningTeamId: null,
+      resultText: null,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    finalMatch = {
+      id: newFinalRef.id,
+      tournamentId: tId,
+      matchNumber: finalMatchNum,
+      stage: "FINAL",
+      teamAId: desiredTeamA,
+      teamBId: desiredTeamB ?? null,
+      status: "UPCOMING",
+    } as Match;
+  } else if (finalMatch.status !== "COMPLETED" && finalMatch.status !== "LIVE") {
     if (
       finalMatch.teamAId !== desiredTeamA ||
       finalMatch.teamBId !== (desiredTeamB ?? null) ||

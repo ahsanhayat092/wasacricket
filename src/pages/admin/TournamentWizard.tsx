@@ -437,6 +437,61 @@ export default function TournamentWizard() {
             oversPerSide,
           });
         }
+
+        const lastLeagueFix = generatedFixtures[generatedFixtures.length - 1];
+        const maxBowlerOvers = oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5);
+
+        if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
+          await createMatch({
+            tournamentId: tourneyId,
+            matchNumber: generatedFixtures.length + 1,
+            stage: "PLAYOFF",
+            day: lastLeagueFix?.day || "SATURDAY",
+            date: lastLeagueFix?.date || startDate,
+            time: "6:00 PM",
+            teamAId: null,
+            teamBId: null,
+            venue: venueName,
+            oversPerSide,
+            maxOverPerBowler: maxBowlerOvers,
+            playersPerTeam,
+            maxWickets,
+            allowLastManStanding,
+          });
+          await createMatch({
+            tournamentId: tourneyId,
+            matchNumber: generatedFixtures.length + 2,
+            stage: "FINAL",
+            day: lastLeagueFix?.day || "SUNDAY",
+            date: lastLeagueFix?.date || startDate,
+            time: "8:00 PM",
+            teamAId: null,
+            teamBId: null,
+            venue: venueName,
+            oversPerSide,
+            maxOverPerBowler: maxBowlerOvers,
+            playersPerTeam,
+            maxWickets,
+            allowLastManStanding,
+          });
+        } else if (playoffFormat === "DIRECT_TOP2") {
+          await createMatch({
+            tournamentId: tourneyId,
+            matchNumber: generatedFixtures.length + 1,
+            stage: "FINAL",
+            day: lastLeagueFix?.day || "SUNDAY",
+            date: lastLeagueFix?.date || startDate,
+            time: "Finals",
+            teamAId: null,
+            teamBId: null,
+            venue: venueName,
+            oversPerSide,
+            maxOverPerBowler: maxBowlerOvers,
+            playersPerTeam,
+            maxWickets,
+            allowLastManStanding,
+          });
+        }
       }
 
       return newTourney;

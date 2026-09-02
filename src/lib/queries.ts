@@ -53,6 +53,7 @@ import {
   getTournamentBattingStats,
   getTournamentBowlingStats,
   getTournamentSummaryStats,
+  recalculateStandings,
 } from "./tournament-logic";
 
 // ---------------------------------------------------------------------------
@@ -477,7 +478,7 @@ function hydrateMatch(
 
   if (!teamB) {
     if (isPlayoff) teamB = rank3Team;
-    else if (isFinal) teamB = playoffWinnerTeam;
+    else if (isFinal) teamB = playoffWinnerTeam ?? rank2Team;
   }
 
   return {
@@ -524,10 +525,10 @@ export async function getSchedule(idOrContext?: any): Promise<HydratedMatch[]> {
       .sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0));
 
     const playoffMatchRaw = matches.find(
-      (m) => m.stage === "PLAYOFF" || m.stage?.toUpperCase() === "PLAYOFF" || m.matchNumber === 10,
+      (m) => m.stage === "PLAYOFF" || m.stage?.toUpperCase() === "PLAYOFF",
     );
     const finalMatchRaw = matches.find(
-      (m) => m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL" || m.matchNumber === 11,
+      (m) => m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL",
     );
     const leagueMatchesRaw = matches.filter(
       (m) =>
@@ -544,6 +545,10 @@ export async function getSchedule(idOrContext?: any): Promise<HydratedMatch[]> {
           m.status === "NO_RESULT" ||
           m.status === "ABANDONED",
       );
+
+    if (allLeagueDone && !finalMatchRaw) {
+      recalculateStandings(tournamentId).catch(() => {});
+    }
 
     const rank1Team = allLeagueDone && standings[0]?.teamId ? teams.find((t) => t.id === standings[0].teamId) ?? null : null;
     const rank2Team = allLeagueDone && standings[1]?.teamId ? teams.find((t) => t.id === standings[1].teamId) ?? null : null;

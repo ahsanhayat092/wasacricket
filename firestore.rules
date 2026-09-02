@@ -232,7 +232,7 @@ service cloud.firestore {
         isSuperAdmin() ||
         (
           request.resource.data.tournamentId != null &&
-          isTournamentAdmin(request.resource.data.tournamentId)
+          (isTournamentAdmin(request.resource.data.tournamentId) || canScoreMatch(request.resource.data.tournamentId))
         ) ||
         (
           request.resource.data.teamAId != null &&
