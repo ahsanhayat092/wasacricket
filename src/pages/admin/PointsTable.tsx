@@ -58,7 +58,12 @@ export default function AdminPointsTable() {
         </Button>
       </div>
 
-      <StandingsTable rows={rows} playoffFormat={tournament?.playoffFormat} />
+      <StandingsTable
+        rows={rows}
+        playoffFormat={tournament?.playoffFormat}
+        stageFormat={tournament?.stageFormat}
+        teamsPerGroupAdvance={tournament?.teamsPerGroupAdvance}
+      />
 
       <div>
         <h2 className="text-lg font-semibold mb-2">Tie-break control</h2>

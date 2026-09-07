@@ -325,7 +325,13 @@ export default function Home() {
               Full table & NRR breakdown →
             </Link>
           </div>
-          <StandingsTable rows={standings} compact playoffFormat={tournament?.playoffFormat ?? contextTournament?.playoffFormat} />
+          <StandingsTable
+            rows={standings}
+            compact
+            playoffFormat={tournament?.playoffFormat ?? contextTournament?.playoffFormat}
+            stageFormat={tournament?.stageFormat ?? contextTournament?.stageFormat}
+            teamsPerGroupAdvance={tournament?.teamsPerGroupAdvance ?? contextTournament?.teamsPerGroupAdvance}
+          />
         </section>
 
         {/* Top performers */}

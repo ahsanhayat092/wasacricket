@@ -27,7 +27,7 @@ export function MatchCard({ match }: { match: HydratedMatch }) {
   const matchOvers = Number(match.oversPerSide) || 10;
   const quotaBalls = matchOvers * 6;
 
-  const stageLabel = stageBadgeText(match.stage, match.matchNumber);
+  const stageLabel = stageBadgeText(match.stage, match.matchNumber, (match as any).groupName);
   const placeholders = stageTeamPlaceholders(match.stage);
 
   const innings = match.innings ?? [];

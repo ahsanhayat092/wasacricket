@@ -1,0 +1,28 @@
+{
+  "name": "wasa-cricket-functions",
+  "version": "1.0.0",
+  "description": "Central Backend Brain for PitchPe / WasaCricket tournament orchestration and match synchronization",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.19",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.7"
+  },
+  "private": true
+}

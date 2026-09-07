@@ -117,10 +117,11 @@ export const FORMAT_PRESETS: Record<TournamentFormatType, FormatPresetConfig> = 
 
 export type GeneratedFixture = {
   matchNumber: number;
-  stage: "LEAGUE" | "PLAYOFF" | "FINAL";
+  stage: "LEAGUE" | "PLAYOFF" | "FINAL" | "QUALIFIER_1" | "ELIMINATOR" | "QUALIFIER_2" | "SEMI_1" | "SEMI_2";
+  groupName?: string | null;
   round: number;
-  teamAId: string;
-  teamBId: string;
+  teamAId: string | null;
+  teamBId: string | null;
   teamAName: string;
   teamBName: string;
   day: MatchDay;
@@ -275,3 +276,121 @@ export function generateTournamentSchedule(options: {
 
   return fixtures;
 }
+
+/**
+ * Generate grouped tournament schedule where teams only play within their group.
+ * Matches are interleaved across groups for fair scheduling and audience interest.
+ */
+export function generateGroupedTournamentSchedule(options: {
+  groups?: Record<string, Array<{ id: string; name: string }>>; // e.g. { "A": [...], "B": [...] }
+  teams?: Array<{ id: string; name: string; groupName?: string | null }>;
+  startDate: string; // ISO YYYY-MM-DD
+  dailyStartTime?: string; // e.g. "20:00" or "09:00"
+  matchDurationMinutes?: number; // e.g. 40
+  matchesPerDay?: number; // e.g. 4
+  venue?: string;
+  doubleRoundRobin?: boolean;
+}): GeneratedFixture[] {
+  const {
+    startDate,
+    dailyStartTime = "20:00",
+    matchDurationMinutes = 45,
+    matchesPerDay = 4,
+    venue = "Askari XI, Lahore",
+    doubleRoundRobin = false,
+  } = options;
+
+  let resolvedGroups = options.groups;
+  if (!resolvedGroups && options.teams) {
+    resolvedGroups = {};
+    for (const t of options.teams) {
+      const g = (t.groupName || "A").trim().toUpperCase();
+      if (!resolvedGroups[g]) resolvedGroups[g] = [];
+      resolvedGroups[g].push({ id: t.id, name: t.name });
+    }
+  }
+  if (!resolvedGroups) resolvedGroups = {};
+
+  const teamMap = new Map<string, string>();
+  const groupPairings: Array<{ groupName: string; round: number; home: string; away: string }> = [];
+
+  // 1. Generate pairings for each group
+  const groupKeys = Object.keys(resolvedGroups).sort();
+
+  for (const g of groupKeys) {
+    const groupTeams = resolvedGroups[g] || [];
+    for (const t of groupTeams) {
+      teamMap.set(t.id, t.name);
+    }
+    const pairs = generateRoundRobinPairings(
+      groupTeams.map((t) => t.id),
+      doubleRoundRobin,
+    );
+    for (const p of pairs) {
+      groupPairings.push({ groupName: g, round: p.round, home: p.home, away: p.away });
+    }
+  }
+
+  // 2. Interleave matches round by round across groups (Round 1 Group A, Round 1 Group B, etc.)
+  const interleavedPairings = [...groupPairings].sort((a, b) => {
+    if (a.round !== b.round) return a.round - b.round;
+    return a.groupName.localeCompare(b.groupName);
+  });
+
+  // 3. Assign calendar slots (dates, times, venues)
+  const fixtures: GeneratedFixture[] = [];
+  const baseDate = new Date(startDate);
+
+  let currentDayIndex = 0;
+  let matchesOnCurrentDay = 0;
+
+  for (let i = 0; i < interleavedPairings.length; i++) {
+    const pair = interleavedPairings[i];
+
+    if (matchesOnCurrentDay >= matchesPerDay) {
+      currentDayIndex++;
+      matchesOnCurrentDay = 0;
+    }
+
+    const matchDate = new Date(baseDate);
+    matchDate.setDate(baseDate.getDate() + currentDayIndex);
+
+    const dayName = DAY_NAMES[matchDate.getDay()];
+    const dateStr = matchDate.toISOString().split("T")[0];
+
+    const [startHourStr, startMinStr] = dailyStartTime.split(":");
+    const startHour = parseInt(startHourStr || "20", 10);
+    const startMin = parseInt(startMinStr || "0", 10);
+
+    const slotMinutes = matchesOnCurrentDay * matchDurationMinutes;
+    const matchTimeDate = new Date(matchDate);
+    matchTimeDate.setHours(startHour, startMin + slotMinutes, 0, 0);
+
+    const hours = matchTimeDate.getHours();
+    const minutes = matchTimeDate.getMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes < 10 ? `0${minutes}` : `${minutes}`;
+    const timeStr = `${displayHours}:${displayMinutes} ${ampm}`;
+
+    fixtures.push({
+      matchNumber: i + 1,
+      stage: "LEAGUE",
+      groupName: pair.groupName,
+      round: pair.round,
+      teamAId: pair.home,
+      teamBId: pair.away,
+      teamAName: teamMap.get(pair.home) ?? "Team A",
+      teamBName: teamMap.get(pair.away) ?? "Team B",
+      day: dayName,
+      date: dateStr,
+      time: timeStr,
+      venue,
+    });
+
+    matchesOnCurrentDay++;
+  }
+
+  return fixtures;
+}
+

@@ -111,6 +111,11 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
     noBallRuns: norm.noBallPenalty,
     freeHitEnabled: norm.freeHitOnNoBall,
     playoffFormat: input.playoffFormat ?? "DIRECT_TOP2",
+    stageFormat: input.stageFormat ?? "ROUND_ROBIN",
+    groupCount: input.groupCount ?? 2,
+    groups: input.groups ?? ["A", "B"],
+    teamsPerGroupAdvance: input.teamsPerGroupAdvance ?? 2,
+    groupPlayoffFormat: input.groupPlayoffFormat ?? "GROUP_SEMI_FINALS",
     scorerPin: input.scorerPin || null,
     venueName: input.venueName || "Askari XI, Lahore",
     venueMapsUrl: input.venueMapsUrl || null,
@@ -218,7 +223,7 @@ export async function upsertTeam(input: {
   tournamentId?: string;
   name: string;
   shortName: string;
-  groupName: "A" | "B";
+  groupName?: "A" | "B" | string;
   logoUrl?: string;
   ownerId?: string | null;
   ownerEmail?: string | null;
@@ -228,7 +233,7 @@ export async function upsertTeam(input: {
     tournamentId: tId,
     name: input.name,
     shortName: input.shortName,
-    groupName: input.groupName,
+    groupName: input.groupName || "A",
     logoUrl: input.logoUrl ?? null,
     updatedAt: now(),
   };
@@ -242,6 +247,10 @@ export async function upsertTeam(input: {
 
   if (input.id) {
     await updateDoc(teamDoc(input.id), data);
+    try {
+      const memDocRef = doc(tournamentTeamMembershipsCol(), `${tId}_${input.id}`);
+      await setDoc(memDocRef, { groupName: input.groupName || "A", updatedAt: now() }, { merge: true });
+    } catch {}
     await recalculateStandings(tId);
     return { id: input.id, ...data };
   }
@@ -337,7 +346,8 @@ export async function deletePlayer(playerId: string) {
 export async function createMatch(input: {
   tournamentId?: string;
   matchNumber: number;
-  stage: "LEAGUE" | "PLAYOFF" | "FINAL";
+  stage: Match["stage"];
+  groupName?: string | null;
   day: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   teamAId?: string | null;
   teamBId?: string | null;
@@ -391,6 +401,7 @@ export async function createMatch(input: {
     tournamentId: tId,
     matchNumber: input.matchNumber,
     stage: input.stage,
+    groupName: input.groupName ?? null,
     day: input.day,
     teamAId: input.teamAId ?? null,
     teamBId: input.teamBId ?? null,
@@ -1463,7 +1474,7 @@ export async function inviteTeamToTournament(input: {
   tournamentId: string;
   teamId: string;
   invitedBy: string;
-  groupName?: "A" | "B";
+  groupName?: "A" | "B" | string;
   notes?: string;
 }) {
   const membershipId = `${input.tournamentId}_${input.teamId}`;
@@ -1477,7 +1488,7 @@ export async function inviteTeamToTournament(input: {
     teamName: teamData?.name,
     teamShortName: teamData?.shortName,
     teamLogoUrl: teamData?.logoUrl,
-    groupName: input.groupName || "A",
+    groupName: (input.groupName as any) || "A",
     status: "INVITED",
     source: "ORGANIZER_INVITE",
     invitedBy: input.invitedBy.toLowerCase().trim(),
@@ -1496,7 +1507,7 @@ export async function inviteTeamToTournament(input: {
 export async function respondToTournamentRequest(input: {
   membershipId: string;
   status: "ACCEPTED" | "REJECTED";
-  groupName?: "A" | "B";
+  groupName?: "A" | "B" | string;
 }) {
   const memRef = tournamentTeamMembershipDoc(input.membershipId);
   const memSnap = await getDoc(memRef);
@@ -1789,3 +1800,93 @@ export async function updateChallengeSeriesScore(input: {
     updatedAt: now(),
   });
 }
+
+/**
+ * Updates a team's group assignment (Group A vs Group B) for a tournament.
+ */
+export async function updateTournamentTeamGroup(input: {
+  tournamentId: string;
+  teamId: string;
+  groupName: "A" | "B";
+}) {
+  const { tournamentId, teamId, groupName } = input;
+  const batch = writeBatch(db);
+
+  // 1. Update membership doc if exists or created
+  const membershipId = `${tournamentId}_${teamId}`;
+  const memRef = doc(tournamentTeamMembershipsCol(), membershipId);
+  batch.set(
+    memRef,
+    { tournamentId, teamId, groupName, updatedAt: now() },
+    { merge: true },
+  );
+
+  // 2. Update team doc groupName
+  const tRef = teamDoc(teamId);
+  batch.set(tRef, { groupName, updatedAt: now() }, { merge: true });
+
+  await batch.commit();
+  await recalculateStandings(tournamentId);
+  return { success: true, teamId, groupName };
+}
+
+/**
+ * Auto-balances participating teams evenly into Group A and Group B.
+ */
+export async function autoBalanceTournamentGroups(tournamentId: string) {
+  const [teamsSnap, memSnap] = await Promise.all([
+    getDocs(query(teamsCol(), where("tournamentId", "==", tournamentId))),
+    getDocs(query(tournamentTeamMembershipsCol(), where("tournamentId", "==", tournamentId))),
+  ]);
+
+  const teamIds = new Set<string>();
+  teamsSnap.docs.forEach((d) => teamIds.add(d.id));
+  memSnap.docs.forEach((d) => {
+    const data = d.data() as any;
+    if (data.teamId) teamIds.add(data.teamId);
+  });
+
+  const allTeamIds = Array.from(teamIds);
+  if (allTeamIds.length === 0) return { success: true, count: 0 };
+
+  const batch = writeBatch(db);
+  allTeamIds.forEach((id, idx) => {
+    const assignedGroup: "A" | "B" = idx % 2 === 0 ? "A" : "B";
+    const memRef = doc(tournamentTeamMembershipsCol(), `${tournamentId}_${id}`);
+    batch.set(
+      memRef,
+      { tournamentId, teamId: id, groupName: assignedGroup, updatedAt: now() },
+      { merge: true },
+    );
+    batch.set(teamDoc(id), { groupName: assignedGroup, updatedAt: now() }, { merge: true });
+  });
+
+  await batch.commit();
+  await recalculateStandings(tournamentId);
+  return { success: true, count: allTeamIds.length };
+}
+
+/**
+ * Changes tournament stage format between GROUPS_AND_KNOCKOUT and ROUND_ROBIN.
+ */
+export async function updateTournamentStageFormat(input: {
+  tournamentId: string;
+  stageFormat: "GROUPS_AND_KNOCKOUT" | "ROUND_ROBIN";
+}) {
+  const { tournamentId, stageFormat } = input;
+  const data: Record<string, any> = {
+    stageFormat,
+    updatedAt: now(),
+  };
+  if (stageFormat === "GROUPS_AND_KNOCKOUT") {
+    data.groupCount = 2;
+    data.groups = ["A", "B"];
+    data.teamsPerGroupAdvance = 2;
+    data.groupPlayoffFormat = "GROUP_SEMI_FINALS";
+    data.playoffFormat = "SEMI_FINALS";
+  }
+  await updateDoc(tournamentDoc(tournamentId), data);
+  await recalculateStandings(tournamentId);
+  return { success: true, stageFormat };
+}
+

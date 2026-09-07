@@ -29,6 +29,7 @@ import {
   standingsCol,
   standingDoc,
   playersCol,
+  tournamentTeamMembershipsCol,
   TOURNAMENT_ID,
   type Tournament,
   type Team,
@@ -53,10 +54,11 @@ import {
 // ---------------------------------------------------------------------------
 
 export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID) {
-  const [tournamentSnap, teamsSnap, matchesSnap] = await Promise.all([
+  const [tournamentSnap, teamsSnap, matchesSnap, membershipsSnap] = await Promise.all([
     getDoc(tournamentDoc(tournamentId)),
     getDocs(query(teamsCol(), where("tournamentId", "==", tournamentId))),
     getDocs(query(matchesCol(), where("tournamentId", "==", tournamentId))),
+    getDocs(query(tournamentTeamMembershipsCol(), where("tournamentId", "==", tournamentId))),
   ]);
 
   let tournament: Tournament;
@@ -85,6 +87,92 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
   const quotaBalls = (tournament.oversPerSide || 4) * 6;
 
   let rawTeams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
+
+  // Also include teams from tournament memberships (ACCEPTED or INVITED)
+  const memTeamIdsToFetch: {
+    teamId: string;
+    groupName?: string;
+    teamName?: string;
+    teamShortName?: string;
+    teamLogoUrl?: string | null;
+  }[] = [];
+  for (const mDoc of membershipsSnap.docs) {
+    const mData = mDoc.data() as any;
+    if (mData.teamId && !rawTeams.some((t) => t.id === mData.teamId)) {
+      memTeamIdsToFetch.push({
+        teamId: mData.teamId,
+        groupName: mData.groupName,
+        teamName: mData.teamName,
+        teamShortName: mData.teamShortName,
+        teamLogoUrl: mData.teamLogoUrl,
+      });
+    }
+  }
+
+  if (memTeamIdsToFetch.length > 0) {
+    const memFetches = memTeamIdsToFetch.map(async (item) => {
+      try {
+        const tSnap = await getDoc(teamDoc(item.teamId));
+        if (tSnap.exists()) {
+          const tData = { id: tSnap.id, ...tSnap.data() } as Team;
+          if (item.groupName) tData.groupName = item.groupName;
+          return tData;
+        } else if (item.teamName) {
+          return {
+            id: item.teamId,
+            tournamentId,
+            name: item.teamName,
+            shortName: item.teamShortName || item.teamName.slice(0, 3).toUpperCase(),
+            groupName: item.groupName || "A",
+            logoUrl: item.teamLogoUrl || null,
+            createdAt: now(),
+            updatedAt: now(),
+          } as Team;
+        }
+      } catch {}
+      return null;
+    });
+    const fetchedMemTeams = (await Promise.all(memFetches)).filter(
+      (t): t is Team => t !== null,
+    );
+    rawTeams.push(...fetchedMemTeams);
+  }
+
+  let allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
+  if (allMatches.length === 0 && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
+    const allM = await getDocs(matchesCol());
+    allMatches = allM.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as Match)
+      .filter((m) => !m.tournamentId || m.tournamentId === "main" || m.tournamentId === TOURNAMENT_ID);
+  }
+
+  // Also include any teams referenced in matches that might be missing
+  const matchTeamIds = Array.from(
+    new Set(
+      allMatches
+        .flatMap((m) => [m.teamAId, m.teamBId])
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const missingMatchTeamIds = matchTeamIds.filter(
+    (id) => !rawTeams.some((t) => t.id === id),
+  );
+  if (missingMatchTeamIds.length > 0) {
+    const matchFetches = missingMatchTeamIds.map(async (id) => {
+      try {
+        const snap = await getDoc(teamDoc(id));
+        if (snap.exists()) {
+          return { id: snap.id, ...snap.data() } as Team;
+        }
+      } catch {}
+      return null;
+    });
+    const fetchedMatchTeams = (await Promise.all(matchFetches)).filter(
+      (t): t is Team => t !== null,
+    );
+    rawTeams.push(...fetchedMatchTeams);
+  }
+
   if (rawTeams.length === 0 && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
     const allTeams = await getDocs(teamsCol());
     rawTeams = allTeams.docs
@@ -103,14 +191,6 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
       if (cleanName) seenTeamNames.add(cleanName);
       teams.push(t);
     }
-  }
-
-  let allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
-  if (allMatches.length === 0 && (tournamentId === TOURNAMENT_ID || tournamentId === "main")) {
-    const allM = await getDocs(matchesCol());
-    allMatches = allM.docs
-      .map((d) => ({ id: d.id, ...d.data() }) as Match)
-      .filter((m) => !m.tournamentId || m.tournamentId === "main" || m.tournamentId === TOURNAMENT_ID);
   }
   const leagueMatches = allMatches.filter((m) => m.stage === "LEAGUE");
 
@@ -281,24 +361,110 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
     }
   }
 
+  // Map groupName per team from memberships, teams, or match records
+  const groupNameByTeam = new Map<string, string>();
+  for (const d of membershipsSnap.docs) {
+    const data = d.data() as any;
+    if (data.teamId && data.groupName) {
+      groupNameByTeam.set(data.teamId, String(data.groupName).toUpperCase());
+    }
+  }
+  for (const t of teams) {
+    if (t.groupName && !groupNameByTeam.has(t.id)) {
+      groupNameByTeam.set(t.id, String(t.groupName).toUpperCase());
+    }
+  }
+  for (const d of matchesSnap.docs) {
+    const data = d.data() as any;
+    if (data.groupName) {
+      const g = String(data.groupName).toUpperCase();
+      if (data.teamAId && !groupNameByTeam.has(data.teamAId)) {
+        groupNameByTeam.set(data.teamAId, g);
+      }
+      if (data.teamBId && !groupNameByTeam.has(data.teamBId)) {
+        groupNameByTeam.set(data.teamBId, g);
+      }
+    }
+  }
+
   const rows = teams.map((t) => {
     const a = agg.get(t.id)!;
+    const gName = groupNameByTeam.get(t.id) || t.groupName || null;
     return {
       teamId: t.id,
       teamName: t.name,
+      groupName: gName,
       ...a,
       nrr: computeNrr(a),
       adminTiebreak: tiebreakByTeam.get(t.id) ?? 0,
+      position: 1,
     };
   });
 
-  rows.sort(
-    (x, y) =>
-      y.points - x.points ||
-      y.nrr - x.nrr ||
-      y.adminTiebreak - x.adminTiebreak ||
-      x.teamName.localeCompare(y.teamName),
-  );
+  const distinctGroups = Array.from(
+    new Set(rows.map((r) => r.groupName).filter((g): g is string => Boolean(g))),
+  ).sort();
+
+  const hasGroups =
+    tournament.stageFormat === "GROUPS_AND_KNOCKOUT" ||
+    (tournament.groupCount && tournament.groupCount > 1) ||
+    distinctGroups.length >= 2;
+
+  if (hasGroups) {
+    for (const r of rows) {
+      if (!r.groupName) r.groupName = "A";
+    }
+    const gSet = new Set(rows.map((r) => r.groupName).filter((g): g is string => Boolean(g)));
+    if (!gSet.has("A")) gSet.add("A");
+    if (!gSet.has("B")) gSet.add("B");
+    distinctGroups.splice(0, distinctGroups.length, ...Array.from(gSet).sort());
+  }
+
+  const finalRows: typeof rows = [];
+
+  if (hasGroups && distinctGroups.length > 0) {
+    for (const g of distinctGroups) {
+      const gRows = rows.filter((r) => r.groupName === g);
+      gRows.sort(
+        (x, y) =>
+          y.points - x.points ||
+          y.nrr - x.nrr ||
+          y.adminTiebreak - x.adminTiebreak ||
+          x.teamName.localeCompare(y.teamName),
+      );
+      gRows.forEach((r, idx) => {
+        r.position = idx + 1;
+        finalRows.push(r);
+      });
+    }
+
+    const ungrouped = rows.filter((r) => !r.groupName);
+    if (ungrouped.length > 0) {
+      ungrouped.sort(
+        (x, y) =>
+          y.points - x.points ||
+          y.nrr - x.nrr ||
+          y.adminTiebreak - x.adminTiebreak ||
+          x.teamName.localeCompare(y.teamName),
+      );
+      ungrouped.forEach((r, idx) => {
+        r.position = idx + 1;
+        finalRows.push(r);
+      });
+    }
+  } else {
+    rows.sort(
+      (x, y) =>
+        y.points - x.points ||
+        y.nrr - x.nrr ||
+        y.adminTiebreak - x.adminTiebreak ||
+        x.teamName.localeCompare(y.teamName),
+    );
+    rows.forEach((r, idx) => {
+      r.position = idx + 1;
+      finalRows.push(r);
+    });
+  }
 
   const allLeagueMatchesCompleted =
     leagueMatches.length > 0 &&
@@ -316,9 +482,9 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
       m.stage?.toUpperCase() === "PLAYOFF",
   );
 
-  const currentPointsMap = new Map<string, number>(rows.map((r) => [r.teamId, r.points]));
-  const currentPositionsMap = new Map<string, number>(rows.map((r, idx) => [r.teamId, idx + 1]));
-  const currentNrrMap = new Map<string, number>(rows.map((r) => [r.teamId, r.nrr]));
+  const currentPointsMap = new Map<string, number>(finalRows.map((r) => [r.teamId, r.points]));
+  const currentPositionsMap = new Map<string, number>(finalRows.map((r) => [r.teamId, r.position]));
+  const currentNrrMap = new Map<string, number>(finalRows.map((r) => [r.teamId, r.nrr]));
 
   const scenarioResults = calculateScenarioQualifications(
     teams,
@@ -333,24 +499,50 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
 
   const batch = writeBatch(db);
   const activeDocIds = new Set<string>();
+  const teamsAdvance = tournament.teamsPerGroupAdvance ?? (tournament.groupPlayoffFormat === "GROUP_DIRECT_FINAL" ? 1 : 2);
 
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
+  for (let i = 0; i < finalRows.length; i++) {
+    const r = finalRows[i];
     const docId = tournamentId === TOURNAMENT_ID ? r.teamId : `${tournamentId}_${r.teamId}`;
     activeDocIds.add(docId);
     const standingRef = doc(standingsCol(), docId);
-    const scenario = scenarioResults.get(r.teamId);
 
-    const qualificationStatus = scenario?.qualificationStatus ?? "IN_CONTENTION";
-    const isQualified =
-      qualificationStatus === "QUALIFIED_FINAL" ||
-      qualificationStatus === "QUALIFIED_PLAYOFF" ||
-      qualificationStatus === "QUALIFIED_TOP3";
+    let qualificationStatus: QualificationStatusType = "IN_CONTENTION";
+    let isQualified = false;
+    let isEliminated = false;
+
+    if (hasGroups) {
+      if (allLeagueMatchesCompleted) {
+        if (r.position <= teamsAdvance) {
+          qualificationStatus = teamsAdvance === 1 ? "QUALIFIED_FINAL" : "QUALIFIED_PLAYOFF";
+          isQualified = true;
+        } else {
+          qualificationStatus = "ELIMINATED";
+          isEliminated = true;
+        }
+      } else {
+        if (r.position <= teamsAdvance) {
+          qualificationStatus = teamsAdvance === 1 ? "QUALIFIED_FINAL" : "QUALIFIED_PLAYOFF";
+        } else {
+          qualificationStatus = "IN_CONTENTION";
+        }
+      }
+    } else {
+      const scenario = scenarioResults.get(r.teamId);
+      qualificationStatus = scenario?.qualificationStatus ?? "IN_CONTENTION";
+      isQualified =
+        qualificationStatus === "QUALIFIED_FINAL" ||
+        qualificationStatus === "QUALIFIED_PLAYOFF" ||
+        qualificationStatus === "QUALIFIED_TOP3";
+      isEliminated = scenario?.eliminated ?? false;
+    }
 
     batch.set(standingRef, {
       tournamentId,
       teamId: r.teamId,
-      position: i + 1,
+      teamName: r.teamName,
+      groupName: r.groupName || null,
+      position: r.position,
       played: r.played,
       won: r.won,
       lost: r.lost,
@@ -366,11 +558,11 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
       adminTiebreak: r.adminTiebreak,
       qualified: isQualified,
       qualificationStatus,
-      canReachTop3: scenario?.canReachTop3 ?? true,
-      guaranteedTop3: scenario?.guaranteedTop3 ?? false,
-      canReachRank1: scenario?.canReachRank1 ?? true,
-      guaranteedRank1: scenario?.guaranteedRank1 ?? false,
-      eliminated: scenario?.eliminated ?? false,
+      canReachTop3: scenarioResults.get(r.teamId)?.canReachTop3 ?? true,
+      guaranteedTop3: isQualified,
+      canReachRank1: r.position === 1,
+      guaranteedRank1: r.position === 1 && isQualified,
+      eliminated: isEliminated,
       updatedAt: now(),
     });
   }
@@ -384,8 +576,8 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
 
   await batch.commit();
 
-  await maybeGeneratePlayoffAndFinalFixtures(allMatches, rows, tournament);
-  return rows;
+  await maybeGeneratePlayoffAndFinalFixtures(allMatches, finalRows, tournament);
+  return finalRows;
 }
 
 // ---------------------------------------------------------------------------
@@ -675,7 +867,7 @@ export function calculateScenarioQualifications(
 
 export async function syncKnockoutFixtures(
   allMatches: Match[],
-  sortedRows: { teamId: string }[],
+  sortedRows: { teamId: string; groupName?: string | null; position?: number }[],
   tournament?: Tournament,
 ) {
   if (!sortedRows || sortedRows.length < 2) return;
@@ -804,6 +996,45 @@ export async function syncKnockoutFixtures(
     } as Match;
     allMatches.push(newMatch);
     return newMatch;
+  }
+
+  // Check if this is a group tournament (FIFA World Cup / ICC T20 WC style)
+  const isGroupTournament =
+    tournament?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
+    (tournament?.groupCount && tournament.groupCount > 1) ||
+    sortedRows.some((r) => !!r.groupName);
+
+  if (isGroupTournament) {
+    const groupA = sortedRows
+      .filter((r) => (r.groupName || "").toUpperCase() === "A")
+      .sort((a, b) => (a.position ?? 1) - (b.position ?? 1));
+    const groupB = sortedRows
+      .filter((r) => (r.groupName || "").toUpperCase() === "B")
+      .sort((a, b) => (a.position ?? 1) - (b.position ?? 1));
+
+    const a1Id = groupA[0]?.teamId ?? null;
+    const a2Id = groupA[1]?.teamId ?? null;
+    const b1Id = groupB[0]?.teamId ?? null;
+    const b2Id = groupB[1]?.teamId ?? null;
+
+    const isDirectFinal =
+      tournament?.groupPlayoffFormat === "GROUP_DIRECT_FINAL" ||
+      tournament?.teamsPerGroupAdvance === 1;
+
+    if (isDirectFinal) {
+      await ensureKnockoutFixture("FINAL", a1Id, b1Id, "SUNDAY", "8:00 PM");
+      return;
+    }
+
+    // Default World Cup format: Semi 1 (A1 vs B2), Semi 2 (B1 vs A2), Final (Winner SF1 vs Winner SF2)
+    const sf1 = await ensureKnockoutFixture("SEMI_1", a1Id, b2Id, "SATURDAY", "4:00 PM");
+    const sf2 = await ensureKnockoutFixture("SEMI_2", b1Id, a2Id, "SATURDAY", "8:00 PM");
+
+    const sf1WinnerId = sf1.status === "COMPLETED" && sf1.winningTeamId ? sf1.winningTeamId : null;
+    const sf2WinnerId = sf2.status === "COMPLETED" && sf2.winningTeamId ? sf2.winningTeamId : null;
+
+    await ensureKnockoutFixture("FINAL", sf1WinnerId, sf2WinnerId, "SUNDAY", "8:00 PM");
+    return;
   }
 
   const rank1Id = sortedRows[0]?.teamId ?? null;

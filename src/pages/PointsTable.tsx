@@ -14,8 +14,14 @@ export default function PointsTable() {
     refetchInterval: 20000,
   });
 
-  const subtitleText =
-    format === "DIRECT_TOP2"
+  const isGrouped =
+    tournament?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
+    (rows && new Set(rows.map((r) => r.groupName || r.team?.groupName).filter(Boolean)).size >= 2);
+  const teamsAdvance = tournament?.teamsPerGroupAdvance ?? (tournament?.groupPlayoffFormat === "GROUP_DIRECT_FINAL" ? 1 : 2);
+
+  const subtitleText = isGrouped
+    ? `Group Stage Format: Teams compete within their assigned groups. Top ${teamsAdvance} from each group advance to the ${teamsAdvance === 1 ? "Grand Final" : "Semi-Finals (A1 vs B2, B1 vs A2)"}.`
+    : format === "DIRECT_TOP2"
       ? "Top 2 teams qualify directly for the Grand Final. Remaining teams are eliminated."
       : format === "PAGE_PLAYOFF_TOP3"
         ? "Rank 1 qualifies for the Grand Final. Rank 2 and Rank 3 play in the Playoff match."
@@ -36,7 +42,12 @@ export default function PointsTable() {
         <Skeleton className="h-72 w-full" />
       ) : (
         <>
-          <StandingsTable rows={rows} playoffFormat={format} />
+          <StandingsTable
+            rows={rows}
+            playoffFormat={format}
+            stageFormat={tournament?.stageFormat}
+            teamsPerGroupAdvance={tournament?.teamsPerGroupAdvance}
+          />
           
           <NRRExplanation />
         </>

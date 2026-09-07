@@ -5,6 +5,9 @@ import {
   upsertTeam,
   respondToTournamentRequest,
   inviteTeamToTournament,
+  updateTournamentTeamGroup,
+  autoBalanceTournamentGroups,
+  updateTournamentStageFormat,
 } from "@/lib/mutations";
 import { useTournament } from "@/context/TournamentContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -158,6 +161,51 @@ export default function AdminTeams() {
     onError: (e: any) => toast.error(e?.message || "Failed to send invitation."),
   });
 
+  // Group toggle mutation
+  const groupMutation = useMutation({
+    mutationFn: (args: { teamId: string; groupName: "A" | "B" }) =>
+      updateTournamentTeamGroup({
+        tournamentId,
+        teamId: args.teamId,
+        groupName: args.groupName,
+      }),
+    onSuccess: (_, vars) => {
+      toast.success(`Assigned team to Group ${vars.groupName}`);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message || "Failed to change team group."),
+  });
+
+  // Auto-balance groups mutation
+  const autoBalanceMutation = useMutation({
+    mutationFn: () => autoBalanceTournamentGroups(tournamentId),
+    onSuccess: (res) => {
+      toast.success(`Balanced ${res.count} teams across Group A & Group B`);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message || "Failed to auto-balance groups."),
+  });
+
+  // Stage format mutation
+  const formatMutation = useMutation({
+    mutationFn: (stageFormat: "GROUPS_AND_KNOCKOUT" | "ROUND_ROBIN") =>
+      updateTournamentStageFormat({ tournamentId, stageFormat }),
+    onSuccess: (_, stageFormat) => {
+      toast.success(
+        stageFormat === "GROUPS_AND_KNOCKOUT"
+          ? "Format set to Groups (Group A & Group B) + Knockout"
+          : "Format set to Single Table Round Robin",
+      );
+      queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message || "Failed to change format."),
+  });
+
+  const isGroupStage =
+    tournament?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
+    (teams && new Set(teams.map((t) => t.groupName)).size >= 2);
+
   const pendingRequests = memberships.filter((m) => m.source === "TEAM_REQUEST" && m.status === "PENDING");
   const sentInvitations = memberships.filter((m) => m.source === "ORGANIZER_INVITE" && m.status === "INVITED");
 
@@ -255,103 +303,192 @@ export default function AdminTeams() {
 
       {/* Tab 1: Participating Teams Table */}
       {activeTab === "PARTICIPATING" && (
-        <div className="rounded-xl border shadow-sm overflow-x-auto bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Team</TableHead>
-                <TableHead>Short</TableHead>
-                <TableHead>Group</TableHead>
-                <TableHead>Team Captain</TableHead>
-                <TableHead>Squad Size</TableHead>
-                <TableHead className="w-28 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading &&
-                Array.from({ length: 4 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={6}>Loading…</TableCell>
-                  </TableRow>
-                ))}
-              {teams?.map((t) => {
-                const teamPlayers = (players ?? []).filter((p) => p.teamId === t.id);
-                const captain = teamPlayers.find((p) => p.isCaptain || p.designation === "Captain");
+        <div className="space-y-4">
+          {/* Format & Group Distribution Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-muted/20 border rounded-xl shadow-xs">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-muted-foreground">Format:</span>
+                <div className="flex items-center bg-muted/60 p-0.5 rounded-lg border text-xs">
+                  <button
+                    type="button"
+                    onClick={() => formatMutation.mutate("GROUPS_AND_KNOCKOUT")}
+                    disabled={formatMutation.isPending}
+                    className={`px-2.5 py-1 rounded font-bold transition-all ${
+                      isGroupStage
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    🏆 Groups + Knockouts
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => formatMutation.mutate("ROUND_ROBIN")}
+                    disabled={formatMutation.isPending}
+                    className={`px-2.5 py-1 rounded font-bold transition-all ${
+                      !isGroupStage
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Single Table
+                  </button>
+                </div>
+              </div>
 
-                return (
-                  <TableRow key={t.id} className="hover:bg-muted/40">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <TeamBadge shortName={t.shortName} logoUrl={t.logoUrl} size="sm" />
-                        <div>
-                          <span className="font-bold text-xs">{t.name}</span>
-                          {t.ownerEmail && (
-                            <p className="text-[10px] text-muted-foreground">Manager: {t.ownerEmail}</p>
-                          )}
+              {isGroupStage && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Badge variant="outline" className="text-blue-500 border-blue-500/30 bg-blue-500/5 font-bold">
+                    Group A: {teams?.filter((t) => (t.groupName || "A") === "A").length || 0} teams
+                  </Badge>
+                  <Badge variant="outline" className="text-purple-500 border-purple-500/30 bg-purple-500/5 font-bold">
+                    Group B: {teams?.filter((t) => t.groupName === "B").length || 0} teams
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            {isGroupStage && (teams?.length || 0) >= 2 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={autoBalanceMutation.isPending}
+                onClick={() => autoBalanceMutation.mutate()}
+                className="text-xs h-8 font-bold gap-1.5 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+              >
+                ⚖️ Auto-Balance Groups (A / B)
+              </Button>
+            )}
+          </div>
+
+          <div className="rounded-xl border shadow-sm overflow-x-auto bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Team</TableHead>
+                  <TableHead>Short</TableHead>
+                  <TableHead>{isGroupStage ? "Assigned Group" : "Group"}</TableHead>
+                  <TableHead>Team Captain</TableHead>
+                  <TableHead>Squad Size</TableHead>
+                  <TableHead className="w-28 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading &&
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell colSpan={6}>Loading…</TableCell>
+                    </TableRow>
+                  ))}
+                {teams?.map((t) => {
+                  const teamPlayers = (players ?? []).filter((p) => p.teamId === t.id);
+                  const captain = teamPlayers.find((p) => p.isCaptain || p.designation === "Captain");
+                  const currentGroup = (t.groupName || "A").trim().toUpperCase();
+
+                  return (
+                    <TableRow key={t.id} className="hover:bg-muted/40">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <TeamBadge shortName={t.shortName} logoUrl={t.logoUrl} size="sm" />
+                          <div>
+                            <span className="font-bold text-xs">{t.name}</span>
+                            {t.ownerEmail && (
+                              <p className="text-[10px] text-muted-foreground">Manager: {t.ownerEmail}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono font-bold text-xs">{t.shortName}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">Group {t.groupName || "A"}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {captain ? (
-                        <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
-                          <Crown className="h-3.5 w-3.5" />
-                          {captain.name}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">
-                          Not assigned yet
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Link
-                        to={`/admin/players?team=${t.id}`}
-                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-bold"
-                      >
-                        <Users className="h-3.5 w-3.5" />
-                        {teamPlayers.length} players
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-right space-x-1.5">
-                      <Link to={`/admin/players?team=${t.id}&add=true`}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs font-bold border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 gap-1"
-                          title="Add player to this team squad"
+                      </TableCell>
+                      <TableCell className="font-mono font-bold text-xs">{t.shortName}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border w-fit">
+                          <button
+                            type="button"
+                            onClick={() => groupMutation.mutate({ teamId: t.id, groupName: "A" })}
+                            disabled={groupMutation.isPending}
+                            className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                              currentGroup === "A"
+                                ? "bg-blue-600 text-white shadow-xs"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                            title="Assign this team to Group A"
+                          >
+                            Grp A
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => groupMutation.mutate({ teamId: t.id, groupName: "B" })}
+                            disabled={groupMutation.isPending}
+                            className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                              currentGroup === "B"
+                                ? "bg-purple-600 text-white shadow-xs"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                            title="Assign this team to Group B"
+                          >
+                            Grp B
+                          </button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {captain ? (
+                          <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                            <Crown className="h-3.5 w-3.5" />
+                            {captain.name}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">
+                            Not assigned yet
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Link
+                          to={`/admin/players?team=${t.id}`}
+                          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-bold"
                         >
-                          <Plus className="h-3.5 w-3.5" />
-                          <span>Add</span>
+                          <Users className="h-3.5 w-3.5" />
+                          {teamPlayers.length} players
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right space-x-1.5">
+                        <Link to={`/admin/players?team=${t.id}&add=true`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs font-bold border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 gap-1"
+                            title="Add player to this team squad"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Add</span>
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setForm({
+                              id: t.id,
+                              name: t.name,
+                              shortName: t.shortName,
+                              groupName: (t.groupName as any) || "A",
+                              logoUrl: t.logoUrl ?? "",
+                            });
+                            setOpen(true);
+                          }}
+                          className="h-8 w-8"
+                          title="Edit team details"
+                        >
+                          <Pencil className="h-4 w-4" />
                         </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setForm({
-                            id: t.id,
-                            name: t.name,
-                            shortName: t.shortName,
-                            groupName: t.groupName || "A",
-                            logoUrl: t.logoUrl ?? "",
-                          });
-                          setOpen(true);
-                        }}
-                        className="h-8 w-8"
-                        title="Edit team details"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

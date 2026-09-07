@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import {
   FORMAT_PRESETS,
   generateTournamentSchedule,
+  generateGroupedTournamentSchedule,
   type FormatPresetConfig,
 } from "@/lib/fixture-generator";
 import {
@@ -46,7 +47,14 @@ import {
   CANONICAL_PRESETS,
   type MatchRules,
 } from "@/lib/match-rules-guardrails";
-import type { TournamentFormatType, PlayoffFormatType, MatchDay, Team } from "@/lib/firestore";
+import type {
+  TournamentFormatType,
+  PlayoffFormatType,
+  TournamentStageFormat,
+  GroupPlayoffFormatType,
+  MatchDay,
+  Team,
+} from "@/lib/firestore";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useTournament } from "@/context/TournamentContext";
@@ -66,6 +74,7 @@ type WizardTeamItem = {
   color: string;
   logoUrl?: string | null;
   isExisting?: boolean;
+  groupName?: string;
 };
 
 export default function TournamentWizard() {
@@ -98,7 +107,9 @@ export default function TournamentWizard() {
   const [noBallRuns, setNoBallRuns] = useState<number>(1);
   const [freeHitEnabled, setFreeHitEnabled] = useState<boolean>(true);
 
-  // Step 3: Playoff Format
+  // Step 3: Stage & Playoff / Knockout Structure
+  const [stageFormat, setStageFormat] = useState<TournamentStageFormat>("ROUND_ROBIN");
+  const [groupPlayoffFormat, setGroupPlayoffFormat] = useState<GroupPlayoffFormatType>("GROUP_SEMI_FINALS");
   const [playoffFormat, setPlayoffFormat] = useState<PlayoffFormatType>("DIRECT_TOP2");
 
   // Step 4: Teams (No dummy teams by default)
@@ -300,6 +311,10 @@ export default function TournamentWizard() {
     const colors = ["#3b82f6", "#10b981", "#f97316", "#a855f7", "#ec4899", "#eab308"];
     const randomColor = colors[teams.length % colors.length];
 
+    const currentA = teams.filter((t) => (t.groupName || "A") === "A").length;
+    const currentB = teams.filter((t) => t.groupName === "B").length;
+    const assignedGroup = currentA <= currentB ? "A" : "B";
+
     setTeams([
       ...teams,
       {
@@ -309,10 +324,11 @@ export default function TournamentWizard() {
         color: randomColor,
         logoUrl: found.logoUrl || null,
         isExisting: true,
+        groupName: assignedGroup,
       },
     ]);
     setSelectedExistingTeamId("");
-    toast.success(`Added "${found.name}" to tournament invite list!`);
+    toast.success(`Added "${found.name}" to tournament invite list (Group ${assignedGroup})!`);
   };
 
   // Add custom new team
@@ -325,6 +341,10 @@ export default function TournamentWizard() {
     const colors = ["#3b82f6", "#10b981", "#f97316", "#a855f7", "#ec4899", "#eab308"];
     const randomColor = colors[teams.length % colors.length];
 
+    const currentA = teams.filter((t) => (t.groupName || "A") === "A").length;
+    const currentB = teams.filter((t) => t.groupName === "B").length;
+    const assignedGroup = currentA <= currentB ? "A" : "B";
+
     setTeams([
       ...teams,
       {
@@ -332,10 +352,26 @@ export default function TournamentWizard() {
         shortName: sName,
         color: randomColor,
         isExisting: false,
+        groupName: assignedGroup,
       },
     ]);
     setNewTeamName("");
     setNewTeamShortName("");
+    toast.success(`Added "${newTeamName.trim()}" to Group ${assignedGroup}!`);
+  };
+
+  const handleAutoBalanceGroups = () => {
+    setTeams(
+      teams.map((t, idx) => ({
+        ...t,
+        groupName: idx % 2 === 0 ? "A" : "B",
+      }))
+    );
+    toast.success("Teams balanced evenly across Group A and Group B.");
+  };
+
+  const handleSetTeamGroup = (index: number, group: string) => {
+    setTeams(teams.map((t, idx) => (idx === index ? { ...t, groupName: group } : t)));
   };
 
   const handleRemoveTeam = (index: number) => {
@@ -360,7 +396,14 @@ export default function TournamentWizard() {
         wideRuns,
         noBallRuns,
         freeHitEnabled,
-        playoffFormat,
+        stageFormat,
+        groupCount: stageFormat === "GROUPS_AND_KNOCKOUT" ? 2 : undefined,
+        groups: stageFormat === "GROUPS_AND_KNOCKOUT" ? ["A", "B"] : undefined,
+        teamsPerGroupAdvance: stageFormat === "GROUPS_AND_KNOCKOUT" ? (groupPlayoffFormat === "GROUP_SEMI_FINALS" ? 2 : 1) : undefined,
+        groupPlayoffFormat: stageFormat === "GROUPS_AND_KNOCKOUT" ? groupPlayoffFormat : undefined,
+        playoffFormat: stageFormat === "GROUPS_AND_KNOCKOUT"
+          ? (groupPlayoffFormat === "GROUP_SEMI_FINALS" ? "SEMI_FINALS" : "DIRECT_TOP2")
+          : playoffFormat,
         scorerPin: scorerPin.trim() || "1234",
         venueName: venueName.trim(),
         venueMapsUrl: venueMapsUrl.trim() || null,
@@ -376,235 +419,343 @@ export default function TournamentWizard() {
       const tourneyId = newTourney.id;
 
       // 2. Process Invited & Participating Teams
-      const createdTeamsForSchedule: Array<{ id: string; name: string }> = [];
+      const createdTeamsForSchedule: Array<{ id: string; name: string; groupName?: string }> = [];
 
       for (let i = 0; i < teams.length; i++) {
         const t = teams[i];
-        const groupName: "A" | "B" = i < Math.ceil(teams.length / 2) ? "A" : "B";
+        const assignedGroup: "A" | "B" = (t.groupName as "A" | "B") || (i < Math.ceil(teams.length / 2) ? "A" : "B");
 
         if (t.isExisting && t.teamId) {
           // Send decoupled invitation membership to existing registered team
           await inviteTeamToTournament({
             tournamentId: tourneyId,
             teamId: t.teamId,
-            groupName,
+            groupName: assignedGroup,
             invitedBy: user?.email || "Organizer",
           });
-          createdTeamsForSchedule.push({ id: t.teamId, name: t.name });
+          createdTeamsForSchedule.push({ id: t.teamId, name: t.name, groupName: assignedGroup });
         } else {
           // Create custom team document and membership invite with organizer as owner
           const savedTeam = await upsertTeam({
             tournamentId: tourneyId,
             name: t.name,
             shortName: t.shortName,
-            groupName,
+            groupName: assignedGroup,
             ownerId: user?.uid || null,
             ownerEmail: user?.email ? user.email.toLowerCase().trim() : null,
           });
           await inviteTeamToTournament({
             tournamentId: tourneyId,
             teamId: savedTeam.id,
-            groupName,
+            groupName: assignedGroup,
             invitedBy: user?.email || "Organizer",
           });
-          createdTeamsForSchedule.push({ id: savedTeam.id, name: t.name });
+          createdTeamsForSchedule.push({ id: savedTeam.id, name: t.name, groupName: assignedGroup });
         }
       }
 
       // 3. If 2 or more teams are present, generate initial schedule fixtures
       if (createdTeamsForSchedule.length >= 2) {
-        const generatedFixtures = generateTournamentSchedule({
-          teams: createdTeamsForSchedule,
-          startDate,
-          dailyStartTime,
-          matchDurationMinutes: matchDuration,
-          matchesPerDay,
-          venue: venueName,
-          doubleRoundRobin,
-        });
-
-        for (const fix of generatedFixtures) {
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: fix.matchNumber,
-            stage: fix.stage,
-            day: fix.day,
-            date: fix.date,
-            time: fix.time,
-            teamAId: fix.teamAId,
-            teamBId: fix.teamBId,
-            venue: fix.venue,
-            oversPerSide,
-          });
-        }
-
-        const lastLeagueFix = generatedFixtures[generatedFixtures.length - 1];
         const maxBowlerOvers = oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5);
 
-        if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 1,
-            stage: "PLAYOFF",
-            day: lastLeagueFix?.day || "SATURDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "6:00 PM",
-            teamAId: null,
-            teamBId: null,
+        if (stageFormat === "GROUPS_AND_KNOCKOUT") {
+          const generatedFixtures = generateGroupedTournamentSchedule({
+            teams: createdTeamsForSchedule.map((t) => ({
+              id: t.id,
+              name: t.name,
+              groupName: t.groupName || "A",
+            })),
+            startDate,
+            dailyStartTime,
+            matchDurationMinutes: matchDuration,
+            matchesPerDay,
             venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
+            doubleRoundRobin,
           });
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 2,
-            stage: "FINAL",
-            day: lastLeagueFix?.day || "SUNDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "8:00 PM",
-            teamAId: null,
-            teamBId: null,
+
+          for (const fix of generatedFixtures) {
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: fix.matchNumber,
+              stage: fix.stage,
+              groupName: fix.groupName,
+              day: fix.day,
+              date: fix.date,
+              time: fix.time,
+              teamAId: fix.teamAId,
+              teamBId: fix.teamBId,
+              venue: fix.venue,
+              oversPerSide,
+            });
+          }
+
+          const lastLeagueFix = generatedFixtures[generatedFixtures.length - 1];
+
+          if (groupPlayoffFormat === "GROUP_SEMI_FINALS") {
+            // Semi-Final 1 (A1 vs B2)
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 1,
+              stage: "SEMI_1",
+              day: lastLeagueFix?.day || "SATURDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "4:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+            // Semi-Final 2 (B1 vs A2)
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 2,
+              stage: "SEMI_2",
+              day: lastLeagueFix?.day || "SATURDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+            // Grand Final (Winner SF1 vs Winner SF2)
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 3,
+              stage: "FINAL",
+              day: lastLeagueFix?.day || "SUNDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+          } else {
+            // Direct Grand Final (A1 vs B1)
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 1,
+              stage: "FINAL",
+              day: lastLeagueFix?.day || "SUNDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+          }
+        } else {
+          // Standard Single Table Schedule Generation
+          const generatedFixtures = generateTournamentSchedule({
+            teams: createdTeamsForSchedule,
+            startDate,
+            dailyStartTime,
+            matchDurationMinutes: matchDuration,
+            matchesPerDay,
             venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
+            doubleRoundRobin,
           });
-        } else if (playoffFormat === "IPL_TOP4") {
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 1,
-            stage: "QUALIFIER_1",
-            day: lastLeagueFix?.day || "FRIDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "8:00 PM",
-            teamAId: null,
-            teamBId: null,
-            venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
-          });
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 2,
-            stage: "ELIMINATOR",
-            day: lastLeagueFix?.day || "SATURDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "4:00 PM",
-            teamAId: null,
-            teamBId: null,
-            venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
-          });
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 3,
-            stage: "QUALIFIER_2",
-            day: lastLeagueFix?.day || "SATURDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "8:00 PM",
-            teamAId: null,
-            teamBId: null,
-            venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
-          });
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 4,
-            stage: "FINAL",
-            day: lastLeagueFix?.day || "SUNDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "8:00 PM",
-            teamAId: null,
-            teamBId: null,
-            venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
-          });
-        } else if (playoffFormat === "SEMI_FINALS") {
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 1,
-            stage: "SEMI_1",
-            day: lastLeagueFix?.day || "SATURDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "4:00 PM",
-            teamAId: null,
-            teamBId: null,
-            venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
-          });
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 2,
-            stage: "SEMI_2",
-            day: lastLeagueFix?.day || "SATURDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "8:00 PM",
-            teamAId: null,
-            teamBId: null,
-            venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
-          });
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 3,
-            stage: "FINAL",
-            day: lastLeagueFix?.day || "SUNDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "8:00 PM",
-            teamAId: null,
-            teamBId: null,
-            venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
-          });
-        } else if (playoffFormat === "DIRECT_TOP2") {
-          await createMatch({
-            tournamentId: tourneyId,
-            matchNumber: generatedFixtures.length + 1,
-            stage: "FINAL",
-            day: lastLeagueFix?.day || "SUNDAY",
-            date: lastLeagueFix?.date || startDate,
-            time: "Finals",
-            teamAId: null,
-            teamBId: null,
-            venue: venueName,
-            oversPerSide,
-            maxOverPerBowler: maxBowlerOvers,
-            playersPerTeam,
-            maxWickets,
-            allowLastManStanding,
-          });
+
+          for (const fix of generatedFixtures) {
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: fix.matchNumber,
+              stage: fix.stage,
+              day: fix.day,
+              date: fix.date,
+              time: fix.time,
+              teamAId: fix.teamAId,
+              teamBId: fix.teamBId,
+              venue: fix.venue,
+              oversPerSide,
+            });
+          }
+
+          const lastLeagueFix = generatedFixtures[generatedFixtures.length - 1];
+
+          if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 1,
+              stage: "PLAYOFF",
+              day: lastLeagueFix?.day || "SATURDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "6:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 2,
+              stage: "FINAL",
+              day: lastLeagueFix?.day || "SUNDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+          } else if (playoffFormat === "IPL_TOP4") {
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 1,
+              stage: "QUALIFIER_1",
+              day: lastLeagueFix?.day || "FRIDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 2,
+              stage: "ELIMINATOR",
+              day: lastLeagueFix?.day || "SATURDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "4:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 3,
+              stage: "QUALIFIER_2",
+              day: lastLeagueFix?.day || "SATURDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 4,
+              stage: "FINAL",
+              day: lastLeagueFix?.day || "SUNDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+          } else if (playoffFormat === "SEMI_FINALS") {
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 1,
+              stage: "SEMI_1",
+              day: lastLeagueFix?.day || "SATURDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "4:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 2,
+              stage: "SEMI_2",
+              day: lastLeagueFix?.day || "SATURDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 3,
+              stage: "FINAL",
+              day: lastLeagueFix?.day || "SUNDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "8:00 PM",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+          } else if (playoffFormat === "DIRECT_TOP2") {
+            await createMatch({
+              tournamentId: tourneyId,
+              matchNumber: generatedFixtures.length + 1,
+              stage: "FINAL",
+              day: lastLeagueFix?.day || "SUNDAY",
+              date: lastLeagueFix?.date || startDate,
+              time: "Finals",
+              teamAId: null,
+              teamBId: null,
+              venue: venueName,
+              oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
+            });
+          }
         }
       }
 
@@ -1061,68 +1212,184 @@ export default function TournamentWizard() {
         </Card>
       )}
 
-      {/* Step 3: Knockout Structure */}
+      {/* Step 3: Tournament Format & Knockout Structure */}
       {currentStep === 3 && (
         <Card className="border-emerald-500/30">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Layers className="h-5 w-5 text-emerald-500" /> Step 3: Tournament Playoff & Knockout Structure
+              <Layers className="h-5 w-5 text-emerald-500" /> Step 3: Tournament Stage & Knockout Format
             </CardTitle>
             <CardDescription className="text-xs">
-              Choose how teams qualify from the league round-robin into the finals.
+              Select whether teams play in a unified league table or FIFA/ICC-style groups with crossover knockouts.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                {
-                  type: "DIRECT_TOP2",
-                  title: "🥇 Direct Top 2 Final",
-                  desc: "Top 2 teams of league stage advance directly to the Grand Final. Ranks 3–6 are eliminated.",
-                  badge: "Fastest / Corporate Standard",
-                },
-                {
-                  type: "PAGE_PLAYOFF_TOP3",
-                  title: "⚔️ Top 3 Page Playoff",
-                  desc: "Rank 1 qualifies for Final. Rank 2 vs Rank 3 play a Playoff Match for the 2nd finalist spot.",
-                  badge: "Current WASA Model",
-                },
-                {
-                  type: "IPL_TOP4",
-                  title: "🏆 IPL-Style Top 4 (Qualifiers & Eliminator)",
-                  desc: "Rank 1 vs 2 (Qualifier 1), Rank 3 vs 4 (Eliminator), Qualifier 2, Grand Final.",
-                  badge: "Most Competitive",
-                },
-                {
-                  type: "SEMI_FINALS",
-                  title: "🎯 Top 4 Semi-Finals & Final",
-                  desc: "Rank 1 vs 4 (Semi 1), Rank 2 vs 3 (Semi 2). Winners clash in Grand Final.",
-                  badge: "Traditional Knockout",
-                },
-              ].map((item) => {
-                const isSelected = playoffFormat === item.type;
-                return (
+            {/* Stage Format Chooser */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Tournament Stage Format
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div
+                  onClick={() => setStageFormat("ROUND_ROBIN")}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer space-y-2 ${
+                    stageFormat === "ROUND_ROBIN"
+                      ? "border-emerald-500 bg-emerald-500/10 shadow-md ring-1 ring-emerald-500"
+                      : "border-border/60 bg-card hover:bg-muted/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm flex items-center gap-2">
+                      🌐 Unified Single League Table
+                    </span>
+                    {stageFormat === "ROUND_ROBIN" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    All teams play against each other on a single points table. Top teams qualify according to the playoff rules below.
+                  </p>
+                  <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
+                    Traditional League
+                  </Badge>
+                </div>
+
+                <div
+                  onClick={() => setStageFormat("GROUPS_AND_KNOCKOUT")}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer space-y-2 ${
+                    stageFormat === "GROUPS_AND_KNOCKOUT"
+                      ? "border-emerald-500 bg-emerald-500/10 shadow-md ring-1 ring-emerald-500"
+                      : "border-border/60 bg-card hover:bg-muted/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm flex items-center gap-2">
+                      🏆 Groups + Knockouts (World Cup Style)
+                    </span>
+                    {stageFormat === "GROUPS_AND_KNOCKOUT" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Teams are divided into Group A & Group B. Teams strictly play rivals in their group, followed by cross-over knockouts!
+                  </p>
+                  <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
+                    FIFA & ICC World Cup Format
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* If Group Stage Selected */}
+            {stageFormat === "GROUPS_AND_KNOCKOUT" ? (
+              <div className="space-y-3 pt-2 border-t">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Group Playoff Qualification Rules
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div
-                    key={item.type}
-                    onClick={() => setPlayoffFormat(item.type as PlayoffFormatType)}
+                    onClick={() => setGroupPlayoffFormat("GROUP_SEMI_FINALS")}
                     className={`p-4 rounded-xl border transition-all cursor-pointer space-y-2 ${
-                      isSelected
+                      groupPlayoffFormat === "GROUP_SEMI_FINALS"
                         ? "border-emerald-500 bg-emerald-500/10 shadow-md ring-1 ring-emerald-500"
                         : "border-border/60 bg-card hover:bg-muted/40"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-sm">{item.title}</span>
-                      {isSelected && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                      <span className="font-bold text-sm">🎯 Top 2 Advance to Semi-Finals</span>
+                      {groupPlayoffFormat === "GROUP_SEMI_FINALS" && (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground">{item.desc}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Top 2 of Group A and Group B qualify for crossover Semi-Finals:
+                      <br />• <strong>SF1:</strong> Winner Group A (A1) vs Runner-up Group B (B2)
+                      <br />• <strong>SF2:</strong> Winner Group B (B1) vs Runner-up Group A (A2)
+                      <br />• <strong>Grand Final:</strong> Winner SF1 vs Winner SF2
+                    </p>
                     <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
-                      {item.badge}
+                      Standard ICC / FIFA Knockout
                     </Badge>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div
+                    onClick={() => setGroupPlayoffFormat("GROUP_DIRECT_FINAL")}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer space-y-2 ${
+                      groupPlayoffFormat === "GROUP_DIRECT_FINAL"
+                        ? "border-emerald-500 bg-emerald-500/10 shadow-md ring-1 ring-emerald-500"
+                        : "border-border/60 bg-card hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sm">🥇 Top 1 Advances Directly to Final</span>
+                      {groupPlayoffFormat === "GROUP_DIRECT_FINAL" && (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Only the champions of each group advance to play the Grand Final:
+                      <br />• <strong>Grand Final:</strong> Winner Group A (A1) vs Winner Group B (B1)
+                    </p>
+                    <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
+                      Fastest / Direct Clash
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* If Single Table Selected */
+              <div className="space-y-3 pt-2 border-t">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  League Playoff & Final Structure
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    {
+                      type: "DIRECT_TOP2",
+                      title: "🥇 Direct Top 2 Final",
+                      desc: "Top 2 teams of league stage advance directly to the Grand Final. Ranks 3–6 are eliminated.",
+                      badge: "Fastest / Corporate Standard",
+                    },
+                    {
+                      type: "PAGE_PLAYOFF_TOP3",
+                      title: "⚔️ Top 3 Page Playoff",
+                      desc: "Rank 1 qualifies for Final. Rank 2 vs Rank 3 play a Playoff Match for the 2nd finalist spot.",
+                      badge: "Current WASA Model",
+                    },
+                    {
+                      type: "IPL_TOP4",
+                      title: "🏆 IPL-Style Top 4 (Qualifiers & Eliminator)",
+                      desc: "Rank 1 vs 2 (Qualifier 1), Rank 3 vs 4 (Eliminator), Qualifier 2, Grand Final.",
+                      badge: "Most Competitive",
+                    },
+                    {
+                      type: "SEMI_FINALS",
+                      title: "🎯 Top 4 Semi-Finals & Final",
+                      desc: "Rank 1 vs 4 (Semi 1), Rank 2 vs 3 (Semi 2). Winners clash in Grand Final.",
+                      badge: "Traditional Knockout",
+                    },
+                  ].map((item) => {
+                    const isSelected = playoffFormat === item.type;
+                    return (
+                      <div
+                        key={item.type}
+                        onClick={() => setPlayoffFormat(item.type as PlayoffFormatType)}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer space-y-2 ${
+                          isSelected
+                            ? "border-emerald-500 bg-emerald-500/10 shadow-md ring-1 ring-emerald-500"
+                            : "border-border/60 bg-card hover:bg-muted/40"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm">{item.title}</span>
+                          {isSelected && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{item.desc}</p>
+                        <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
+                          {item.badge}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-between pt-4 border-t">
               <Button variant="outline" onClick={() => setCurrentStep(2)} className="gap-2">
@@ -1232,47 +1499,111 @@ export default function TournamentWizard() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground">
-                  Invited Tournament Teams ({teams.length})
-                </Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {teams.map((t, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 rounded-xl border bg-card shadow-sm"
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-bold text-muted-foreground">
+                      Invited Tournament Teams ({teams.length})
+                    </Label>
+                    {stageFormat === "GROUPS_AND_KNOCKOUT" && (
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <Badge variant="outline" className="text-blue-500 border-blue-500/30 font-bold">
+                          Group A: {teams.filter((t) => (t.groupName || "A") === "A").length}
+                        </Badge>
+                        <Badge variant="outline" className="text-purple-500 border-purple-500/30 font-bold">
+                          Group B: {teams.filter((t) => t.groupName === "B").length}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                  {stageFormat === "GROUPS_AND_KNOCKOUT" && teams.length >= 2 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAutoBalanceGroups}
+                      className="text-xs h-7 gap-1 font-semibold"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {t.logoUrl ? (
-                          <img src={t.logoUrl} alt={t.name} className="w-8 h-8 rounded-lg object-contain bg-muted p-1" />
-                        ) : (
-                          <span
-                            className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs text-white shrink-0"
-                            style={{ backgroundColor: t.color }}
-                          >
-                            {t.shortName}
-                          </span>
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold truncate">{t.name}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-muted-foreground/30">
-                              {t.isExisting ? "Registered Club" : "New Team"}
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground font-mono">Code: {t.shortName}</span>
+                      ⚖️ Auto-Balance Groups (A / B)
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {teams.map((t, idx) => {
+                    const group = t.groupName || "A";
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between p-3 rounded-xl border bg-card shadow-sm transition-all ${
+                          stageFormat === "GROUPS_AND_KNOCKOUT"
+                            ? group === "A"
+                              ? "border-blue-500/30 bg-blue-500/5"
+                              : "border-purple-500/30 bg-purple-500/5"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {t.logoUrl ? (
+                            <img src={t.logoUrl} alt={t.name} className="w-8 h-8 rounded-lg object-contain bg-muted p-1" />
+                          ) : (
+                            <span
+                              className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs text-white shrink-0"
+                              style={{ backgroundColor: t.color }}
+                            >
+                              {t.shortName}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate">{t.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 border-muted-foreground/30">
+                                {t.isExisting ? "Registered Club" : "New Team"}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground font-mono">Code: {t.shortName}</span>
+                            </div>
                           </div>
                         </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {stageFormat === "GROUPS_AND_KNOCKOUT" && (
+                            <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-[10px] font-bold">
+                              <button
+                                type="button"
+                                onClick={() => handleSetTeamGroup(idx, "A")}
+                                className={`px-2 py-0.5 rounded transition-all ${
+                                  group === "A"
+                                    ? "bg-blue-600 text-white shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                Grp A
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSetTeamGroup(idx, "B")}
+                                className={`px-2 py-0.5 rounded transition-all ${
+                                  group === "B"
+                                    ? "bg-purple-600 text-white shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                Grp B
+                              </button>
+                            </div>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"
+                            onClick={() => handleRemoveTeam(idx)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"
-                        onClick={() => handleRemoveTeam(idx)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1394,11 +1725,19 @@ export default function TournamentWizard() {
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Invited Teams</span>
-                  <strong>{teams.length} Teams {teams.length >= 2 ? "(Auto-Fixtures Ready)" : "(Awaiting Invites)"}</strong>
+                  <strong>
+                    {teams.length} Teams {stageFormat === "GROUPS_AND_KNOCKOUT" ? `(${teams.filter(t => (t.groupName || "A") === "A").length} in A, ${teams.filter(t => t.groupName === "B").length} in B)` : teams.length >= 2 ? "(Auto-Fixtures Ready)" : "(Awaiting Invites)"}
+                  </strong>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Playoffs</span>
-                  <strong>{playoffFormat.replace(/_/g, " ")}</strong>
+                  <span className="text-muted-foreground block text-[11px]">Stage & Playoffs</span>
+                  <strong>
+                    {stageFormat === "GROUPS_AND_KNOCKOUT"
+                      ? groupPlayoffFormat === "GROUP_SEMI_FINALS"
+                        ? "Groups + Semi-Finals & Final"
+                        : "Groups + Direct Final (A1 v B1)"
+                      : playoffFormat.replace(/_/g, " ")}
+                  </strong>
                 </div>
               </div>
             </div>

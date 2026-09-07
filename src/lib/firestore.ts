@@ -33,6 +33,9 @@ export type TournamentBranding = {
   sponsorLogos?: string[];
 };
 
+export type TournamentStageFormat = "ROUND_ROBIN" | "GROUPS_AND_KNOCKOUT";
+export type GroupPlayoffFormatType = "GROUP_SEMI_FINALS" | "GROUP_DIRECT_FINAL";
+
 export type Tournament = {
   id: string;
   slug?: string;
@@ -40,6 +43,11 @@ export type Tournament = {
   shortName?: string | null;
   description?: string | null;
   formatType?: TournamentFormatType;
+  stageFormat?: TournamentStageFormat;
+  groupCount?: number;
+  groups?: string[];
+  teamsPerGroupAdvance?: number;
+  groupPlayoffFormat?: GroupPlayoffFormatType;
   winPoints: number;
   tiePoints: number;
   noResultPoints: number;
@@ -72,7 +80,7 @@ export type Team = {
   tournamentId?: string; // Optional for multi-tournament / standalone teams
   name: string;
   shortName: string;
-  groupName?: "A" | "B";
+  groupName?: string;
   logoUrl?: string | null;
   ownerId?: string | null; // UID of the team creator / Team Manager
   ownerEmail?: string | null;
@@ -120,7 +128,7 @@ export type TournamentTeamMembership = {
   teamName?: string;
   teamShortName?: string;
   teamLogoUrl?: string | null;
-  groupName?: "A" | "B";
+  groupName?: string;
   status: TeamMembershipStatus;
   source: TeamMembershipSource;
   requestedBy?: string | null; // Team manager email/uid
@@ -193,6 +201,7 @@ export type Match = {
   tournamentId: string;
   matchNumber: number;
   stage: MatchStage;
+  groupName?: string | null;
   day: MatchDay;
   teamAId?: string | null;
   teamBId?: string | null;
@@ -323,6 +332,7 @@ export type Standing = {
   id: string; // same as teamId
   tournamentId: string;
   teamId: string;
+  groupName?: string | null;
   played: number;
   won: number;
   lost: number;

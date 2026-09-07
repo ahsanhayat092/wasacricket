@@ -336,21 +336,28 @@ export async function getTeams(idOrContext?: any): Promise<Team[]> {
     ? snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team)
     : [];
 
-  // 2. Teams joined via accepted tournament memberships
+  // 2. Teams joined via accepted/invited tournament memberships
   let membershipTeams: Team[] = [];
   try {
     const memSnap = await getDocs(
       query(
         tournamentTeamMembershipsCol(),
         where("tournamentId", "==", tournamentId),
-        where("status", "==", "ACCEPTED"),
       ),
     );
     if (!memSnap.empty) {
-      const teamFetches = memSnap.docs.map(async (mDoc) => {
+      const validDocs = memSnap.docs.filter((d) => {
+        const s = (d.data() as any).status;
+        return s === "ACCEPTED" || s === "INVITED" || !s;
+      });
+      const teamFetches = validDocs.map(async (mDoc) => {
         const mData = mDoc.data() as TournamentTeamMembership;
-        // If already in directTeams, skip fetch
-        if (directTeams.some((t) => t.id === mData.teamId)) return null;
+        // If already in directTeams, update groupName if present and skip fetch
+        const existingDirect = directTeams.find((t) => t.id === mData.teamId);
+        if (existingDirect) {
+          if (mData.groupName) existingDirect.groupName = mData.groupName;
+          return null;
+        }
         const tSnap = await getDoc(teamDoc(mData.teamId));
         if (tSnap.exists()) {
           const tData = { id: tSnap.id, ...tSnap.data() } as Team;
@@ -776,10 +783,11 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
         return true;
       });
 
-      return uniqueInitialTeams.map((team, idx) => ({
+      const initialRows = uniqueInitialTeams.map((team) => ({
         id: `init_${team.id}`,
         tournamentId,
         teamId: team.id,
+        groupName: team.groupName || "A",
         played: 0,
         won: 0,
         lost: 0,
@@ -792,9 +800,22 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
         runsConceded: 0,
         oversBowled: 0,
         adminTiebreak: 0,
-        position: idx + 1,
+        position: 1,
         team,
       }));
+
+      const dGroups = Array.from(new Set(initialRows.map((r) => r.groupName))).sort();
+      if (dGroups.length >= 2) {
+        const out: StandingWithTeam[] = [];
+        for (const g of dGroups) {
+          const gRows = initialRows.filter((r) => r.groupName === g);
+          gRows.forEach((r, idx) => {
+            out.push({ ...r, position: idx + 1 });
+          });
+        }
+        return out;
+      }
+      return initialRows.map((r, idx) => ({ ...r, position: idx + 1 }));
     }
 
     const standings = standingSnap.docs
@@ -806,32 +827,95 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
             : typeof raw.netRunRate === "number" && !isNaN(raw.netRunRate)
               ? raw.netRunRate
               : 0;
-        const s = { id: d.id, ...raw, nrr } as Standing;
-        return { ...s, team: teamMap.get(s.teamId) ?? null };
+        const team = teamMap.get(raw.teamId || d.id) ?? null;
+        const s = {
+          id: d.id,
+          ...raw,
+          groupName: raw.groupName || team?.groupName || "A",
+          nrr,
+        } as Standing;
+        return { ...s, team };
       })
-      .filter((s): s is StandingWithTeam => s.team !== null)
-      .sort(
+      .filter((s): s is StandingWithTeam => s.team !== null);
+
+    // Ensure all participating teams are included even if standings doc was missing
+    const existingTeamIds = new Set(standings.map((s) => s.teamId));
+    for (const team of teams) {
+      if (!existingTeamIds.has(team.id)) {
+        standings.push({
+          id: `init_${team.id}`,
+          tournamentId,
+          teamId: team.id,
+          groupName: team.groupName || "A",
+          played: 0,
+          won: 0,
+          lost: 0,
+          tied: 0,
+          noResult: 0,
+          points: 0,
+          nrr: 0,
+          runsScored: 0,
+          oversFaced: 0,
+          runsConceded: 0,
+          oversBowled: 0,
+          adminTiebreak: 0,
+          position: 99,
+          team,
+        } as StandingWithTeam);
+      }
+    }
+
+    const seenTeamIds = new Set<string>();
+    const seenTeamNames = new Set<string>();
+
+    const deduplicatedStandings = standings.filter((s) => {
+      const cleanName = (s.team?.name || "").trim().toLowerCase();
+      if (seenTeamIds.has(s.teamId) || (cleanName && seenTeamNames.has(cleanName))) {
+        return false;
+      }
+      seenTeamIds.add(s.teamId);
+      if (cleanName) seenTeamNames.add(cleanName);
+      return true;
+    });
+
+    const distinctGroups = Array.from(
+      new Set(
+        deduplicatedStandings
+          .map((s) => s.groupName || s.team?.groupName)
+          .filter((g): g is string => Boolean(g)),
+      ),
+    ).sort();
+
+    const isGrouped = distinctGroups.length >= 2;
+
+    if (isGrouped) {
+      const finalResult: StandingWithTeam[] = [];
+      for (const g of distinctGroups) {
+        const gRows = deduplicatedStandings.filter(
+          (s) => (s.groupName || s.team?.groupName || "A") === g,
+        );
+        gRows.sort(
+          (a, b) =>
+            (b.points ?? 0) - (a.points ?? 0) ||
+            (b.nrr ?? 0) - (a.nrr ?? 0) ||
+            ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
+            (a.position || 0) - (b.position || 0),
+        );
+        gRows.forEach((s, idx) => {
+          finalResult.push({ ...s, position: idx + 1, groupName: g });
+        });
+      }
+      return finalResult;
+    } else {
+      deduplicatedStandings.sort(
         (a, b) =>
           (b.points ?? 0) - (a.points ?? 0) ||
           (b.nrr ?? 0) - (a.nrr ?? 0) ||
           ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
           (a.position || 0) - (b.position || 0),
       );
-
-    const seenTeamIds = new Set<string>();
-    const seenTeamNames = new Set<string>();
-
-    return standings
-      .filter((s) => {
-        const cleanName = (s.team?.name || "").trim().toLowerCase();
-        if (seenTeamIds.has(s.teamId) || (cleanName && seenTeamNames.has(cleanName))) {
-          return false;
-        }
-        seenTeamIds.add(s.teamId);
-        if (cleanName) seenTeamNames.add(cleanName);
-        return true;
-      })
-      .map((s, idx) => ({ ...s, position: idx + 1 }));
+      return deduplicatedStandings.map((s, idx) => ({ ...s, position: idx + 1 }));
+    }
   } catch (err) {
     console.error("Error loading standings:", err);
     return [];

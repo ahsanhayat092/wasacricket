@@ -578,15 +578,23 @@ export function getInningsOverWiseStats(
 }
 
 /** Format match stage badge text */
-export function stageBadgeText(stage?: string | null, matchNumber?: number): string {
+export function stageBadgeText(
+  stage?: string | null,
+  matchNumber?: number,
+  groupName?: string | null,
+  isGrouped?: boolean,
+): string {
   const s = stage?.toUpperCase();
   if (s === "FINAL") return "🏆 Grand Final";
   if (s === "PLAYOFF") return "⚔️ Playoff (Rank 2 vs 3)";
   if (s === "QUALIFIER_1") return "🔥 Qualifier 1 (Rank 1 vs 2)";
   if (s === "ELIMINATOR") return "⚔️ Eliminator (Rank 3 vs 4)";
   if (s === "QUALIFIER_2") return "⚡ Qualifier 2";
-  if (s === "SEMI_1") return "🎯 Semi-Final 1 (Rank 1 vs 4)";
-  if (s === "SEMI_2") return "🎯 Semi-Final 2 (Rank 2 vs 3)";
+  if (s === "SEMI_1") return isGrouped ? "🎯 Semi-Final 1 (A1 vs B2)" : "🎯 Semi-Final 1 (Rank 1 vs 4)";
+  if (s === "SEMI_2") return isGrouped ? "🎯 Semi-Final 2 (B1 vs A2)" : "🎯 Semi-Final 2 (Rank 2 vs 3)";
+  if (groupName) {
+    return matchNumber ? `Group ${groupName} · Match #${matchNumber}` : `Group ${groupName}`;
+  }
   return matchNumber ? `Match #${matchNumber}` : "League Match";
 }
 
@@ -601,15 +609,15 @@ export function stageBadgeClass(stage?: string | null): string {
 }
 
 /** Provide descriptive TBD placeholders for knockout match teams */
-export function stageTeamPlaceholders(stage?: string | null): { teamA: string; teamB: string } {
+export function stageTeamPlaceholders(stage?: string | null, isGrouped?: boolean): { teamA: string; teamB: string } {
   const s = stage?.toUpperCase();
-  if (s === "FINAL") return { teamA: "TBD (Finalist 1)", teamB: "TBD (Finalist 2)" };
+  if (s === "FINAL") return isGrouped ? { teamA: "TBD (Winner SF1)", teamB: "TBD (Winner SF2)" } : { teamA: "TBD (Finalist 1)", teamB: "TBD (Finalist 2)" };
   if (s === "PLAYOFF") return { teamA: "TBD (Rank 2)", teamB: "TBD (Rank 3)" };
   if (s === "QUALIFIER_1") return { teamA: "TBD (Rank 1)", teamB: "TBD (Rank 2)" };
   if (s === "ELIMINATOR") return { teamA: "TBD (Rank 3)", teamB: "TBD (Rank 4)" };
   if (s === "QUALIFIER_2") return { teamA: "TBD (Loser Q1)", teamB: "TBD (Winner Eliminator)" };
-  if (s === "SEMI_1") return { teamA: "TBD (Rank 1)", teamB: "TBD (Rank 4)" };
-  if (s === "SEMI_2") return { teamA: "TBD (Rank 2)", teamB: "TBD (Rank 3)" };
+  if (s === "SEMI_1") return isGrouped ? { teamA: "TBD (Winner Group A)", teamB: "TBD (Runner-up Group B)" } : { teamA: "TBD (Rank 1)", teamB: "TBD (Rank 4)" };
+  if (s === "SEMI_2") return isGrouped ? { teamA: "TBD (Winner Group B)", teamB: "TBD (Runner-up Group A)" } : { teamA: "TBD (Rank 2)", teamB: "TBD (Rank 3)" };
   return { teamA: "TBD", teamB: "TBD" };
 }
 
