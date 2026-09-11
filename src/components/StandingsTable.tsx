@@ -51,7 +51,8 @@ function RenderTableRows({
 
   return (
     <TableBody>
-      {groupRows.map((s) => {
+      {groupRows.map((s, idx) => {
+        const displayRank = idx + 1;
         const cutoff = isGrouped
           ? teamsPerGroupAdvance
           : playoffFormat === "NONE"
@@ -62,7 +63,7 @@ function RenderTableRows({
                 ? 4
                 : 2;
 
-        const isTopRanked = s.position <= cutoff;
+        const isTopRanked = displayRank <= cutoff;
         const isEliminated =
           isLeagueComplete &&
           !isTopRanked &&
@@ -74,7 +75,7 @@ function RenderTableRows({
         // Only display Playoff and Grand Finale qualification badges after all teams have completed their league matches
         if (isLeagueComplete && !isEliminated) {
           if (isGrouped) {
-            if (s.position <= teamsPerGroupAdvance) {
+            if (displayRank <= teamsPerGroupAdvance) {
               if (teamsPerGroupAdvance === 1) {
                 badgeText = "🏆 GRAND FINAL (Q)";
                 badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
@@ -84,33 +85,33 @@ function RenderTableRows({
               }
             }
           } else if (playoffFormat === "DIRECT_TOP2") {
-            if (s.position <= 2) {
+            if (displayRank <= 2) {
               badgeText = "🏆 GRAND FINAL (Q)";
               badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
             }
           } else if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
-            if (s.position === 1) {
+            if (displayRank === 1) {
               badgeText = "🏆 GRAND FINAL (Q)";
               badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
-            } else if (s.position === 2 || s.position === 3) {
+            } else if (displayRank === 2 || displayRank === 3) {
               badgeText = "⚔️ PLAYOFF (Q)";
               badgeClass = "bg-purple-500/20 text-purple-400 border-purple-500/40";
             }
           } else if (playoffFormat === "IPL_TOP4") {
-            if (s.position <= 2) {
+            if (displayRank <= 2) {
               badgeText = "🔥 QUALIFIER 1 (Q)";
               badgeClass = "bg-orange-500/20 text-orange-400 border-orange-500/40";
-            } else if (s.position === 3 || s.position === 4) {
+            } else if (displayRank === 3 || displayRank === 4) {
               badgeText = "⚔️ ELIMINATOR (Q)";
               badgeClass = "bg-purple-500/20 text-purple-400 border-purple-500/40";
             }
           } else if (playoffFormat === "SEMI_FINALS") {
-            if (s.position <= 4) {
+            if (displayRank <= 4) {
               badgeText = "🎯 SEMI-FINAL (Q)";
               badgeClass = "bg-blue-500/20 text-blue-400 border-blue-500/40";
             }
           } else if (playoffFormat === "NONE") {
-            if (s.position === 1) {
+            if (displayRank === 1) {
               badgeText = "🏆 CHAMPION (Q)";
               badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
             }
@@ -123,11 +124,11 @@ function RenderTableRows({
             className={cn(
               badgeText && "bg-emerald-500/5 border-l-2 border-l-emerald-500",
               isEliminated && "opacity-75 bg-muted/10",
-              !badgeText && s.position === 1 && "bg-amber-500/[0.02]",
+              !badgeText && displayRank === 1 && "bg-amber-500/[0.02]",
             )}
           >
             <TableCell className="font-bold">
-              {s.position === 1 ? "🥇" : s.position === 2 ? "🥈" : s.position === 3 ? "🥉" : s.position}
+              {displayRank === 1 ? "🥇" : displayRank === 2 ? "🥈" : displayRank === 3 ? "🥉" : displayRank}
             </TableCell>
             <TableCell>
               <Link
