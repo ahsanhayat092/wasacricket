@@ -19,6 +19,7 @@ interface StandingsTableProps {
   playoffFormat?: PlayoffFormatType;
   stageFormat?: TournamentStageFormat;
   teamsPerGroupAdvance?: number;
+  allLeagueMatchesCompleted?: boolean;
 }
 
 function RenderTableRows({
@@ -27,12 +28,14 @@ function RenderTableRows({
   playoffFormat,
   isGrouped,
   teamsPerGroupAdvance = 2,
+  isLeagueComplete = false,
 }: {
   groupRows: StandingWithTeam[];
   compact: boolean;
   playoffFormat: PlayoffFormatType;
   isGrouped: boolean;
   teamsPerGroupAdvance?: number;
+  isLeagueComplete?: boolean;
 }) {
   if (groupRows.length === 0) {
     return (
@@ -45,8 +48,6 @@ function RenderTableRows({
       </TableBody>
     );
   }
-
-  const allPlayed = groupRows.every((r) => r.played > 0);
 
   return (
     <TableBody>
@@ -63,13 +64,15 @@ function RenderTableRows({
 
         const isTopRanked = s.position <= cutoff;
         const isEliminated =
+          isLeagueComplete &&
           !isTopRanked &&
-          (s.qualificationStatus === "ELIMINATED" || s.eliminated || allPlayed);
+          (s.qualificationStatus === "ELIMINATED" || s.eliminated);
 
         let badgeText: string | null = null;
         let badgeClass = "";
 
-        if (!isEliminated) {
+        // Only display Playoff and Grand Finale qualification badges after all teams have completed their league matches
+        if (isLeagueComplete && !isEliminated) {
           if (isGrouped) {
             if (s.position <= teamsPerGroupAdvance) {
               if (teamsPerGroupAdvance === 1) {
@@ -183,7 +186,10 @@ export function StandingsTable({
   playoffFormat = "DIRECT_TOP2",
   stageFormat,
   teamsPerGroupAdvance = 2,
+  allLeagueMatchesCompleted,
 }: StandingsTableProps) {
+  const isLeagueComplete = Boolean(allLeagueMatchesCompleted);
+
   const distinctGroups = Array.from(
     new Set(
       rows
@@ -221,7 +227,11 @@ export function StandingsTable({
                   </Badge>
                 </div>
                 <span className="text-[11px] text-muted-foreground">
-                  Top {teamsPerGroupAdvance} advance to {teamsPerGroupAdvance === 1 ? "Grand Final" : "Semi-Finals"}
+                  {isLeagueComplete ? (
+                    `Top ${teamsPerGroupAdvance} advance to ${teamsPerGroupAdvance === 1 ? "Grand Final" : "Semi-Finals"}`
+                  ) : (
+                    `Group Stage in Progress`
+                  )}
                 </span>
               </div>
 
@@ -246,6 +256,7 @@ export function StandingsTable({
                     playoffFormat={playoffFormat}
                     isGrouped={true}
                     teamsPerGroupAdvance={teamsPerGroupAdvance}
+                    isLeagueComplete={isLeagueComplete}
                   />
                 </Table>
               </div>
@@ -255,16 +266,24 @@ export function StandingsTable({
 
         {!compact && (
           <div className="p-3 bg-muted/20 border rounded-lg flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5 font-medium text-blue-400">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" />
-              <span>
-                <strong>Top {teamsPerGroupAdvance}</strong>: Qualify for Cross-Group {teamsPerGroupAdvance === 1 ? "Grand Final" : "Semi-Finals (A1 vs B2, B1 vs A2)"}
+            {isLeagueComplete ? (
+              <>
+                <span className="flex items-center gap-1.5 font-medium text-blue-400">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  <span>
+                    <strong>Top {teamsPerGroupAdvance}</strong>: Qualified for Cross-Group {teamsPerGroupAdvance === 1 ? "Grand Final" : "Semi-Finals"}
+                  </span>
+                </span>
+                <span className="flex items-center gap-1.5 font-medium text-rose-400">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <span><strong>Eliminated</strong>: Did not qualify</span>
+                </span>
+              </>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                ℹ️ <span><strong>Group Stage in Progress</strong>: Official knockout spots will be awarded once all group matches are completed.</span>
               </span>
-            </span>
-            <span className="flex items-center gap-1.5 font-medium text-rose-400">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
-              <span><strong>Eliminated</strong>: Cannot reach Top {teamsPerGroupAdvance}</span>
-            </span>
+            )}
           </div>
         )}
       </div>
@@ -293,37 +312,44 @@ export function StandingsTable({
           compact={compact}
           playoffFormat={playoffFormat}
           isGrouped={false}
+          isLeagueComplete={isLeagueComplete}
         />
       </Table>
 
       {!compact && (
         <div className="p-3 bg-muted/20 border-t flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-muted-foreground">
-          {rows.some((r) => r.qualificationStatus === "QUALIFIED_PLAYOFF") ? (
-            <>
-              <span className="flex items-center gap-1.5 font-medium text-amber-400">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span><strong>Rank 1</strong>: Direct Grand Final Spot</span>
-              </span>
-              <span className="flex items-center gap-1.5 font-medium text-purple-400">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500" />
-                <span><strong>Rank 2 & 3</strong>: Playoff Eliminator Spot</span>
-              </span>
-              <span className="flex items-center gap-1.5 font-medium text-rose-400">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span><strong>Eliminated</strong>: Cannot reach Top 3</span>
-              </span>
-            </>
+          {isLeagueComplete ? (
+            playoffFormat === "PAGE_PLAYOFF_TOP3" ? (
+              <>
+                <span className="flex items-center gap-1.5 font-medium text-amber-400">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  <span><strong>Rank 1</strong>: Direct Grand Final Spot</span>
+                </span>
+                <span className="flex items-center gap-1.5 font-medium text-purple-400">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500" />
+                  <span><strong>Rank 2 & 3</strong>: Playoff Spot</span>
+                </span>
+                <span className="flex items-center gap-1.5 font-medium text-rose-400">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <span><strong>Eliminated</strong>: Did not qualify</span>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5 font-medium text-amber-400">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  <span><strong>Top Ranked</strong>: Advanced to Playoffs</span>
+                </span>
+                <span className="flex items-center gap-1.5 font-medium text-rose-400">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <span><strong>Eliminated</strong>: Did not qualify</span>
+                </span>
+              </>
+            )
           ) : (
-            <>
-              <span className="flex items-center gap-1.5 font-medium text-amber-400">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span><strong>Rank 1 & 2</strong>: Direct Grand Finalists</span>
-              </span>
-              <span className="flex items-center gap-1.5 font-medium text-rose-400">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span><strong>Eliminated</strong>: Cannot reach Top 2</span>
-              </span>
-            </>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              ℹ️ <span><strong>League Stage in Progress</strong>: Playoff and Grand Final spots will be decided upon completion of all league matches.</span>
+            </span>
           )}
         </div>
       )}

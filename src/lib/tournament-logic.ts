@@ -520,21 +520,18 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
     let isQualified = false;
     let isEliminated = false;
 
-    if (hasGroups) {
-      if (allLeagueMatchesCompleted) {
-        if (r.position <= teamsAdvance) {
-          qualificationStatus = teamsAdvance === 1 ? "QUALIFIED_FINAL" : "QUALIFIED_PLAYOFF";
-          isQualified = true;
-        } else {
-          qualificationStatus = "ELIMINATED";
-          isEliminated = true;
-        }
+    if (!allLeagueMatchesCompleted) {
+      // Don't mention Playoff, Grand Finale, or Elimination before all teams have played their League matches
+      qualificationStatus = "IN_CONTENTION";
+      isQualified = false;
+      isEliminated = false;
+    } else if (hasGroups) {
+      if (r.position <= teamsAdvance) {
+        qualificationStatus = teamsAdvance === 1 ? "QUALIFIED_FINAL" : "QUALIFIED_PLAYOFF";
+        isQualified = true;
       } else {
-        if (r.position <= teamsAdvance) {
-          qualificationStatus = teamsAdvance === 1 ? "QUALIFIED_FINAL" : "QUALIFIED_PLAYOFF";
-        } else {
-          qualificationStatus = "IN_CONTENTION";
-        }
+        qualificationStatus = "ELIMINATED";
+        isEliminated = true;
       }
     } else {
       const scenario = scenarioResults.get(r.teamId);

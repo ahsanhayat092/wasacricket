@@ -27,7 +27,7 @@ export type MatchStage =
   | "SEMI_1"
   | "SEMI_2";
 
-export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED";
+export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED" | "NO_RESULT";
 
 export interface Tournament {
   id: string;

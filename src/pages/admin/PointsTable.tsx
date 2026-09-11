@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
-import { getStandings } from "@/lib/queries";
+import { getStandings, getSchedule } from "@/lib/queries";
 import { recalculateStandings } from "@/lib/tournament-logic";
 import { setTiebreak } from "@/lib/mutations";
 import { StandingsTable } from "@/components/StandingsTable";
@@ -28,6 +28,20 @@ export default function AdminPointsTable() {
     queryKey: ["standings", tournamentId],
     queryFn: () => getStandings(tournamentId),
   });
+  const { data: schedule } = useQuery({
+    queryKey: ["schedule", tournamentId],
+    queryFn: () => getSchedule(tournamentId),
+  });
+
+  const leagueMatches = (schedule || []).filter(
+    (m) => m.stage === "LEAGUE" || (!m.stage && (m.matchNumber ?? 0) <= 9)
+  );
+  const allLeagueMatchesCompleted =
+    leagueMatches.length > 0 &&
+    leagueMatches.every(
+      (m) => m.status === "COMPLETED" || m.status === "NO_RESULT" || m.status === "ABANDONED"
+    );
+
   const [tiebreaks, setTiebreaks] = useState<Record<string, string>>({});
 
   const invalidate = () => {
@@ -63,6 +77,7 @@ export default function AdminPointsTable() {
         playoffFormat={tournament?.playoffFormat}
         stageFormat={tournament?.stageFormat}
         teamsPerGroupAdvance={tournament?.teamsPerGroupAdvance}
+        allLeagueMatchesCompleted={allLeagueMatchesCompleted}
       />
 
       <div>

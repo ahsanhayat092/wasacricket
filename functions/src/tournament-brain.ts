@@ -249,11 +249,18 @@ export function computeStandingsData(params: {
       return b.won - a.won;
     });
 
+    const leagueMatches = matches.filter((m) => !m.stage || m.stage.toUpperCase() === "LEAGUE");
+    const allLeagueCompleted =
+      leagueMatches.length > 0 &&
+      leagueMatches.every((m) => m.status === "COMPLETED" || m.status === "ABANDONED" || m.status === "NO_RESULT");
+
     const cutoff = isGrouped ? teamsPerGroupAdvance : (tournament.playoffFormat === "DIRECT_TOP2" ? 2 : tournament.playoffFormat === "PAGE_PLAYOFF_TOP3" ? 3 : 4);
 
     groupRows.forEach((row, idx) => {
       row.position = idx + 1;
-      row.status = row.position <= cutoff ? "QUALIFIED_PLAYOFF" : "ELIMINATED";
+      row.status = allLeagueCompleted
+        ? (row.position <= cutoff ? "QUALIFIED_PLAYOFF" : "ELIMINATED")
+        : "ACTIVE";
       results.push(row);
     });
   }
@@ -628,6 +635,14 @@ export async function executeTournamentBrain(
         ...s,
         teamName: teams.find((t) => t.id === s.teamId)?.name ?? null,
         tournamentId,
+        qualified: s.status === "QUALIFIED_PLAYOFF",
+        eliminated: s.status === "ELIMINATED",
+        qualificationStatus:
+          s.status === "QUALIFIED_PLAYOFF"
+            ? "QUALIFIED_PLAYOFF"
+            : s.status === "ELIMINATED"
+              ? "ELIMINATED"
+              : "IN_CONTENTION",
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true },

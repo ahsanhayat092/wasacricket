@@ -107,6 +107,15 @@ export default function Home() {
     new Set(scheduleMatches?.map((m) => m.time?.trim()).filter(Boolean) ?? []),
   );
 
+  const leagueMatches = (scheduleMatches || []).filter(
+    (m) => m.stage === "LEAGUE" || (!m.stage && (m.matchNumber ?? 0) <= 9)
+  );
+  const allLeagueMatchesCompleted =
+    leagueMatches.length > 0 &&
+    leagueMatches.every(
+      (m) => m.status === "COMPLETED" || m.status === "NO_RESULT" || m.status === "ABANDONED"
+    );
+
   return (
     <div className="space-y-8">
       {/* Tournament Champions Celebration Showcase Banner (When Champion is crowned) */}
@@ -331,6 +340,7 @@ export default function Home() {
             playoffFormat={tournament?.playoffFormat ?? contextTournament?.playoffFormat}
             stageFormat={tournament?.stageFormat ?? contextTournament?.stageFormat}
             teamsPerGroupAdvance={tournament?.teamsPerGroupAdvance ?? contextTournament?.teamsPerGroupAdvance}
+            allLeagueMatchesCompleted={allLeagueMatchesCompleted}
           />
         </section>
 
