@@ -14,6 +14,7 @@ import {
   writeBatch,
   query,
   where,
+  deleteField,
 } from "firebase/firestore";
 import {
   tournamentsCol,
@@ -59,6 +60,7 @@ import {
   type UserRole,
   now,
 } from "./firestore";
+import { normalizeTournamentToConfig } from "./tournament-config";
 import { db } from "./firebase";
 import { recalculateStandings, syncInningsTotals, finalizeMatch } from "./tournament-logic";
 import { validateMatchRules } from "./match-rules-guardrails";
@@ -112,10 +114,10 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
     freeHitEnabled: norm.freeHitOnNoBall,
     playoffFormat: input.playoffFormat ?? "DIRECT_TOP2",
     stageFormat: input.stageFormat ?? "ROUND_ROBIN",
-    groupCount: input.groupCount ?? 2,
-    groups: input.groups ?? ["A", "B"],
-    teamsPerGroupAdvance: input.teamsPerGroupAdvance ?? 2,
-    groupPlayoffFormat: input.groupPlayoffFormat ?? "GROUP_SEMI_FINALS",
+    groupCount: input.stageFormat === "GROUPS_AND_KNOCKOUT" ? (input.groupCount ?? 2) : undefined,
+    groups: input.stageFormat === "GROUPS_AND_KNOCKOUT" ? (input.groups ?? ["A", "B"]) : undefined,
+    teamsPerGroupAdvance: input.stageFormat === "GROUPS_AND_KNOCKOUT" ? (input.teamsPerGroupAdvance ?? 2) : undefined,
+    groupPlayoffFormat: input.stageFormat === "GROUPS_AND_KNOCKOUT" ? (input.groupPlayoffFormat ?? "GROUP_SEMI_FINALS") : undefined,
     scorerPin: input.scorerPin || null,
     venueName: input.venueName || "Askari XI, Lahore",
     venueMapsUrl: input.venueMapsUrl || null,
@@ -132,6 +134,10 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
     createdAt: now(),
     updatedAt: now(),
   };
+
+  const finalConfig = input.config || normalizeTournamentToConfig({ ...newTournament, id: tournamentId });
+  (newTournament as any).config = finalConfig;
+  (newTournament as any).uiPresentation = input.uiPresentation || finalConfig.uiPresentation;
 
   await setDoc(docRef, newTournament);
 
@@ -154,12 +160,20 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
 }
 
 export async function updateTournament(tournamentId: string, input: Partial<Tournament>) {
+  const updates: any = {
+    ...input,
+    updatedAt: now(),
+  };
+  if (input.config) {
+    updates.config = input.config;
+    if (input.config.uiPresentation) {
+      updates.uiPresentation = input.config.uiPresentation;
+    }
+  }
+
   await setDoc(
     tournamentDoc(tournamentId),
-    {
-      ...input,
-      updatedAt: now(),
-    },
+    updates,
     { merge: true },
   );
 }
@@ -233,7 +247,7 @@ export async function upsertTeam(input: {
     tournamentId: tId,
     name: input.name,
     shortName: input.shortName,
-    groupName: input.groupName || "A",
+    groupName: input.groupName || null,
     logoUrl: input.logoUrl ?? null,
     updatedAt: now(),
   };
@@ -249,7 +263,7 @@ export async function upsertTeam(input: {
     await updateDoc(teamDoc(input.id), data);
     try {
       const memDocRef = doc(tournamentTeamMembershipsCol(), `${tId}_${input.id}`);
-      await setDoc(memDocRef, { groupName: input.groupName || "A", updatedAt: now() }, { merge: true });
+      await setDoc(memDocRef, { groupName: input.groupName || null, updatedAt: now() }, { merge: true });
     } catch {}
     await recalculateStandings(tId);
     return { id: input.id, ...data };
@@ -377,20 +391,25 @@ export async function createMatch(input: {
   let freeHit = input.freeHitEnabled;
   let format = input.formatType;
 
-  if (overs === undefined || maxBowler === undefined || players === undefined || wickets === undefined || lms === undefined) {
+  if (overs === undefined || maxBowler === undefined || players === undefined || wickets === undefined || lms === undefined || wide === undefined || noBall === undefined) {
     try {
       const tSnap = await getDoc(tournamentDoc(tId));
       if (tSnap.exists()) {
         const tData = tSnap.data() as Tournament;
-        overs = overs ?? tData.oversPerSide ?? 4;
-        maxBowler = maxBowler ?? tData.maxOverPerBowler ?? (overs <= 5 ? 1 : 2);
-        players = players ?? tData.playersPerTeam ?? 6;
-        wickets = wickets ?? tData.maxWickets ?? 6;
-        lms = lms ?? tData.allowLastManStanding ?? true;
-        wide = wide ?? tData.wideRuns ?? 1;
-        noBall = noBall ?? tData.noBallRuns ?? 1;
-        freeHit = freeHit ?? tData.freeHitEnabled ?? true;
-        format = format ?? tData.formatType ?? "TAPE_BALL_INDOOR";
+        const configRules = (tData as any)?.config?.matchRules;
+        overs = overs ?? configRules?.oversPerSide ?? tData.oversPerSide ?? 20;
+        maxBowler =
+          maxBowler ??
+          configRules?.maxOversPerBowler ??
+          tData.maxOverPerBowler ??
+          (overs <= 5 ? 1 : Math.ceil(overs / 5));
+        players = players ?? configRules?.playersPerTeam ?? tData.playersPerTeam ?? 11;
+        lms = lms ?? configRules?.allowLastManStanding ?? tData.allowLastManStanding ?? false;
+        wickets = wickets ?? configRules?.maxDismissals ?? tData.maxWickets ?? (lms ? players : Math.max(1, players - 1));
+        wide = wide ?? configRules?.wideRule?.runs ?? tData.wideRuns ?? 1;
+        noBall = noBall ?? configRules?.noBallRule?.runs ?? tData.noBallRuns ?? 1;
+        freeHit = freeHit ?? configRules?.noBallRule?.freeHit ?? tData.freeHitEnabled ?? true;
+        format = format ?? (tData as any)?.config?.meta?.preset ?? tData.formatType ?? "T20";
       }
     } catch {
       // fallback
@@ -408,15 +427,15 @@ export async function createMatch(input: {
     date: input.date ?? null,
     time: input.time ?? null,
     venue: input.venue ?? "Askari XI, Lahore",
-    oversPerSide: overs ?? 4,
-    maxOverPerBowler: maxBowler ?? 1,
-    playersPerTeam: players ?? 6,
-    maxWickets: wickets ?? 6,
-    allowLastManStanding: lms ?? true,
+    oversPerSide: overs ?? 20,
+    maxOverPerBowler: maxBowler ?? 4,
+    playersPerTeam: players ?? 11,
+    maxWickets: wickets ?? (lms ? (players ?? 11) : Math.max(1, (players ?? 11) - 1)),
+    allowLastManStanding: lms ?? false,
     wideRuns: wide ?? 1,
     noBallRuns: noBall ?? 1,
     freeHitEnabled: freeHit ?? true,
-    formatType: format ?? "TAPE_BALL_INDOOR",
+    formatType: format ?? "T20",
     status: "UPCOMING" as const,
     tossWinnerId: null,
     tossDecision: null,
@@ -463,6 +482,8 @@ export async function updateMatchDetails(input: {
   venue?: string;
   teamAId?: string | null;
   teamBId?: string | null;
+  oversPerSide?: number;
+  maxOverPerBowler?: number;
 }) {
   const snap = await getDoc(matchDoc(input.matchId));
   if (!snap.exists()) throw new Error("Match not found");
@@ -478,6 +499,14 @@ export async function updateMatchDetails(input: {
   if (input.matchNumber !== undefined) set.matchNumber = input.matchNumber;
   if (input.stage !== undefined) set.stage = input.stage;
   if (input.day !== undefined) set.day = input.day;
+  if (input.oversPerSide !== undefined) {
+    set.oversPerSide = input.oversPerSide;
+    set["rules.oversPerSide"] = input.oversPerSide;
+  }
+  if (input.maxOverPerBowler !== undefined) {
+    set.maxOverPerBowler = input.maxOverPerBowler;
+    set["rules.maxOverPerBowler"] = input.maxOverPerBowler;
+  }
 
   if (match.status === "UPCOMING") {
     if (input.teamAId !== undefined) set.teamAId = input.teamAId;
@@ -487,9 +516,95 @@ export async function updateMatchDetails(input: {
   await updateDoc(matchDoc(input.matchId), set);
 }
 
-export async function autoGenerateSchedule() {
+/**
+ * Repairs and synchronizes the tournament's complete Central Brain rules
+ * (overs, bowler quota, squad size, dismissals, LMS, wide/no-ball runs) to all matches.
+ */
+export async function syncTournamentBowlerQuotaToMatches(tournamentId: string) {
+  const tSnap = await getDoc(tournamentDoc(tournamentId));
+  if (!tSnap.exists()) return { updatedCount: 0 };
+  const tData = tSnap.data() as Tournament;
+  const configRules = (tData as any)?.config?.matchRules;
+
+  const targetMaxBowler = Number(
+    configRules?.maxOversPerBowler ??
+    tData.maxOverPerBowler ??
+    (tData.oversPerSide <= 5 ? 1 : Math.ceil((tData.oversPerSide || 10) / 5))
+  );
+  const targetOvers = Number(
+    configRules?.oversPerSide ??
+    tData.oversPerSide ??
+    20
+  );
+  const targetPlayers = Number(
+    configRules?.playersPerTeam ??
+    tData.playersPerTeam ??
+    11
+  );
+  const targetLms = Boolean(
+    configRules?.allowLastManStanding ??
+    tData.allowLastManStanding ??
+    false
+  );
+  const targetWickets = Number(
+    configRules?.maxDismissals ??
+    tData.maxWickets ??
+    (targetLms ? targetPlayers : Math.max(1, targetPlayers - 1))
+  );
+  const targetWideRuns = Number(
+    configRules?.wideRule?.runs ??
+    tData.wideRuns ??
+    1
+  );
+  const targetNoBallRuns = Number(
+    configRules?.noBallRule?.runs ??
+    tData.noBallRuns ??
+    1
+  );
+  const targetFreeHit = Boolean(
+    configRules?.noBallRule?.freeHit ??
+    tData.freeHitEnabled ??
+    true
+  );
+
+  const mSnap = await getDocs(
+    query(matchesCol(), where("tournamentId", "==", tournamentId))
+  );
+
+  const batch = writeBatch(db);
+  let updatedCount = 0;
+
+  for (const docSnap of mSnap.docs) {
+    const m = docSnap.data() as Match;
+    batch.update(docSnap.ref, {
+      maxOverPerBowler: targetMaxBowler,
+      oversPerSide: targetOvers,
+      playersPerTeam: targetPlayers,
+      maxWickets: targetWickets,
+      allowLastManStanding: targetLms,
+      wideRuns: targetWideRuns,
+      noBallRuns: targetNoBallRuns,
+      freeHitEnabled: targetFreeHit,
+      "rules.maxOverPerBowler": targetMaxBowler,
+      "rules.oversPerSide": targetOvers,
+      updatedAt: now(),
+    });
+    updatedCount++;
+  }
+
+  if (updatedCount > 0) {
+    await batch.commit();
+  }
+
+  return { updatedCount, targetMaxBowler, targetOvers };
+}
+
+export async function autoGenerateSchedule(targetTournamentId: string = TOURNAMENT_ID) {
+  const tourneySnap = await getDoc(tournamentDoc(targetTournamentId));
+  const tourneyData = tourneySnap.exists() ? (tourneySnap.data() as Tournament) : null;
+
   const teamsSnap = await getDocs(
-    query(teamsCol(), where("tournamentId", "==", TOURNAMENT_ID)),
+    query(teamsCol(), where("tournamentId", "==", targetTournamentId)),
   );
   const teams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
   if (teams.length < 2) {
@@ -498,32 +613,58 @@ export async function autoGenerateSchedule() {
 
   // Get current max match number
   const existingMatchesSnap = await getDocs(
-    query(matchesCol(), where("tournamentId", "==", TOURNAMENT_ID)),
+    query(matchesCol(), where("tournamentId", "==", targetTournamentId)),
   );
   let matchNum = existingMatchesSnap.docs.length + 1;
 
-  // Generate round robin pairings
-  const groupA = teams.filter((t) => t.groupName === "A");
-  const groupB = teams.filter((t) => t.groupName === "B");
+  const isGrouped =
+    tourneyData?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
+    (tourneyData?.config?.stages?.some((s: any) => s.type === "GROUPS") ?? false);
 
-  const pairings: { teamAId: string; teamBId: string; day: "MONDAY" | "TUESDAY" }[] = [];
+  // Classify teams by group strictly if this tournament is configured for groups
+  const groupA = isGrouped ? teams.filter((t) => (t.groupName || "A").trim().toUpperCase() === "A") : [];
+  const groupB = isGrouped ? teams.filter((t) => (t.groupName || "").trim().toUpperCase() === "B") : [];
 
-  if (groupA.length > 0 && groupB.length > 0) {
-    // Cross-group or intra-group fixtures
-    let dayToggle: "MONDAY" | "TUESDAY" = "MONDAY";
+  const pairings: {
+    teamAId: string;
+    teamBId: string;
+    groupName?: "A" | "B";
+    day: "MONDAY" | "TUESDAY";
+  }[] = [];
+
+  let dayToggle: "MONDAY" | "TUESDAY" = "MONDAY";
+
+  if (isGrouped && (groupA.length >= 2 || groupB.length >= 2)) {
+    // -------------------------------------------------------------------------
+    // Group Stage Rule: Teams play matches strictly within the same group!
+    // Group A round-robin
+    // -------------------------------------------------------------------------
     for (let i = 0; i < groupA.length; i++) {
-      for (let j = 0; j < groupB.length; j++) {
+      for (let j = i + 1; j < groupA.length; j++) {
         pairings.push({
           teamAId: groupA[i].id,
+          teamBId: groupA[j].id,
+          groupName: "A",
+          day: dayToggle,
+        });
+        dayToggle = dayToggle === "MONDAY" ? "TUESDAY" : "MONDAY";
+      }
+    }
+
+    // Group B round-robin
+    for (let i = 0; i < groupB.length; i++) {
+      for (let j = i + 1; j < groupB.length; j++) {
+        pairings.push({
+          teamAId: groupB[i].id,
           teamBId: groupB[j].id,
+          groupName: "B",
           day: dayToggle,
         });
         dayToggle = dayToggle === "MONDAY" ? "TUESDAY" : "MONDAY";
       }
     }
   } else {
-    // Standard all-play-all
-    let dayToggle: "MONDAY" | "TUESDAY" = "MONDAY";
+    // Standard single table all-play-all
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
         pairings.push({
@@ -536,19 +677,43 @@ export async function autoGenerateSchedule() {
     }
   }
 
+  const configRules = (tourneyData as any)?.config?.matchRules;
+  const oversPerSide = Number(configRules?.oversPerSide ?? tourneyData?.oversPerSide ?? 20);
+  const maxOverPerBowler = Number(
+    configRules?.maxOversPerBowler ??
+    tourneyData?.maxOverPerBowler ??
+    (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5))
+  );
+  const playersPerTeam = Number(configRules?.playersPerTeam ?? tourneyData?.playersPerTeam ?? 11);
+  const allowLastManStanding = Boolean(configRules?.allowLastManStanding ?? tourneyData?.allowLastManStanding ?? false);
+  const maxWickets = Number(configRules?.maxDismissals ?? tourneyData?.maxWickets ?? (allowLastManStanding ? playersPerTeam : Math.max(1, playersPerTeam - 1)));
+  const wideRuns = Number(configRules?.wideRule?.runs ?? tourneyData?.wideRuns ?? 1);
+  const noBallRuns = Number(configRules?.noBallRule?.runs ?? tourneyData?.noBallRuns ?? 1);
+  const freeHitEnabled = Boolean(configRules?.noBallRule?.freeHit ?? tourneyData?.freeHitEnabled ?? true);
+  const venue = tourneyData?.venueName || tourneyData?.venue || "Askari XI, Lahore";
+
   const batch = writeBatch(db);
   for (const pair of pairings) {
     const docRef = doc(matchesCol());
     batch.set(docRef, {
-      tournamentId: TOURNAMENT_ID,
+      tournamentId: targetTournamentId,
       matchNumber: matchNum++,
       stage: "LEAGUE" as const,
+      groupName: pair.groupName || null,
       day: pair.day,
       date: pair.day === "MONDAY" ? "24 August" : "25 August",
       time: "9:00 PM",
-      venue: "Askari XI, Lahore",
+      venue,
       teamAId: pair.teamAId,
       teamBId: pair.teamBId,
+      oversPerSide,
+      maxOverPerBowler,
+      playersPerTeam,
+      maxWickets,
+      allowLastManStanding,
+      wideRuns,
+      noBallRuns,
+      freeHitEnabled,
       status: "UPCOMING" as const,
       tossWinnerId: null,
       tossDecision: null,
@@ -561,55 +726,374 @@ export async function autoGenerateSchedule() {
     });
   }
 
-  // Add Playoff (Rank 2 vs Rank 3)
-  const playoffDocRef = doc(matchesCol());
-  batch.set(playoffDocRef, {
-    tournamentId: TOURNAMENT_ID,
-    matchNumber: matchNum++,
-    stage: "PLAYOFF" as const,
-    day: "SATURDAY" as const,
-    date: "27 August",
-    time: "11:45 PM",
-    venue: "Askari XI, Lahore",
-    teamAId: null,
-    teamBId: null,
-    status: "UPCOMING" as const,
-    tossWinnerId: null,
-    tossDecision: null,
-    winningTeamId: null,
-    resultText: null,
-    playerOfMatchId: null,
-    completedAt: null,
-    createdAt: now(),
-    updatedAt: now(),
-  });
+  let knockoutCount = 0;
 
-  // Add Grand Final (Rank 1 vs Winner of Playoff)
-  const finalDocRef = doc(matchesCol());
-  batch.set(finalDocRef, {
-    tournamentId: TOURNAMENT_ID,
-    matchNumber: matchNum,
-    stage: "FINAL" as const,
-    day: "SATURDAY" as const,
-    date: "27 August",
-    time: "12:45 AM",
-    venue: "Askari XI, Lahore",
-    teamAId: null,
-    teamBId: null,
-    status: "UPCOMING" as const,
-    tossWinnerId: null,
-    tossDecision: null,
-    winningTeamId: null,
-    resultText: null,
-    playerOfMatchId: null,
-    completedAt: null,
-    createdAt: now(),
-    updatedAt: now(),
-  });
+  if (isGrouped) {
+    const isDirectFinal = tourneyData?.groupPlayoffFormat === "GROUP_DIRECT_FINAL";
+
+    if (isDirectFinal) {
+      // Direct Final: Winner Group A vs Winner Group B
+      const finalDocRef = doc(matchesCol());
+      batch.set(finalDocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "FINAL" as const,
+        day: "SATURDAY" as const,
+        date: "27 August",
+        time: "12:45 AM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+      knockoutCount = 1;
+    } else {
+      // Semi-Final 1 (Rank 1 Group A vs Rank 2 Group B)
+      const sf1DocRef = doc(matchesCol());
+      batch.set(sf1DocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "SEMI_1" as const,
+        day: "SATURDAY" as const,
+        date: "27 August",
+        time: "10:30 PM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+
+      // Semi-Final 2 (Rank 1 Group B vs Rank 2 Group A)
+      const sf2DocRef = doc(matchesCol());
+      batch.set(sf2DocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "SEMI_2" as const,
+        day: "SATURDAY" as const,
+        date: "27 August",
+        time: "11:30 PM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+
+      // Grand Final
+      const finalDocRef = doc(matchesCol());
+      batch.set(finalDocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "FINAL" as const,
+        day: "SATURDAY" as const,
+        date: "27 August",
+        time: "12:45 AM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+      knockoutCount = 3;
+    }
+  } else {
+    // Single Table Playoffs driven by Central Brain
+    const singlePlayoffFormat =
+      tourneyData?.playoffFormat ||
+      ((tourneyData as any)?.config?.stages?.[0]?.advancementRule?.type === "PAGE_PLAYOFF"
+        ? (tourneyData as any)?.config?.stages?.[0]?.advancementRule?.advancingTeamsCount === 3
+          ? "PAGE_PLAYOFF_TOP3"
+          : "IPL_TOP4"
+        : (tourneyData as any)?.config?.stages?.[0]?.advancementRule?.type === "SEMI_FINALS"
+          ? "SEMI_FINALS"
+          : "DIRECT_TOP2");
+
+    if (singlePlayoffFormat === "IPL_TOP4") {
+      // 1. Qualifier 1 (Rank 1 vs Rank 2)
+      const q1DocRef = doc(matchesCol());
+      batch.set(q1DocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "QUALIFIER_1" as const,
+        day: "FRIDAY" as const,
+        date: "26 August",
+        time: "8:00 PM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+
+      // 2. Eliminator (Rank 3 vs Rank 4)
+      const elDocRef = doc(matchesCol());
+      batch.set(elDocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "ELIMINATOR" as const,
+        day: "SATURDAY" as const,
+        date: "27 August",
+        time: "4:00 PM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+
+      // 3. Qualifier 2 (Loser Q1 vs Winner Eliminator)
+      const q2DocRef = doc(matchesCol());
+      batch.set(q2DocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "QUALIFIER_2" as const,
+        day: "SATURDAY" as const,
+        date: "27 August",
+        time: "8:00 PM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+
+      // 4. Grand Final (Winner Q1 vs Winner Q2)
+      const finalDocRef = doc(matchesCol());
+      batch.set(finalDocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "FINAL" as const,
+        day: "SUNDAY" as const,
+        date: "28 August",
+        time: "8:00 PM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+      knockoutCount = 4;
+    } else if (singlePlayoffFormat === "PAGE_PLAYOFF_TOP3") {
+      const playoffDocRef = doc(matchesCol());
+      batch.set(playoffDocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "PLAYOFF" as const,
+        day: "SATURDAY" as const,
+        date: "27 August",
+        time: "11:45 PM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+
+      const finalDocRef = doc(matchesCol());
+      batch.set(finalDocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "FINAL" as const,
+        day: "SUNDAY" as const,
+        date: "28 August",
+        time: "12:45 AM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+      knockoutCount = 2;
+    } else {
+      // Direct Top 2 Final
+      const finalDocRef = doc(matchesCol());
+      batch.set(finalDocRef, {
+        tournamentId: targetTournamentId,
+        matchNumber: matchNum++,
+        stage: "FINAL" as const,
+        day: "SUNDAY" as const,
+        date: "28 August",
+        time: "8:00 PM",
+        venue,
+        teamAId: null,
+        teamBId: null,
+        oversPerSide,
+        maxOverPerBowler,
+        playersPerTeam,
+        maxWickets,
+        allowLastManStanding,
+        wideRuns,
+        noBallRuns,
+        freeHitEnabled,
+        status: "UPCOMING" as const,
+        tossWinnerId: null,
+        tossDecision: null,
+        winningTeamId: null,
+        resultText: null,
+        playerOfMatchId: null,
+        completedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+      knockoutCount = 1;
+    }
+  }
 
   await batch.commit();
-  await recalculateStandings();
-  return { count: pairings.length + 2 };
+  await recalculateStandings(targetTournamentId);
+  return { count: pairings.length + knockoutCount };
 }
 
 // ---------------------------------------------------------------------------
@@ -1488,7 +1972,7 @@ export async function inviteTeamToTournament(input: {
     teamName: teamData?.name,
     teamShortName: teamData?.shortName,
     teamLogoUrl: teamData?.logoUrl,
-    groupName: (input.groupName as any) || "A",
+    groupName: (input.groupName as any) || null,
     status: "INVITED",
     source: "ORGANIZER_INVITE",
     invitedBy: input.invitedBy.toLowerCase().trim(),
@@ -1884,8 +2368,71 @@ export async function updateTournamentStageFormat(input: {
     data.teamsPerGroupAdvance = 2;
     data.groupPlayoffFormat = "GROUP_SEMI_FINALS";
     data.playoffFormat = "SEMI_FINALS";
+  } else {
+    data.groupCount = deleteField();
+    data.groups = deleteField();
+    data.groupPlayoffFormat = deleteField();
+    data.teamsPerGroupAdvance = deleteField();
   }
+
+  // Synchronize Central Brain configuration
+  const tSnap = await getDoc(tournamentDoc(tournamentId));
+  if (tSnap.exists()) {
+    const tData = tSnap.data();
+    if (tData?.config) {
+      const updatedConfig = { ...tData.config };
+      if (stageFormat === "GROUPS_AND_KNOCKOUT") {
+        updatedConfig.uiPresentation = {
+          ...(updatedConfig.uiPresentation || {}),
+          standingsLayout: "GROUPED_TABS",
+          showGroupTabs: true,
+        };
+        if (updatedConfig.stages?.[0]) {
+          updatedConfig.stages[0].type = "GROUPS";
+          updatedConfig.stages[0].name = "Group Stage";
+          updatedConfig.stages[0].groups = [
+            { id: "A", name: "Group A", colorAccent: "#06B6D4", qualifyingSlots: 2 },
+            { id: "B", name: "Group B", colorAccent: "#A855F7", qualifyingSlots: 2 },
+          ];
+        }
+      } else {
+        updatedConfig.uiPresentation = {
+          ...(updatedConfig.uiPresentation || {}),
+          standingsLayout: "SINGLE_LEAGUE",
+          showGroupTabs: false,
+        };
+        if (updatedConfig.stages?.[0]) {
+          updatedConfig.stages[0].type = "ROUND_ROBIN";
+          updatedConfig.stages[0].name = "Round Robin League";
+          delete updatedConfig.stages[0].groups;
+        }
+      }
+      data.config = updatedConfig;
+    }
+  }
+
   await updateDoc(tournamentDoc(tournamentId), data);
+
+  // When setting single table round robin, purge groupName from all teams and memberships
+  if (stageFormat === "ROUND_ROBIN") {
+    const [teamsSnap, membershipsSnap] = await Promise.all([
+      getDocs(query(teamsCol(), where("tournamentId", "==", tournamentId))),
+      getDocs(query(tournamentTeamMembershipsCol(), where("tournamentId", "==", tournamentId))),
+    ]);
+    const batch = writeBatch(db);
+    teamsSnap.docs.forEach((d) => {
+      if (d.data().groupName) {
+        batch.update(d.ref, { groupName: deleteField(), updatedAt: now() });
+      }
+    });
+    membershipsSnap.docs.forEach((d) => {
+      if (d.data().groupName) {
+        batch.update(d.ref, { groupName: deleteField(), updatedAt: now() });
+      }
+    });
+    await batch.commit();
+  }
+
   await recalculateStandings(tournamentId);
   return { success: true, stageFormat };
 }

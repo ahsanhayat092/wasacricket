@@ -90,10 +90,12 @@ import type {
   BowlingScore,
   FallOfWicket,
   Partnership,
+  Tournament,
 } from "@/lib/firestore";
 
 type WorkspaceData = {
   match: Match;
+  tournament?: Tournament | null;
   teams: Team[];
   players: Player[];
   innings: (Innings & { batting: BattingScore[]; bowling: BowlingScore[] })[];
@@ -1465,9 +1467,13 @@ function InningsLiveConsole({
   onAutoFinalizeMatch?: () => void;
   onOpenBroadcast?: () => void;
 }) {
-  const { innings, players, teams, match } = workspace;
+  const { innings, players, teams, match, tournament } = workspace;
   const existing = innings.find((i) => i.inningsNumber === inningsNumber);
   const inn1 = innings.find((i) => i.inningsNumber === 1);
+
+  // Match rules from Central Brain
+  const configRules = (tournament as any)?.config?.matchRules;
+  const squadLimit = Number(match.playersPerTeam || configRules?.playersPerTeam || tournament?.playersPerTeam) || 11;
 
   // Determine Batting & Bowling Teams
   let battingTeamId: string | null = existing?.battingTeamId ?? null;
@@ -1501,7 +1507,7 @@ function InningsLiveConsole({
     }
   }
 
-  // Filter squad to only active Playing VI (6 starters), strictly excluding benched/reserve player unless subbed for injury
+  // Filter squad to only active Playing Squad, strictly excluding benched/reserve player unless subbed for injury
   const getPlayingSquad = (teamId: string | null) => {
     if (!teamId) return [];
     const teamSquad = players.filter((p) => p.teamId === teamId);
@@ -1516,20 +1522,19 @@ function InningsLiveConsole({
     if (reserveId) {
       return teamSquad.filter((p) => p.id !== reserveId);
     }
-    // Default: first 6 are Playing VI starters, 7th is benched reserve
-    if (teamSquad.length > 6) {
-      return teamSquad.slice(0, 6);
+    if (teamSquad.length > squadLimit) {
+      return teamSquad.slice(0, squadLimit);
     }
     return teamSquad;
   };
 
   const battingPlayers = useMemo(() => {
-    return getPlayingSquad(battingTeamId).slice(0, 6);
-  }, [players, battingTeamId, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
+    return getPlayingSquad(battingTeamId).slice(0, squadLimit);
+  }, [players, battingTeamId, squadLimit, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
 
   const bowlingPlayers = useMemo(() => {
-    return getPlayingSquad(bowlingTeamId).slice(0, 6);
-  }, [players, bowlingTeamId, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
+    return getPlayingSquad(bowlingTeamId).slice(0, squadLimit);
+  }, [players, bowlingTeamId, squadLimit, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
 
   const battingPlayerIdsKey = useMemo(() => battingPlayers.map((p) => p.id).join(","), [battingPlayers]);
   const bowlingPlayerIdsKey = useMemo(() => bowlingPlayers.map((p) => p.id).join(","), [bowlingPlayers]);
@@ -1617,13 +1622,30 @@ function InningsLiveConsole({
     return null;
   });
 
-  // Calculated Totals & Match Configuration (dynamic based on match.oversPerSide)
-  const isFinal = match.stage === "FINAL";
-  const maxMatchOvers = Number(match.oversPerSide) || 10;
+  // Calculated Totals & Match Configuration (dynamic based on match & Central Brain tournament rules)
+  const maxMatchOvers =
+    Number(match.oversPerSide || configRules?.oversPerSide || tournament?.oversPerSide) || 10;
   const maxLegalBallsInnings = maxMatchOvers * 6;
-  const totalPlayersInTeam = Number(match.playersPerTeam) || 11;
-  const lmsEnabled = match.allowLastManStanding ?? false;
-  const maxWickets = Number(match.maxWickets) || (lmsEnabled ? totalPlayersInTeam : Math.max(1, totalPlayersInTeam - 1));
+  const totalPlayersInTeam = squadLimit;
+  const lmsEnabled = Boolean(
+    match.allowLastManStanding ??
+    configRules?.allowLastManStanding ??
+    tournament?.allowLastManStanding ??
+    false
+  );
+  const maxWickets =
+    Number(match.maxWickets || configRules?.maxDismissals) ||
+    (lmsEnabled ? totalPlayersInTeam : Math.max(1, totalPlayersInTeam - 1));
+  const wideRunsPenalty = Number(
+    match.wideRuns ?? configRules?.wideRule?.runs ?? tournament?.wideRuns ?? 1
+  );
+  const noBallRunsPenalty = Number(
+    match.noBallRuns ?? configRules?.noBallRule?.runs ?? tournament?.noBallRuns ?? 1
+  );
+  const freeHitRuleEnabled = Boolean(
+    match.freeHitEnabled ?? configRules?.noBallRule?.freeHit ?? tournament?.freeHitEnabled ?? true
+  );
+
   const target = inningsNumber === 2 && inn1 ? inn1.runs + 1 : null;
 
   const totalBatterRuns = useMemo(
@@ -1651,28 +1673,16 @@ function InningsLiveConsole({
   const currentNonStriker = batRows.find((b) => b.playerId === nonStrikerId);
   const currentBowler = bowlRows.find((b) => b.playerId === currentBowlerId);
 
-  // Dynamic max overs per bowler quota (e.g. 2 overs in T10, 4 overs in T20)
-  const configuredMaxOverPerBowler = Number(match.maxOverPerBowler) || (maxMatchOvers <= 5 ? 1 : Math.ceil(maxMatchOvers / 5));
+  // Dynamic max overs per bowler quota (e.g. 3 overs in T10, 4 overs in T20)
+  const configuredMaxOverPerBowler =
+    Number(
+      match.maxOverPerBowler ||
+      configRules?.maxOversPerBowler ||
+      tournament?.maxOverPerBowler
+    ) || (maxMatchOvers <= 5 ? 1 : Math.ceil(maxMatchOvers / 5));
 
-  // Check how many bowlers have bowled 2 overs (in Final)
-  const bowlersWith2Overs = bowlRows.filter((b) => b.balls >= (configuredMaxOverPerBowler * 6));
-  const alreadyHas2OverBowler = bowlersWith2Overs.length >= 1;
-
-  const getBowlerMaxBalls = (playerId: string) => {
-    if (configuredMaxOverPerBowler > 1) {
-      return configuredMaxOverPerBowler * 6;
-    }
-    if (!isFinal) return 6; // League: strictly 1 over (6 balls) max
-    // Final: 1 bowler can bowl up to 2 overs (12 balls), others 1 over (6 balls)
-    const bowler = bowlRows.find((b) => b.playerId === playerId);
-    const bowlerBalls = bowler?.balls ?? 0;
-    if (bowlerBalls >= 6) {
-      if (!alreadyHas2OverBowler || bowlersWith2Overs.some((b) => b.playerId === playerId)) {
-        return 12; // Eligible to bowl 2nd over
-      }
-      return 6; // Another bowler already took the 2-over quota
-    }
-    return 12; // Potentially eligible for 2 overs
+  const getBowlerMaxBalls = (_playerId: string) => {
+    return configuredMaxOverPerBowler * 6;
   };
 
   const isBowlerQuotaExhausted = (playerId: string) => {
@@ -2425,13 +2435,13 @@ function InningsLiveConsole({
     pushHistory();
 
     const newExtras = { ...extras };
-    newExtras.noBalls += 1; // 1 penalty run for No Ball
+    newExtras.noBalls += noBallRunsPenalty; // Configured penalty runs for No Ball
 
     let newBat = [...batRows];
     let newBowl = [...bowlRows];
 
-    // Total runs scored on this delivery conceded by bowler = 1 Nb + batsmanRuns
-    const totalRunsThisBall = 1 + batsmanRuns;
+    // Total runs scored on this delivery conceded by bowler = noBallRunsPenalty + batsmanRuns
+    const totalRunsThisBall = noBallRunsPenalty + batsmanRuns;
 
     if (batsmanRuns > 0 && !isByeOrLegBye) {
       newBat = newBat.map((b) => {
@@ -2512,8 +2522,10 @@ function InningsLiveConsole({
     setBatRows(newBat);
     setNoBallModalOpen(false);
     setNoBallCustomRuns("0");
-    setIsFreeHit(true);
-    toast.info("⚡ FREE HIT ACTIVE on the next ball! (Batter can only be out via Run Out)");
+    if (freeHitRuleEnabled) {
+      setIsFreeHit(true);
+      toast.info("⚡ FREE HIT ACTIVE on the next ball! (Batter can only be out via Run Out)");
+    }
 
     const isFinished = checkInningsAndMatchCompletion(newBat, newBowl, newExtras, totalLegalBalls);
     if (!isFinished) {
@@ -2609,11 +2621,11 @@ function InningsLiveConsole({
     let ballCode = "W";
 
     if (ballContext === "NO_BALL") {
-      newExtras.noBalls = extras.noBalls + 1;
+      newExtras.noBalls = extras.noBalls + noBallRunsPenalty;
       isLegalDelivery = false;
       ballCode = "Nb+W";
     } else if (ballContext === "WIDE") {
-      newExtras.wides = extras.wides + 1;
+      newExtras.wides = extras.wides + wideRunsPenalty;
       isLegalDelivery = false;
       ballCode = "Wd+W";
     } else if (ballContext === "BYE") {
@@ -2652,9 +2664,11 @@ function InningsLiveConsole({
           bowled: true,
           balls: isLegalDelivery ? b.balls + 1 : b.balls,
           runs:
-            ballContext === "NO_BALL" || ballContext === "WIDE"
-              ? b.runs + 1
-              : b.runs,
+            ballContext === "NO_BALL"
+              ? b.runs + noBallRunsPenalty
+              : ballContext === "WIDE"
+                ? b.runs + wideRunsPenalty
+                : b.runs,
           noBalls: ballContext === "NO_BALL" ? b.noBalls + 1 : b.noBalls,
           wides: ballContext === "WIDE" ? b.wides + 1 : b.wides,
           wickets: isBowlerWicket ? b.wickets + 1 : b.wickets,
@@ -3132,9 +3146,9 @@ function InningsLiveConsole({
                     variant="outline"
                     disabled={isInningsFinished || readOnly || !currentBowlerId}
                     className="h-12 font-bold text-xs bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/30 text-indigo-400 rounded-xl"
-                    onClick={() => recordExtra("WIDE", 1)}
+                    onClick={() => recordExtra("WIDE", wideRunsPenalty)}
                   >
-                    +1 Wide (Wd)
+                    +{wideRunsPenalty} Wide (Wd)
                   </Button>
                   <Button
                     type="button"

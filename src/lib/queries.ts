@@ -723,13 +723,18 @@ export async function getMatchById(matchId: string): Promise<{
 export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[]> {
   const tournamentId = resolveTournamentId(idOrContext);
   try {
-    const [standingSnap, teams] = await Promise.all([
+    const [standingSnap, teams, tournamentSnap] = await Promise.all([
       getDocs(query(standingsCol(), where("tournamentId", "==", tournamentId))),
       getTeams(tournamentId),
+      getDoc(tournamentDoc(tournamentId)),
     ]);
 
     if (teams.length === 0) return [];
     const teamMap = new Map(teams.map((t) => [t.id, t]));
+    const tData = tournamentSnap.exists() ? (tournamentSnap.data() as Tournament) : null;
+    const isGroupStage =
+      tData?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
+      (tData?.config?.stages?.some((s: any) => s.type === "GROUPS") ?? false);
 
     if (standingSnap.empty) {
       if (tournamentId === TOURNAMENT_ID || tournamentId === "main") {
@@ -748,7 +753,7 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
                   : typeof raw.netRunRate === "number" && !isNaN(raw.netRunRate)
                     ? raw.netRunRate
                     : 0;
-              const s = { id: d.id, ...raw, nrr } as Standing;
+              const s = { id: d.id, ...raw, groupName: isGroupStage ? (raw.groupName || null) : null, nrr } as Standing;
               return { ...s, team: teamMap.get(s.teamId) ?? null };
             })
             .filter((s): s is StandingWithTeam => s.team !== null)
@@ -787,7 +792,7 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
         id: `init_${team.id}`,
         tournamentId,
         teamId: team.id,
-        groupName: team.groupName || "A",
+        groupName: isGroupStage ? (team.groupName || "A") : null,
         played: 0,
         won: 0,
         lost: 0,
@@ -804,16 +809,18 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
         team,
       }));
 
-      const dGroups = Array.from(new Set(initialRows.map((r) => r.groupName))).sort();
-      if (dGroups.length >= 2) {
-        const out: StandingWithTeam[] = [];
-        for (const g of dGroups) {
-          const gRows = initialRows.filter((r) => r.groupName === g);
-          gRows.forEach((r, idx) => {
-            out.push({ ...r, position: idx + 1 });
-          });
+      if (isGroupStage) {
+        const dGroups = Array.from(new Set(initialRows.map((r) => r.groupName).filter(Boolean))).sort();
+        if (dGroups.length >= 2) {
+          const out: StandingWithTeam[] = [];
+          for (const g of dGroups) {
+            const gRows = initialRows.filter((r) => r.groupName === g);
+            gRows.forEach((r, idx) => {
+              out.push({ ...r, position: idx + 1 });
+            });
+          }
+          return out;
         }
-        return out;
       }
       return initialRows.map((r, idx) => ({ ...r, position: idx + 1 }));
     }
@@ -831,7 +838,7 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
         const s = {
           id: d.id,
           ...raw,
-          groupName: raw.groupName || team?.groupName || "A",
+          groupName: isGroupStage ? (raw.groupName || team?.groupName || "A") : null,
           nrr,
         } as Standing;
         return { ...s, team };
@@ -846,7 +853,7 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
           id: `init_${team.id}`,
           tournamentId,
           teamId: team.id,
-          groupName: team.groupName || "A",
+          groupName: isGroupStage ? (team.groupName || "A") : null,
           played: 0,
           won: 0,
           lost: 0,
@@ -1633,11 +1640,16 @@ export async function getMatchWorkspace(matchId: string) {
     if (!snap.exists()) return null;
     const match = { id: snap.id, ...snap.data() } as Match;
 
-    const [teams, players, inningsSnap] = await Promise.all([
+    const [teams, players, inningsSnap, tourneySnap] = await Promise.all([
       getTeams(match.tournamentId),
       getPlayers(match.tournamentId),
       getDocs(query(inningsCol(), where("matchId", "==", matchId))),
+      match.tournamentId ? getDoc(tournamentDoc(match.tournamentId)) : Promise.resolve(null),
     ]);
+
+    const tournament = tourneySnap && tourneySnap.exists()
+      ? ({ id: tourneySnap.id, ...tourneySnap.data() } as Tournament)
+      : null;
 
     const inningsList = inningsSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Innings)
@@ -1656,6 +1668,7 @@ export async function getMatchWorkspace(matchId: string) {
 
     return {
       match,
+      tournament,
       teams,
       players,
       innings: inningsList.map((inn) => {

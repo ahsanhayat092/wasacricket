@@ -6,6 +6,7 @@ import {
   updateMatchDetails,
   deleteMatch,
   autoGenerateSchedule,
+  syncTournamentBowlerQuotaToMatches,
 } from "@/lib/mutations";
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { statusBadgeClass, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, Calendar, Clock, MapPin, FileDown, Loader2 } from "lucide-react";
+import { Plus, Sparkles, Trash2, Calendar, Clock, MapPin, FileDown, Loader2, RefreshCw } from "lucide-react";
 import { downloadSchedulePDF } from "@/lib/pdf-export";
 import { DatePicker, parseCustomDate } from "@/components/DatePicker";
 import { format } from "date-fns";
@@ -45,7 +46,8 @@ import type { HydratedMatch, Team } from "@/lib/firestore";
 
 type MatchForm = {
   matchNumber: number;
-  stage: "LEAGUE" | "PLAYOFF" | "FINAL";
+  stage: "LEAGUE" | "PLAYOFF" | "FINAL" | "SEMI_1" | "SEMI_2";
+  groupName?: string;
   day: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   teamAId: string;
   teamBId: string;
@@ -57,6 +59,7 @@ type MatchForm = {
 const defaultForm: MatchForm = {
   matchNumber: 1,
   stage: "LEAGUE",
+  groupName: "A",
   day: "MONDAY",
   teamAId: "",
   teamBId: "",
@@ -68,7 +71,7 @@ const defaultForm: MatchForm = {
 import { useTournament } from "@/context/TournamentContext";
 
 export default function AdminSchedule() {
-  const { tournamentId } = useTournament();
+  const { tournamentId, tournament } = useTournament();
 
   const { data: matches, isLoading } = useQuery({
     queryKey: ["schedule", tournamentId],
@@ -90,6 +93,15 @@ export default function AdminSchedule() {
     queryClient.invalidateQueries({ queryKey: ["standings"] });
     queryClient.invalidateQueries({ queryKey: ["overview"] });
   };
+
+  const syncRules = useMutation({
+    mutationFn: () => syncTournamentBowlerQuotaToMatches(tournamentId),
+    onSuccess: (res) => {
+      toast.success(`Synchronized ${res.updatedCount} matches to ${res.targetMaxBowler} overs per bowler!`);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to sync rules."),
+  });
 
   const create = useMutation({
     mutationFn: (args: MatchForm) =>
@@ -126,8 +138,12 @@ export default function AdminSchedule() {
     onError: (e) => toast.error(e.message),
   });
 
+  const isGroupStage =
+    tournament?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
+    (tournament?.config?.stages?.some((s: any) => s.type === "GROUPS") ?? false);
+
   const autoGen = useMutation({
-    mutationFn: () => autoGenerateSchedule(),
+    mutationFn: () => autoGenerateSchedule(tournamentId),
     onSuccess: (r) => {
       toast.success(`Generated ${r.count} match fixtures!`);
       invalidate();
@@ -138,11 +154,16 @@ export default function AdminSchedule() {
   const nextMatchNumber = (matches?.length ?? 0) + 1;
 
   const handleOpenAdd = () => {
+    const defaultGroup = isGroupStage ? "A" : undefined;
+    const groupTeams = isGroupStage
+      ? teams?.filter((t) => (t.groupName || "A") === "A") || []
+      : teams || [];
     setForm({
       ...defaultForm,
       matchNumber: nextMatchNumber,
-      teamAId: teams?.[0]?.id ?? "",
-      teamBId: teams?.[1]?.id ?? "",
+      groupName: defaultGroup,
+      teamAId: groupTeams[0]?.id ?? teams?.[0]?.id ?? "",
+      teamBId: groupTeams[1]?.id ?? teams?.[1]?.id ?? "",
     });
     setOpenCreate(true);
   };
@@ -191,6 +212,17 @@ export default function AdminSchedule() {
               className="gap-1.5"
             >
               <Sparkles className="h-4 w-4 text-amber-500" /> Auto-Generate Schedule
+            </Button>
+          )}
+          {matches && matches.length > 0 && (
+            <Button
+              variant="outline"
+              disabled={syncRules.isPending}
+              onClick={() => syncRules.mutate()}
+              className="gap-1.5 border-blue-500/40 text-blue-400 hover:bg-blue-500/10 font-bold text-xs"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 text-blue-400 ${syncRules.isPending ? "animate-spin" : ""}`} />
+              Sync Bowler Quota ({tournament?.maxOverPerBowler || 3} Overs)
             </Button>
           )}
           <Button onClick={handleOpenAdd} className="gap-1.5">
@@ -314,6 +346,35 @@ export default function AdminSchedule() {
               </Select>
             </div>
 
+            {isGroupStage && form.stage === "LEAGUE" && (
+              <div className="space-y-1.5 p-3 rounded-xl border border-blue-500/30 bg-blue-500/5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-foreground">Select Group</Label>
+                  <span className="text-[11px] text-muted-foreground">Teams play within same group</span>
+                </div>
+                <Select
+                  value={form.groupName || "A"}
+                  onValueChange={(v) => {
+                    const gTeams = (teams || []).filter((t) => (t.groupName || "A") === v);
+                    setForm({
+                      ...form,
+                      groupName: v,
+                      teamAId: gTeams[0]?.id || "",
+                      teamBId: gTeams[1]?.id || "",
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A">Group A (Teams play within Group A)</SelectItem>
+                    <SelectItem value="B">Group B (Teams play within Group B)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Team A</Label>
@@ -334,9 +395,12 @@ export default function AdminSchedule() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__TBD__">TBD (Auto-assign)</SelectItem>
-                    {teams?.map((t) => (
+                    {(isGroupStage && form.stage === "LEAGUE"
+                      ? (teams || []).filter((t) => (t.groupName || "A") === (form.groupName || "A"))
+                      : teams || []
+                    ).map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.name}
+                        {t.name} {isGroupStage ? `(Group ${t.groupName || "A"})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -361,9 +425,12 @@ export default function AdminSchedule() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__TBD__">TBD (Auto-assign)</SelectItem>
-                    {teams?.map((t) => (
+                    {(isGroupStage && form.stage === "LEAGUE"
+                      ? (teams || []).filter((t) => (t.groupName || "A") === (form.groupName || "A"))
+                      : teams || []
+                    ).map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.name}
+                        {t.name} {isGroupStage ? `(Group ${t.groupName || "A"})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -506,6 +573,8 @@ function ScheduleRow({
   const [venue, setVenue] = useState(match.venue ?? "");
   const [teamAId, setTeamAId] = useState<string | null>(match.teamA?.id ?? null);
   const [teamBId, setTeamBId] = useState<string | null>(match.teamB?.id ?? null);
+  const [oversPerSide, setOversPerSide] = useState<number>(match.oversPerSide || 10);
+  const [maxOverPerBowler, setMaxOverPerBowler] = useState<number>(match.maxOverPerBowler || 3);
 
   useEffect(() => {
     setMatchNumber(match.matchNumber);
@@ -516,7 +585,9 @@ function ScheduleRow({
     setVenue(match.venue ?? "");
     setTeamAId(match.teamA?.id ?? null);
     setTeamBId(match.teamB?.id ?? null);
-  }, [match.id, match.matchNumber, match.stage, match.day, match.date, match.time, match.venue, match.teamA?.id, match.teamB?.id]);
+    setOversPerSide(match.oversPerSide || 10);
+    setMaxOverPerBowler(match.maxOverPerBowler || 3);
+  }, [match.id, match.matchNumber, match.stage, match.day, match.date, match.time, match.venue, match.teamA?.id, match.teamB?.id, match.oversPerSide, match.maxOverPerBowler]);
 
   const computedDayLabel = useMemo(() => {
     return computeDayLabel(date, allMatches);
@@ -539,9 +610,23 @@ function ScheduleRow({
       </TableCell>
       <TableCell className="min-w-44">
         <div className="flex flex-col gap-1.5">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/60 border text-xs font-bold text-foreground w-fit shadow-xs">
-            <Calendar className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-            <span>{computedDayLabel}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/60 border text-xs font-bold text-foreground w-fit shadow-xs">
+              <Calendar className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+              <span>{computedDayLabel}</span>
+            </div>
+            {match.groupName && (
+              <Badge
+                variant="outline"
+                className={
+                  match.groupName === "A"
+                    ? "text-blue-500 border-blue-500/30 bg-blue-500/10 text-[10px] font-bold"
+                    : "text-purple-500 border-purple-500/30 bg-purple-500/10 text-[10px] font-bold"
+                }
+              >
+                Group {match.groupName}
+              </Badge>
+            )}
           </div>
 
           <Select
@@ -557,6 +642,20 @@ function ScheduleRow({
               <SelectItem value="FINAL">🏆 Grand Final</SelectItem>
             </SelectContent>
           </Select>
+
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground pt-0.5">
+            <span className="text-[10px] font-semibold text-muted-foreground/80">Quota:</span>
+            <Input
+              type="number"
+              min={1}
+              max={oversPerSide}
+              value={maxOverPerBowler}
+              onChange={(e) => setMaxOverPerBowler(Number(e.target.value) || 1)}
+              title="Max overs per bowler for this match"
+              className="w-12 h-6 text-[11px] font-bold text-center p-0.5"
+            />
+            <span className="text-[10px]">ov/bowler</span>
+          </div>
         </div>
       </TableCell>
       <TableCell className="min-w-56">
@@ -680,6 +779,8 @@ function ScheduleRow({
                 date,
                 time,
                 venue,
+                oversPerSide,
+                maxOverPerBowler,
                 ...(teamsEditable ? { teamAId, teamBId } : {}),
               })
             }

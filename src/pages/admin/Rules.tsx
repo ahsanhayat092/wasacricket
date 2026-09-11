@@ -7,6 +7,8 @@ import {
   type TournamentRuleItem,
   type RuleCategory,
 } from "@/lib/tournament-rules";
+import { generateRulebookWithAI } from "@/lib/gemini-tournament-brain";
+import { normalizeTournamentToConfig } from "@/lib/tournament-config";
 import { downloadRulesPDF } from "@/lib/pdf-export";
 import { getTournament } from "@/lib/queries";
 import { useTournament } from "@/context/TournamentContext";
@@ -61,6 +63,7 @@ import {
   Flame,
   Users,
   Trophy,
+  Sparkles,
 } from "lucide-react";
 
 const CATEGORIES: RuleCategory[] = [
@@ -117,6 +120,17 @@ export default function AdminRules() {
       toast.error(err.message || "Failed to reset rules.");
     },
   });
+
+  const handleGenerateWithAI = async () => {
+    try {
+      const config = normalizeTournamentToConfig(tournament || {});
+      const aiRules = generateRulebookWithAI(config, tournamentName);
+      await saveMutation.mutateAsync(aiRules);
+      toast.success("Gemini synthesized and saved Playing Conditions!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate rules with AI.");
+    }
+  };
 
   const openAddModal = () => {
     setEditingId(null);
@@ -232,6 +246,15 @@ export default function AdminRules() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button
+            size="sm"
+            onClick={handleGenerateWithAI}
+            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs gap-1.5 shadow-lg shadow-emerald-500/20"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Synthesize with Gemini AI</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"

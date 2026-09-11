@@ -181,6 +181,7 @@ export default function LiveMatch() {
 
   const inningsView: InningsData[] = innings.map((inn) => ({
     ...inn,
+    nonStrikerId: inn.nonStrikerId,
     battingTeamName: `${teamName(inn.battingTeamId)} Innings`,
     batting: inn.batting.map((b) => ({
       ...b,

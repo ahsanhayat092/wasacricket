@@ -192,7 +192,8 @@ export function StandingsTable({
     ),
   ).sort();
 
-  const isGrouped = stageFormat === "GROUPS_AND_KNOCKOUT" || distinctGroups.length >= 2;
+  // Strict check: only render grouped view when stageFormat is explicitly GROUPS_AND_KNOCKOUT
+  const isGrouped = stageFormat === "GROUPS_AND_KNOCKOUT";
 
   if (isGrouped) {
     if (!distinctGroups.includes("A")) distinctGroups.push("A");

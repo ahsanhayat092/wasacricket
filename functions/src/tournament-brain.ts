@@ -63,17 +63,28 @@ export function computeStandingsData(params: {
 }): StandingsCalculationResult[] {
   const { tournament, teams, matches, innings } = params;
 
-  const quotaBalls = (tournament.oversPerSide || 4) * 6;
+  const oversPerSide = tournament.config?.matchRules?.oversPerSide ?? tournament.oversPerSide ?? 4;
+  const ballsPerOver = tournament.config?.matchRules?.ballsPerOver ?? 6;
+  const quotaBalls = oversPerSide * ballsPerOver;
+
   const distinctGroups = new Set(
     teams
       .map((t) => (t.groupName || "").trim().toUpperCase())
       .filter(Boolean),
   );
+  const configIsGrouped = tournament.config?.stages?.some((s: any) => s.type === "GROUPS");
   const isGrouped =
     tournament.stageFormat === "GROUPS_AND_KNOCKOUT" ||
-    distinctGroups.size >= 2 ||
-    (tournament.groupCount !== undefined && tournament.groupCount > 1);
-  const teamsPerGroupAdvance = tournament.teamsPerGroupAdvance ?? (tournament.groupPlayoffFormat === "GROUP_SEMI_FINALS" ? 2 : 1);
+    (tournament.stageFormat !== "ROUND_ROBIN" && (configIsGrouped || (!tournament.stageFormat && (distinctGroups.size >= 2 || (tournament.groupCount !== undefined && tournament.groupCount > 1)))));
+
+  const groupStage = tournament.config?.stages?.find((s: any) => s.type === "GROUPS");
+  const configAdvance = groupStage?.groups?.[0]?.qualifyingSlots;
+  const teamsPerGroupAdvance = configAdvance ?? tournament.teamsPerGroupAdvance ?? (tournament.groupPlayoffFormat === "GROUP_SEMI_FINALS" ? 2 : 1);
+
+  const winPoints = tournament.config?.pointsConfig?.win ?? tournament.winPoints ?? 2;
+  const tiePoints = tournament.config?.pointsConfig?.tie ?? tournament.tiePoints ?? 1;
+  const noResultPoints = tournament.config?.pointsConfig?.noResult ?? tournament.noResultPoints ?? 1;
+  const lossPoints = tournament.config?.pointsConfig?.loss ?? tournament.lossPoints ?? 0;
 
   // Group teams mapping
   const teamGroupMap = new Map<string, string>();
@@ -135,11 +146,11 @@ export function computeStandingsData(params: {
     if (m.status === "ABANDONED") {
       recA.played += 1;
       recA.noResult += 1;
-      recA.points += tournament.noResultPoints ?? 1;
+      recA.points += noResultPoints;
 
       recB.played += 1;
       recB.noResult += 1;
-      recB.points += tournament.noResultPoints ?? 1;
+      recB.points += noResultPoints;
       continue;
     }
 
@@ -148,20 +159,20 @@ export function computeStandingsData(params: {
 
     if (m.winningTeamId === m.teamAId) {
       recA.won += 1;
-      recA.points += tournament.winPoints ?? 2;
+      recA.points += winPoints;
       recB.lost += 1;
-      recB.points += tournament.lossPoints ?? 0;
+      recB.points += lossPoints;
     } else if (m.winningTeamId === m.teamBId) {
       recB.won += 1;
-      recB.points += tournament.winPoints ?? 2;
+      recB.points += winPoints;
       recA.lost += 1;
-      recA.points += tournament.lossPoints ?? 0;
+      recA.points += lossPoints;
     } else {
       // Tie
       recA.tied += 1;
-      recA.points += tournament.tiePoints ?? 1;
+      recA.points += tiePoints;
       recB.tied += 1;
-      recB.points += tournament.tiePoints ?? 1;
+      recB.points += tiePoints;
     }
 
     // Process innings for NRR
@@ -214,7 +225,7 @@ export function computeStandingsData(params: {
       const nrr = computeNrr(rec.runsFor, rec.ballsFor, rec.runsAgainst, rec.ballsAgainst);
       return {
         teamId: t.id,
-        groupName: isGrouped ? g : "A",
+        groupName: isGrouped ? g : "",
         played: rec.played,
         won: rec.won,
         lost: rec.lost,
@@ -275,9 +286,10 @@ export function computeBracketPromotions(params: {
     return updates;
   }
 
+  const configIsGrouped = tournament.config?.stages?.some((s: any) => s.type === "GROUPS");
   const isGrouped =
     tournament.stageFormat === "GROUPS_AND_KNOCKOUT" ||
-    (standings.some((s) => s.groupName === "A") && standings.some((s) => s.groupName === "B"));
+    (tournament.stageFormat !== "ROUND_ROBIN" && (configIsGrouped || (!tournament.stageFormat && standings.some((s) => s.groupName === "A") && standings.some((s) => s.groupName === "B"))));
 
   if (isGrouped) {
     const groupAStandings = standings.filter((s) => s.groupName === "A").sort((a, b) => a.position - b.position);
@@ -506,43 +518,79 @@ export async function executeTournamentBrain(
     return true;
   });
 
-  // Assign groupName from memberships if team doc lacked it
-  for (const mDoc of membershipsSnap.docs) {
-    const mData = mDoc.data() as any;
-    if (mData.teamId && mData.groupName) {
-      const t = teams.find((x) => x.id === mData.teamId);
-      if (t && !t.groupName) t.groupName = mData.groupName;
+  // If tournament is explicitly ROUND_ROBIN, strictly purge all group names and group config fields!
+  if (tournament.stageFormat === "ROUND_ROBIN") {
+    teams.forEach((t) => { t.groupName = ""; });
+    const cleanUpdate: Record<string, any> = {
+      groupCount: admin.firestore.FieldValue.delete(),
+      groups: admin.firestore.FieldValue.delete(),
+      teamsPerGroupAdvance: admin.firestore.FieldValue.delete(),
+      groupPlayoffFormat: admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (tournament.config) {
+      cleanUpdate["config.uiPresentation.showGroupTabs"] = false;
+      cleanUpdate["config.uiPresentation.standingsLayout"] = "SINGLE_LEAGUE";
     }
-  }
+    await firestore.collection("tournaments").doc(tournamentId).update(cleanUpdate).catch(() => {});
 
-  // Detect and persist group stageFormat if not explicitly set
-  const distinctGroups = new Set(
-    teams
-      .map((t) => (t.groupName || "").trim().toUpperCase())
-      .filter(Boolean),
-  );
-  if (
-    !tournament.stageFormat &&
-    (distinctGroups.size >= 2 || (tournament.groupCount !== undefined && tournament.groupCount > 1))
-  ) {
-    tournament.stageFormat = "GROUPS_AND_KNOCKOUT";
-    tournament.groupCount = 2;
-    tournament.groups = ["A", "B"];
-    tournament.teamsPerGroupAdvance = 2;
-    tournament.groupPlayoffFormat = "GROUP_SEMI_FINALS";
-    tournament.playoffFormat = "SEMI_FINALS";
-    await firestore.collection("tournaments").doc(tournamentId).set(
-      {
-        stageFormat: "GROUPS_AND_KNOCKOUT",
-        groupCount: 2,
-        groups: ["A", "B"],
-        teamsPerGroupAdvance: 2,
-        groupPlayoffFormat: "GROUP_SEMI_FINALS",
-        playoffFormat: "SEMI_FINALS",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true },
+    // Also purge groupName from all memberships and teams
+    const purgeBatch = firestore.batch();
+    let hasPurgeOps = false;
+    for (const mDoc of membershipsSnap.docs) {
+      if ((mDoc.data() as any).groupName) {
+        purgeBatch.update(mDoc.ref, { groupName: admin.firestore.FieldValue.delete() });
+        hasPurgeOps = true;
+      }
+    }
+    for (const tDoc of teamsSnap.docs) {
+      if ((tDoc.data() as any).groupName) {
+        purgeBatch.update(tDoc.ref, { groupName: admin.firestore.FieldValue.delete() });
+        hasPurgeOps = true;
+      }
+    }
+    if (hasPurgeOps) {
+      await purgeBatch.commit().catch(() => {});
+    }
+  } else {
+    // Assign groupName from memberships if team doc lacked it
+    for (const mDoc of membershipsSnap.docs) {
+      const mData = mDoc.data() as any;
+      if (mData.teamId && mData.groupName) {
+        const t = teams.find((x) => x.id === mData.teamId);
+        if (t && !t.groupName) t.groupName = mData.groupName;
+      }
+    }
+
+    // Detect and persist group stageFormat if not explicitly set
+    const distinctGroups = new Set(
+      teams
+        .map((t) => (t.groupName || "").trim().toUpperCase())
+        .filter(Boolean),
     );
+    if (
+      !tournament.stageFormat &&
+      (distinctGroups.size >= 2 || (tournament.groupCount !== undefined && tournament.groupCount > 1))
+    ) {
+      tournament.stageFormat = "GROUPS_AND_KNOCKOUT";
+      tournament.groupCount = 2;
+      tournament.groups = ["A", "B"];
+      tournament.teamsPerGroupAdvance = 2;
+      tournament.groupPlayoffFormat = "GROUP_SEMI_FINALS";
+      tournament.playoffFormat = "SEMI_FINALS";
+      await firestore.collection("tournaments").doc(tournamentId).set(
+        {
+          stageFormat: "GROUPS_AND_KNOCKOUT",
+          groupCount: 2,
+          groups: ["A", "B"],
+          teamsPerGroupAdvance: 2,
+          groupPlayoffFormat: "GROUP_SEMI_FINALS",
+          playoffFormat: "SEMI_FINALS",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
   }
 
   // 4. Fetch completed innings for all matches

@@ -69,6 +69,8 @@ export type Tournament = {
   ownerId?: string | null;
   ownerEmail?: string | null;
   championTeamId?: string | null;
+  config?: any;
+  uiPresentation?: any;
   createdAt: string;
   updatedAt: string;
 };

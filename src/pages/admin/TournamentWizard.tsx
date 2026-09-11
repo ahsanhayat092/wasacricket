@@ -59,6 +59,8 @@ import type {
 import { useAuth } from "@/hooks/useAuth";
 import { useTournament } from "@/context/TournamentContext";
 import { ShareTournamentModal } from "@/components/ShareTournamentModal";
+import { GeminiTournamentModal } from "@/components/admin/GeminiTournamentModal";
+import { type TournamentConfiguration, createDefaultConfig } from "@/lib/tournament-config";
 import {
   Dialog,
   DialogContent,
@@ -84,6 +86,34 @@ export default function TournamentWizard() {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [createdTournament, setCreatedTournament] = useState<any | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [geminiModalOpen, setGeminiModalOpen] = useState(false);
+  const [activeConfig, setActiveConfig] = useState<TournamentConfiguration | null>(null);
+
+  const handleApplyGeminiConfig = (config: TournamentConfiguration) => {
+    setActiveConfig(config);
+    setSelectedFormat(config.meta.preset);
+    setOversPerSide(config.matchRules.oversPerSide);
+    setMaxOverPerBowler(config.matchRules.maxOversPerBowler);
+    setPlayersPerTeam(config.matchRules.playersPerTeam);
+    setMaxWickets(config.matchRules.maxDismissals);
+    setAllowLastManStanding(config.matchRules.allowLastManStanding);
+    setWideRuns(config.matchRules.wideRule.runs);
+    setNoBallRuns(config.matchRules.noBallRule.runs);
+    setFreeHitEnabled(config.matchRules.noBallRule.freeHit);
+
+    const isGroup = config.stages.some((s) => s.type === "GROUPS");
+    if (isGroup) {
+      setStageFormat("GROUPS_AND_KNOCKOUT");
+      const groupStage = config.stages.find((s) => s.type === "GROUPS");
+      if (groupStage?.advancementRule?.type === "DIRECT_FINAL") {
+        setGroupPlayoffFormat("GROUP_DIRECT_FINAL");
+      } else {
+        setGroupPlayoffFormat("GROUP_SEMI_FINALS");
+      }
+    } else {
+      setStageFormat("ROUND_ROBIN");
+    }
+  };
 
   // Step 1: Basics & Branding
   const [name, setName] = useState("");
@@ -114,6 +144,7 @@ export default function TournamentWizard() {
 
   // Step 4: Teams (No dummy teams by default)
   const [teams, setTeams] = useState<WizardTeamItem[]>([]);
+  const [targetGroupForAdd, setTargetGroupForAdd] = useState<"A" | "B">("A");
   const [selectedExistingTeamId, setSelectedExistingTeamId] = useState<string>("");
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamShortName, setNewTeamShortName] = useState("");
@@ -311,9 +342,7 @@ export default function TournamentWizard() {
     const colors = ["#3b82f6", "#10b981", "#f97316", "#a855f7", "#ec4899", "#eab308"];
     const randomColor = colors[teams.length % colors.length];
 
-    const currentA = teams.filter((t) => (t.groupName || "A") === "A").length;
-    const currentB = teams.filter((t) => t.groupName === "B").length;
-    const assignedGroup = currentA <= currentB ? "A" : "B";
+    const assignedGroup = stageFormat === "GROUPS_AND_KNOCKOUT" ? targetGroupForAdd : undefined;
 
     setTeams([
       ...teams,
@@ -328,7 +357,7 @@ export default function TournamentWizard() {
       },
     ]);
     setSelectedExistingTeamId("");
-    toast.success(`Added "${found.name}" to tournament invite list (Group ${assignedGroup})!`);
+    toast.success(`Added "${found.name}" to tournament${assignedGroup ? ` (Group ${assignedGroup})` : ""}!`);
   };
 
   // Add custom new team
@@ -341,9 +370,7 @@ export default function TournamentWizard() {
     const colors = ["#3b82f6", "#10b981", "#f97316", "#a855f7", "#ec4899", "#eab308"];
     const randomColor = colors[teams.length % colors.length];
 
-    const currentA = teams.filter((t) => (t.groupName || "A") === "A").length;
-    const currentB = teams.filter((t) => t.groupName === "B").length;
-    const assignedGroup = currentA <= currentB ? "A" : "B";
+    const assignedGroup = stageFormat === "GROUPS_AND_KNOCKOUT" ? targetGroupForAdd : undefined;
 
     setTeams([
       ...teams,
@@ -357,7 +384,7 @@ export default function TournamentWizard() {
     ]);
     setNewTeamName("");
     setNewTeamShortName("");
-    toast.success(`Added "${newTeamName.trim()}" to Group ${assignedGroup}!`);
+    toast.success(`Added "${newTeamName.trim()}"${assignedGroup ? ` to Group ${assignedGroup}` : " to tournament"}!`);
   };
 
   const handleAutoBalanceGroups = () => {
@@ -376,6 +403,22 @@ export default function TournamentWizard() {
 
   const handleRemoveTeam = (index: number) => {
     setTeams(teams.filter((_, i) => i !== index));
+  };
+
+  const handleProceedToStep5 = () => {
+    if (stageFormat === "GROUPS_AND_KNOCKOUT" && teams.length > 0) {
+      const aCount = teams.filter((t) => (t.groupName || "A") === "A").length;
+      const bCount = teams.filter((t) => t.groupName === "B").length;
+      if (aCount < 2) {
+        toast.error(`Group A currently has ${aCount} team${aCount === 1 ? "" : "s"}. Both groups must have at least 2 teams each to schedule group matches.`);
+        return;
+      }
+      if (bCount < 2) {
+        toast.error(`Group B currently has ${bCount} team${bCount === 1 ? "" : "s"}. Both groups must have at least 2 teams each to schedule group matches.`);
+        return;
+      }
+    }
+    setCurrentStep(5);
   };
 
   // Complete Tournament Creation Mutation
@@ -414,6 +457,54 @@ export default function TournamentWizard() {
           accentColor,
         },
         status: "UPCOMING",
+        config: (() => {
+          let cfg = activeConfig ||
+            createDefaultConfig(
+              selectedFormat,
+              stageFormat,
+              stageFormat === "GROUPS_AND_KNOCKOUT" ? ["A", "B"] : [],
+              stageFormat === "GROUPS_AND_KNOCKOUT"
+                ? groupPlayoffFormat === "GROUP_SEMI_FINALS"
+                  ? "SEMI_FINALS"
+                  : "DIRECT_TOP2"
+                : playoffFormat,
+              {
+                oversPerSide,
+                maxOversPerBowler: maxBowlerOvers,
+                playersPerTeam,
+                allowLastManStanding,
+                maxDismissals: allowLastManStanding ? playersPerTeam : playersPerTeam - 1,
+                wideRule: { runs: wideRuns, reball: true },
+                noBallRule: { runs: noBallRuns, reball: true, freeHit: freeHitEnabled },
+              },
+            );
+
+          if (stageFormat === "ROUND_ROBIN" && cfg) {
+            cfg = {
+              ...cfg,
+              uiPresentation: {
+                ...(cfg.uiPresentation || {}),
+                showGroupTabs: false,
+                standingsLayout: "SINGLE_LEAGUE",
+              },
+              stages: cfg.stages.map((s, idx) =>
+                idx === 0
+                  ? {
+                      ...s,
+                      type: "ROUND_ROBIN",
+                      name: "Round Robin League",
+                      groups: undefined,
+                      advancementRule: {
+                        type: playoffFormat === "DIRECT_TOP2" ? "DIRECT_FINAL" : playoffFormat === "PAGE_PLAYOFF_TOP3" ? "PAGE_PLAYOFF" : "SEMI_FINALS",
+                        advancingTeamsCount: playoffFormat === "DIRECT_TOP2" ? 2 : playoffFormat === "PAGE_PLAYOFF_TOP3" ? 3 : 4,
+                      },
+                    }
+                  : s
+              ),
+            };
+          }
+          return cfg;
+        })(),
       });
 
       const tourneyId = newTourney.id;
@@ -423,7 +514,10 @@ export default function TournamentWizard() {
 
       for (let i = 0; i < teams.length; i++) {
         const t = teams[i];
-        const assignedGroup: "A" | "B" = (t.groupName as "A" | "B") || (i < Math.ceil(teams.length / 2) ? "A" : "B");
+        const assignedGroup: "A" | "B" | undefined =
+          stageFormat === "GROUPS_AND_KNOCKOUT"
+            ? (t.groupName as "A" | "B") || (i < Math.ceil(teams.length / 2) ? "A" : "B")
+            : undefined;
 
         if (t.isExisting && t.teamId) {
           // Send decoupled invitation membership to existing registered team
@@ -456,7 +550,7 @@ export default function TournamentWizard() {
 
       // 3. If 2 or more teams are present, generate initial schedule fixtures
       if (createdTeamsForSchedule.length >= 2) {
-        const maxBowlerOvers = oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5);
+        const maxBowlerOvers = maxOverPerBowler || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5));
 
         if (stageFormat === "GROUPS_AND_KNOCKOUT") {
           const generatedFixtures = generateGroupedTournamentSchedule({
@@ -486,6 +580,7 @@ export default function TournamentWizard() {
               teamBId: fix.teamBId,
               venue: fix.venue,
               oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
             });
           }
 
@@ -586,6 +681,10 @@ export default function TournamentWizard() {
               teamBId: fix.teamBId,
               venue: fix.venue,
               oversPerSide,
+              maxOverPerBowler: maxBowlerOvers,
+              playersPerTeam,
+              maxWickets,
+              allowLastManStanding,
             });
           }
 
@@ -797,9 +896,19 @@ export default function TournamentWizard() {
             </div>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => navigate("/admin/tournaments")}>
-          Cancel
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            onClick={() => setGeminiModalOpen(true)}
+            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold gap-1.5 shadow-lg shadow-emerald-500/20 text-xs h-9 px-3"
+          >
+            <Sparkles className="w-4 h-4" />
+            Gemini AI Co-Pilot
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/admin/tournaments")}>
+            Cancel
+          </Button>
+        </div>
       </div>
 
       {/* Stepper Progress */}
@@ -1231,7 +1340,34 @@ export default function TournamentWizard() {
               </Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div
-                  onClick={() => setStageFormat("ROUND_ROBIN")}
+                  onClick={() => {
+                    setStageFormat("ROUND_ROBIN");
+                    setTeams((prev) => prev.map((t) => ({ ...t, groupName: undefined })));
+                    if (activeConfig) {
+                      setActiveConfig({
+                        ...activeConfig,
+                        uiPresentation: {
+                          ...(activeConfig.uiPresentation || {}),
+                          showGroupTabs: false,
+                          standingsLayout: "SINGLE_LEAGUE",
+                        },
+                        stages: activeConfig.stages.map((s, idx) =>
+                          idx === 0
+                            ? {
+                                ...s,
+                                type: "ROUND_ROBIN",
+                                name: "Round Robin League",
+                                groups: undefined,
+                                advancementRule: {
+                                  type: playoffFormat === "DIRECT_TOP2" ? "DIRECT_FINAL" : playoffFormat === "PAGE_PLAYOFF_TOP3" ? "PAGE_PLAYOFF" : "SEMI_FINALS",
+                                  advancingTeamsCount: playoffFormat === "DIRECT_TOP2" ? 2 : playoffFormat === "PAGE_PLAYOFF_TOP3" ? 3 : 4,
+                                },
+                              }
+                            : s
+                        ),
+                      });
+                    }
+                  }}
                   className={`p-4 rounded-xl border transition-all cursor-pointer space-y-2 ${
                     stageFormat === "ROUND_ROBIN"
                       ? "border-emerald-500 bg-emerald-500/10 shadow-md ring-1 ring-emerald-500"
@@ -1425,11 +1561,65 @@ export default function TournamentWizard() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Group Stage Notice & Target Group Selector */}
+            {stageFormat === "GROUPS_AND_KNOCKOUT" && (
+              <div className="p-4 rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-card to-purple-500/10 space-y-3 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-amber-500" />
+                      <h4 className="text-sm font-bold text-foreground">
+                        Group Stage Configuration (World Cup Style)
+                      </h4>
+                      <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-bold">
+                        Intra-Group Matches
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Teams will play round-robin matches <strong>strictly against rivals within the same group</strong>.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-background/90 p-1.5 rounded-xl border shadow-xs">
+                    <span className="text-xs font-bold text-muted-foreground px-2">Assign Incoming Teams To:</span>
+                    <button
+                      type="button"
+                      onClick={() => setTargetGroupForAdd("A")}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        targetGroupForAdd === "A"
+                          ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/40"
+                          : "text-muted-foreground hover:text-foreground bg-muted/40"
+                      }`}
+                    >
+                      🔵 Group A ({teams.filter((t) => (t.groupName || "A") === "A").length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTargetGroupForAdd("B")}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        targetGroupForAdd === "B"
+                          ? "bg-purple-600 text-white shadow-sm ring-2 ring-purple-400/40"
+                          : "text-muted-foreground hover:text-foreground bg-muted/40"
+                      }`}
+                    >
+                      🟣 Group B ({teams.filter((t) => t.groupName === "B").length})
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 1. Select Existing Team from System Dropdown */}
             <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
-              <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
-                <Shield className="h-4 w-4 text-emerald-500" /> Select Registered Team from Platform
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                  <Shield className="h-4 w-4 text-emerald-500" /> Select Registered Team from Platform
+                </Label>
+                {stageFormat === "GROUPS_AND_KNOCKOUT" && (
+                  <Badge variant="outline" className={targetGroupForAdd === "A" ? "text-blue-500 border-blue-500/30 text-[10px] font-bold" : "text-purple-500 border-purple-500/30 text-[10px] font-bold"}>
+                    Adding to Group {targetGroupForAdd}
+                  </Badge>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-3">
                 <select
                   value={selectedExistingTeamId}
@@ -1448,16 +1638,23 @@ export default function TournamentWizard() {
                   disabled={!selectedExistingTeamId}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 h-10 text-xs rounded-xl"
                 >
-                  <Plus className="h-4 w-4" /> Invite Selected Team
+                  <Plus className="h-4 w-4" /> Invite to Group {stageFormat === "GROUPS_AND_KNOCKOUT" ? targetGroupForAdd : "Tournament"}
                 </Button>
               </div>
             </div>
 
             {/* 2. Or Create & Invite a New Custom Team */}
             <div className="p-4 rounded-xl border bg-card/60 space-y-3">
-              <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
-                <Plus className="h-4 w-4" /> Or Enter & Invite New Team
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                  <Plus className="h-4 w-4" /> Or Enter & Invite New Team
+                </Label>
+                {stageFormat === "GROUPS_AND_KNOCKOUT" && (
+                  <Badge variant="outline" className={targetGroupForAdd === "A" ? "text-blue-500 border-blue-500/30 text-[10px] font-bold" : "text-purple-500 border-purple-500/30 text-[10px] font-bold"}>
+                    Adding to Group {targetGroupForAdd}
+                  </Badge>
+                )}
+              </div>
               <div className="flex flex-wrap items-end gap-3">
                 <div className="space-y-1.5 flex-1 min-w-[200px]">
                   <Label className="text-[11px] text-muted-foreground">Team Name</Label>
@@ -1484,7 +1681,7 @@ export default function TournamentWizard() {
                   variant="secondary"
                   className="font-bold gap-1.5 h-9 text-xs"
                 >
-                  <Plus className="h-4 w-4" /> Add Team
+                  <Plus className="h-4 w-4" /> Add to Group {stageFormat === "GROUPS_AND_KNOCKOUT" ? targetGroupForAdd : "Tournament"}
                 </Button>
               </div>
             </div>
@@ -1498,112 +1695,239 @@ export default function TournamentWizard() {
                   You can select teams now or proceed to launch your event. Teams can also request to join via public invite link anytime.
                 </p>
               </div>
-            ) : (
-              <div className="space-y-3">
+            ) : stageFormat === "GROUPS_AND_KNOCKOUT" ? (
+              /* Grouped View: Side-by-Side Group A & Group B Panels */
+              <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Label className="text-xs font-bold text-muted-foreground">
-                      Invited Tournament Teams ({teams.length})
+                      Group Assignments ({teams.length} Total Teams)
                     </Label>
-                    {stageFormat === "GROUPS_AND_KNOCKOUT" && (
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        <Badge variant="outline" className="text-blue-500 border-blue-500/30 font-bold">
-                          Group A: {teams.filter((t) => (t.groupName || "A") === "A").length}
-                        </Badge>
-                        <Badge variant="outline" className="text-purple-500 border-purple-500/30 font-bold">
-                          Group B: {teams.filter((t) => t.groupName === "B").length}
-                        </Badge>
-                      </div>
-                    )}
                   </div>
-                  {stageFormat === "GROUPS_AND_KNOCKOUT" && teams.length >= 2 && (
+                  {teams.length >= 2 && (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={handleAutoBalanceGroups}
-                      className="text-xs h-7 gap-1 font-semibold"
+                      className="text-xs h-7 gap-1 font-semibold border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
                     >
                       ⚖️ Auto-Balance Groups (A / B)
                     </Button>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {teams.map((t, idx) => {
-                    const group = t.groupName || "A";
-                    return (
-                      <div
-                        key={idx}
-                        className={`flex items-center justify-between p-3 rounded-xl border bg-card shadow-sm transition-all ${
-                          stageFormat === "GROUPS_AND_KNOCKOUT"
-                            ? group === "A"
-                              ? "border-blue-500/30 bg-blue-500/5"
-                              : "border-purple-500/30 bg-purple-500/5"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          {t.logoUrl ? (
-                            <img src={t.logoUrl} alt={t.name} className="w-8 h-8 rounded-lg object-contain bg-muted p-1" />
-                          ) : (
-                            <span
-                              className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs text-white shrink-0"
-                              style={{ backgroundColor: t.color }}
-                            >
-                              {t.shortName}
-                            </span>
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold truncate">{t.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 border-muted-foreground/30">
-                                {t.isExisting ? "Registered Club" : "New Team"}
-                              </Badge>
-                              <span className="text-[10px] text-muted-foreground font-mono">Code: {t.shortName}</span>
-                            </div>
-                          </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Group A Panel */}
+                  <div className="p-4 rounded-2xl border border-blue-500/30 bg-blue-500/5 space-y-3">
+                    <div className="flex items-center justify-between border-b border-blue-500/20 pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-600 text-white font-bold text-xs">Group A</Badge>
+                          <span className="text-xs font-bold text-foreground">
+                            {teams.filter((t) => (t.groupName || "A") === "A").length} Teams
+                          </span>
                         </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Matches: Intra-group round-robin within Group A
+                        </p>
+                      </div>
+                    </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {stageFormat === "GROUPS_AND_KNOCKOUT" && (
-                            <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-[10px] font-bold">
-                              <button
-                                type="button"
-                                onClick={() => handleSetTeamGroup(idx, "A")}
-                                className={`px-2 py-0.5 rounded transition-all ${
-                                  group === "A"
-                                    ? "bg-blue-600 text-white shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
-                                }`}
-                              >
-                                Grp A
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSetTeamGroup(idx, "B")}
-                                className={`px-2 py-0.5 rounded transition-all ${
-                                  group === "B"
-                                    ? "bg-purple-600 text-white shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
-                                }`}
-                              >
-                                Grp B
-                              </button>
-                            </div>
-                          )}
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                      {teams.filter((t) => (t.groupName || "A") === "A").length === 0 ? (
+                        <div className="p-6 text-center border border-dashed border-blue-500/30 rounded-xl bg-background/50">
+                          <p className="text-xs text-muted-foreground">No teams assigned to Group A.</p>
                           <Button
-                            size="icon"
+                            type="button"
                             variant="ghost"
-                            className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"
-                            onClick={() => handleRemoveTeam(idx)}
+                            size="sm"
+                            onClick={() => setTargetGroupForAdd("A")}
+                            className="text-xs text-blue-500 hover:text-blue-600 mt-1 font-bold"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            + Select Group A to add teams here
                           </Button>
                         </div>
+                      ) : (
+                        teams.map((t, idx) => {
+                          if ((t.groupName || "A") !== "A") return null;
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-2.5 rounded-xl border border-blue-500/20 bg-background/80 shadow-xs"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {t.logoUrl ? (
+                                  <img src={t.logoUrl} alt={t.name} className="w-7 h-7 rounded-lg object-contain bg-muted p-0.5" />
+                                ) : (
+                                  <span
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center font-black text-[11px] text-white shrink-0"
+                                    style={{ backgroundColor: t.color }}
+                                  >
+                                    {t.shortName}
+                                  </span>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold truncate text-foreground">{t.name}</p>
+                                  <span className="text-[10px] text-muted-foreground font-mono">{t.shortName}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleSetTeamGroup(idx, "B")}
+                                  className="h-7 text-[11px] font-bold px-2 border-purple-500/30 text-purple-500 hover:bg-purple-500/10"
+                                  title="Move team to Group B"
+                                >
+                                  Move to B ➡️
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"
+                                  onClick={() => handleRemoveTeam(idx)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Group B Panel */}
+                  <div className="p-4 rounded-2xl border border-purple-500/30 bg-purple-500/5 space-y-3">
+                    <div className="flex items-center justify-between border-b border-purple-500/20 pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-purple-600 text-white font-bold text-xs">Group B</Badge>
+                          <span className="text-xs font-bold text-foreground">
+                            {teams.filter((t) => t.groupName === "B").length} Teams
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Matches: Intra-group round-robin within Group B
+                        </p>
                       </div>
-                    );
-                  })}
+                    </div>
+
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                      {teams.filter((t) => t.groupName === "B").length === 0 ? (
+                        <div className="p-6 text-center border border-dashed border-purple-500/30 rounded-xl bg-background/50">
+                          <p className="text-xs text-muted-foreground">No teams assigned to Group B.</p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setTargetGroupForAdd("B")}
+                            className="text-xs text-purple-500 hover:text-purple-600 mt-1 font-bold"
+                          >
+                            + Select Group B to add teams here
+                          </Button>
+                        </div>
+                      ) : (
+                        teams.map((t, idx) => {
+                          if (t.groupName !== "B") return null;
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-2.5 rounded-xl border border-purple-500/20 bg-background/80 shadow-xs"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {t.logoUrl ? (
+                                  <img src={t.logoUrl} alt={t.name} className="w-7 h-7 rounded-lg object-contain bg-muted p-0.5" />
+                                ) : (
+                                  <span
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center font-black text-[11px] text-white shrink-0"
+                                    style={{ backgroundColor: t.color }}
+                                  >
+                                    {t.shortName}
+                                  </span>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold truncate text-foreground">{t.name}</p>
+                                  <span className="text-[10px] text-muted-foreground font-mono">{t.shortName}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleSetTeamGroup(idx, "A")}
+                                  className="h-7 text-[11px] font-bold px-2 border-blue-500/30 text-blue-500 hover:bg-blue-500/10"
+                                  title="Move team to Group A"
+                                >
+                                  ⬅️ Move to A
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"
+                                  onClick={() => handleRemoveTeam(idx)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Single Table View */
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="text-xs font-bold text-muted-foreground">
+                    Invited Tournament Teams ({teams.length})
+                  </Label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {teams.map((t, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 rounded-xl border bg-card shadow-sm"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {t.logoUrl ? (
+                          <img src={t.logoUrl} alt={t.name} className="w-8 h-8 rounded-lg object-contain bg-muted p-1" />
+                        ) : (
+                          <span
+                            className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs text-white shrink-0"
+                            style={{ backgroundColor: t.color }}
+                          >
+                            {t.shortName}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold truncate">{t.name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-muted-foreground/30">
+                              {t.isExisting ? "Registered Club" : "New Team"}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-mono">Code: {t.shortName}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"
+                        onClick={() => handleRemoveTeam(idx)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -1613,7 +1937,7 @@ export default function TournamentWizard() {
                 <ArrowLeft className="h-4 w-4" /> Back
               </Button>
               <Button
-                onClick={() => setCurrentStep(5)}
+                onClick={handleProceedToStep5}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2"
               >
                 Continue to Final Review & Launch <ArrowRight className="h-4 w-4" />
@@ -1846,6 +2170,14 @@ export default function TournamentWizard() {
           tournament={createdTournament}
         />
       )}
+
+      {/* Gemini AI Tournament Co-Pilot Modal */}
+      <GeminiTournamentModal
+        open={geminiModalOpen}
+        onOpenChange={setGeminiModalOpen}
+        currentConfig={activeConfig || undefined}
+        onApplyConfig={handleApplyGeminiConfig}
+      />
     </div>
   );
 }

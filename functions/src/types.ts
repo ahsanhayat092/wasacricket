@@ -55,6 +55,8 @@ export interface Tournament {
   playoffFormat: PlayoffFormatType;
   status: "UPCOMING" | "ONGOING" | "COMPLETED";
   championTeamId?: string | null;
+  config?: any;
+  uiPresentation?: any;
   createdAt: any;
   updatedAt: any;
 }

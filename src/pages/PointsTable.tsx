@@ -14,9 +14,7 @@ export default function PointsTable() {
     refetchInterval: 20000,
   });
 
-  const isGrouped =
-    tournament?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
-    (rows && new Set(rows.map((r) => r.groupName || r.team?.groupName).filter(Boolean)).size >= 2);
+  const isGrouped = tournament?.stageFormat === "GROUPS_AND_KNOCKOUT";
   const teamsAdvance = tournament?.teamsPerGroupAdvance ?? (tournament?.groupPlayoffFormat === "GROUP_DIRECT_FINAL" ? 1 : 2);
 
   const subtitleText = isGrouped

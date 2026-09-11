@@ -84,7 +84,15 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
   } else {
     tournament = { id: tournamentSnap.id, ...tournamentSnap.data() } as Tournament;
   }
-  const quotaBalls = (tournament.oversPerSide || 4) * 6;
+  const configRules = (tournament as any)?.config?.matchRules;
+  const configPoints = (tournament as any)?.config?.pointsConfig;
+  const winPoints = Number(configPoints?.win ?? tournament.winPoints ?? 2);
+  const tiePoints = Number(configPoints?.tie ?? tournament.tiePoints ?? 1);
+  const noResultPoints = Number(configPoints?.noResult ?? tournament.noResultPoints ?? 1);
+  const lossPoints = Number(configPoints?.loss ?? tournament.lossPoints ?? 0);
+  const oversPerSide = Number(configRules?.oversPerSide ?? tournament.oversPerSide ?? 4);
+  const ballsPerOver = Number(configRules?.ballsPerOver ?? 6);
+  const quotaBalls = oversPerSide * ballsPerOver;
 
   let rawTeams = teamsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Team);
 
@@ -330,20 +338,20 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
 
         if (outcome.kind === "TIE") {
           aA.tied += 1; aB.tied += 1;
-          aA.points += tournament.tiePoints;
-          aB.points += tournament.tiePoints;
+          aA.points += tiePoints;
+          aB.points += tiePoints;
         } else if (outcome.kind === "NO_RESULT") {
           aA.noResult += 1; aB.noResult += 1;
-          aA.points += tournament.noResultPoints;
-          aB.points += tournament.noResultPoints;
+          aA.points += noResultPoints;
+          aB.points += noResultPoints;
         } else if (winnerTeamId === m.teamAId) {
           aA.won += 1; aB.lost += 1;
-          aA.points += tournament.winPoints;
-          aB.points += tournament.lossPoints;
+          aA.points += winPoints;
+          aB.points += lossPoints;
         } else if (winnerTeamId === m.teamBId) {
           aB.won += 1; aA.lost += 1;
-          aB.points += tournament.winPoints;
-          aA.points += tournament.lossPoints;
+          aB.points += winPoints;
+          aA.points += lossPoints;
         }
       }
 
@@ -387,9 +395,13 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
     }
   }
 
+  const isGroupStage =
+    tournament.stageFormat === "GROUPS_AND_KNOCKOUT" ||
+    (!tournament.stageFormat && (tournament.config?.stages?.some((s: any) => s.type === "GROUPS") ?? false));
+
   const rows = teams.map((t) => {
     const a = agg.get(t.id)!;
-    const gName = groupNameByTeam.get(t.id) || t.groupName || null;
+    const gName = isGroupStage ? (groupNameByTeam.get(t.id) || t.groupName || "A") : null;
     return {
       teamId: t.id,
       teamName: t.name,
@@ -401,14 +413,11 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
     };
   });
 
-  const distinctGroups = Array.from(
-    new Set(rows.map((r) => r.groupName).filter((g): g is string => Boolean(g))),
-  ).sort();
+  const distinctGroups = isGroupStage
+    ? Array.from(new Set(rows.map((r) => r.groupName).filter((g): g is string => Boolean(g)))).sort()
+    : [];
 
-  const hasGroups =
-    tournament.stageFormat === "GROUPS_AND_KNOCKOUT" ||
-    (tournament.groupCount && tournament.groupCount > 1) ||
-    distinctGroups.length >= 2;
+  const hasGroups = isGroupStage && distinctGroups.length >= 2;
 
   if (hasGroups) {
     for (const r of rows) {
@@ -493,7 +502,7 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
     allLeagueMatchesCompleted,
     currentPositionsMap,
     currentNrrMap,
-    tournament.winPoints || 2,
+    winPoints,
     hasPlayoffMatch,
   );
 
@@ -541,7 +550,7 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
       tournamentId,
       teamId: r.teamId,
       teamName: r.teamName,
-      groupName: r.groupName || null,
+      groupName: hasGroups ? r.groupName || "A" : null,
       position: r.position,
       played: r.played,
       won: r.won,
@@ -871,7 +880,15 @@ export async function syncKnockoutFixtures(
   tournament?: Tournament,
 ) {
   if (!sortedRows || sortedRows.length < 2) return;
-  const playoffFormat: PlayoffFormatType = tournament?.playoffFormat || "DIRECT_TOP2";
+  const playoffFormat: PlayoffFormatType =
+    tournament?.playoffFormat ||
+    ((tournament as any)?.config?.stages?.[0]?.advancementRule?.type === "PAGE_PLAYOFF"
+      ? (tournament as any)?.config?.stages?.[0]?.advancementRule?.advancingTeamsCount === 3
+        ? "PAGE_PLAYOFF_TOP3"
+        : "IPL_TOP4"
+      : (tournament as any)?.config?.stages?.[0]?.advancementRule?.type === "SEMI_FINALS"
+        ? "SEMI_FINALS"
+        : "DIRECT_TOP2");
 
   const leagueMatches = allMatches.filter(
     (m) => !m.stage || m.stage.toUpperCase() === "LEAGUE"
@@ -889,11 +906,29 @@ export async function syncKnockoutFixtures(
   const lastLeagueMatch = leagueMatches[leagueMatches.length - 1];
   const tId = tournament?.id || lastLeagueMatch?.tournamentId || TOURNAMENT_ID;
   const venue = tournament?.venueName || lastLeagueMatch?.venue || "Askari XI, Lahore";
-  const oversPerSide = Number(tournament?.oversPerSide || lastLeagueMatch?.oversPerSide) || 4;
-  const maxOverPerBowler = Number(tournament?.maxOverPerBowler || lastLeagueMatch?.maxOverPerBowler) || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5));
-  const playersPerTeam = Number(tournament?.playersPerTeam || lastLeagueMatch?.playersPerTeam) || 11;
-  const maxWickets = Number(tournament?.maxWickets || lastLeagueMatch?.maxWickets) || (tournament?.allowLastManStanding ? playersPerTeam : Math.max(1, playersPerTeam - 1));
-  const allowLastManStanding = tournament?.allowLastManStanding ?? lastLeagueMatch?.allowLastManStanding ?? false;
+  const playConfigRules = (tournament as any)?.config?.matchRules;
+  const oversPerSide =
+    Number(playConfigRules?.oversPerSide ?? tournament?.oversPerSide ?? lastLeagueMatch?.oversPerSide) || 20;
+  const maxOverPerBowler =
+    Number(
+      playConfigRules?.maxOversPerBowler ??
+      tournament?.maxOverPerBowler ??
+      lastLeagueMatch?.maxOverPerBowler
+    ) || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5));
+  const playersPerTeam =
+    Number(playConfigRules?.playersPerTeam ?? tournament?.playersPerTeam ?? lastLeagueMatch?.playersPerTeam) || 11;
+  const allowLastManStanding = Boolean(
+    playConfigRules?.allowLastManStanding ??
+    tournament?.allowLastManStanding ??
+    lastLeagueMatch?.allowLastManStanding ??
+    false
+  );
+  const maxWickets =
+    Number(playConfigRules?.maxDismissals ?? tournament?.maxWickets ?? lastLeagueMatch?.maxWickets) ||
+    (allowLastManStanding ? playersPerTeam : Math.max(1, playersPerTeam - 1));
+  const wideRuns = Number(playConfigRules?.wideRule?.runs ?? tournament?.wideRuns ?? lastLeagueMatch?.wideRuns ?? 1);
+  const noBallRuns = Number(playConfigRules?.noBallRule?.runs ?? tournament?.noBallRuns ?? lastLeagueMatch?.noBallRuns ?? 1);
+  const freeHitEnabled = Boolean(playConfigRules?.noBallRule?.freeHit ?? tournament?.freeHitEnabled ?? lastLeagueMatch?.freeHitEnabled ?? true);
 
   // Case 5: Pure League format (NONE)
   if (playoffFormat === "NONE") {
@@ -940,7 +975,8 @@ export async function syncKnockoutFixtures(
         const needsA = existing.teamAId !== (desiredTeamA ?? null);
         const needsB = existing.teamBId !== (desiredTeamB ?? null);
         const needsOvers = existing.oversPerSide !== oversPerSide;
-        if (needsA || needsB || needsOvers) {
+        const needsBowlerQuota = existing.maxOverPerBowler !== maxOverPerBowler;
+        if (needsA || needsB || needsOvers || needsBowlerQuota) {
           await updateDoc(matchDoc(existing.id), {
             teamAId: desiredTeamA ?? null,
             teamBId: desiredTeamB ?? null,
@@ -953,6 +989,7 @@ export async function syncKnockoutFixtures(
           existing.teamAId = desiredTeamA ?? null;
           existing.teamBId = desiredTeamB ?? null;
           existing.oversPerSide = oversPerSide;
+          existing.maxOverPerBowler = maxOverPerBowler;
         }
       }
       return existing;
@@ -971,6 +1008,9 @@ export async function syncKnockoutFixtures(
       playersPerTeam,
       maxWickets,
       allowLastManStanding,
+      wideRuns,
+      noBallRuns,
+      freeHitEnabled,
       venue,
       day: lastLeagueMatch?.day || defaultDay,
       date: lastLeagueMatch?.date || new Date().toISOString().split("T")[0],
@@ -1001,8 +1041,8 @@ export async function syncKnockoutFixtures(
   // Check if this is a group tournament (FIFA World Cup / ICC T20 WC style)
   const isGroupTournament =
     tournament?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
-    (tournament?.groupCount && tournament.groupCount > 1) ||
-    sortedRows.some((r) => !!r.groupName);
+    (!tournament?.stageFormat &&
+      ((tournament?.groupCount && tournament.groupCount > 1) || sortedRows.some((r) => !!r.groupName)));
 
   if (isGroupTournament) {
     const groupA = sortedRows

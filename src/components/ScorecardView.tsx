@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -12,6 +13,7 @@ import {
   ballsToOversText,
   getInningsFallOfWickets,
   getInningsPartnerships,
+  sanitizeInningsBatting,
 } from "@/lib/cricket";
 import type { Player, FallOfWicket, Partnership } from "@/lib/firestore";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -58,6 +60,7 @@ export type InningsData = {
   bowlingTeamId: string;
   strikerId?: string | null;
   currentStrikerId?: string | null;
+  nonStrikerId?: string | null;
   fallOfWickets?: FallOfWicket[];
   partnerships?: Partnership[];
   batting: BattingRow[];
@@ -76,8 +79,21 @@ export function ScorecardView({
   const extras =
     innings.wides + innings.noBalls + innings.byes + innings.legByes + innings.penaltyRuns;
 
+  // ---------------------------------------------------------------------------
+  // Cricket Law 25: At most 2 players on the crease can be "not out".
+  // Filter out phantom/un-batted players (0 balls, 0 runs, not on crease)
+  // and return them to the "Did not bat" list.
+  // ---------------------------------------------------------------------------
+  const sanitizedBatting = useMemo(() => {
+    return sanitizeInningsBatting(innings.batting || [], {
+      strikerId: innings.strikerId,
+      currentStrikerId: innings.currentStrikerId,
+      nonStrikerId: innings.nonStrikerId,
+    });
+  }, [innings.batting, innings.strikerId, innings.currentStrikerId, innings.nonStrikerId]);
+
   // Calculate Did Not Bat players from squad
-  const battedPlayerIds = new Set(innings.batting.map((b) => b.playerId));
+  const battedPlayerIds = new Set(sanitizedBatting.map((b) => b.playerId));
   const battingSquad = squadPlayers.filter((p) => p.teamId === innings.battingTeamId);
   const didNotBat = battingSquad.filter((p) => !battedPlayerIds.has(p.id));
 
@@ -130,7 +146,7 @@ export function ScorecardView({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {innings.batting.map((b) => {
+              {sanitizedBatting.map((b) => {
                 const isOnStrike =
                   !b.isOut &&
                   (b.isOnStrike ||

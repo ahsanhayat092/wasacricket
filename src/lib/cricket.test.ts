@@ -11,6 +11,7 @@ import {
   getInningsFallOfWickets,
   getInningsPartnerships,
   getInningsOverWiseStats,
+  sanitizeInningsBatting,
 } from "./cricket";
 
 describe("oversToBalls", () => {
@@ -511,3 +512,73 @@ describe("calculateScenarioQualifications", () => {
     expect(results.get("dolphins")?.qualificationStatus).toBe("ELIMINATED");
   });
 });
+
+describe("sanitizeInningsBatting", () => {
+  it("leaves normal innings batting unchanged with 2 or fewer not-out batters", () => {
+    const batting = [
+      { playerId: "p1", runs: 54, balls: 19, fours: 12, sixes: 0, isOut: false },
+      { playerId: "p2", runs: 106, balls: 28, fours: 11, sixes: 9, isOut: true, dismissal: "b Siraj" },
+      { playerId: "p3", runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, isOnStrike: true },
+    ];
+    const result = sanitizeInningsBatting(batting, { strikerId: "p3", nonStrikerId: "p1" });
+    expect(result).toHaveLength(3);
+    expect(result.map((b) => b.playerId)).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("handles the 3 not-out bug: drops un-batted phantom player and keeps active crease players", () => {
+    // Exactly replicating the Pakistan match screenshot:
+    // Maaz Sadaqat (54 off 19, not out)
+    // Fakhar Zaman (0 off 0, not out) -> orphan record from scorer switching batter
+    // AB Nayyer (106 off 28, out)
+    // Asif Ali (0 off 0, active on strike, not out)
+    const batting = [
+      { playerId: "maaz", playerName: "Maaz Sadaqat", runs: 54, balls: 19, fours: 12, sixes: 0, isOut: false },
+      { playerId: "fakhar", playerName: "Fakhar Zaman", runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false },
+      { playerId: "nayyer", playerName: "AB Nayyer", runs: 106, balls: 28, fours: 11, sixes: 9, isOut: true, dismissal: "b Siraj" },
+      { playerId: "asif", playerName: "Asif Ali", runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, isOnStrike: true },
+    ];
+
+    const result = sanitizeInningsBatting(batting, {
+      strikerId: "asif",
+      nonStrikerId: "maaz",
+    });
+
+    // Should return 3 players: Maaz, Nayyer, and Asif. Fakhar is excluded (returns to Did Not Bat)
+    expect(result).toHaveLength(3);
+    const notOuts = result.filter((b) => !b.isOut);
+    expect(notOuts).toHaveLength(2);
+    expect(notOuts.map((b) => b.playerId)).toEqual(["maaz", "asif"]);
+
+    const playerIds = result.map((b) => b.playerId);
+    expect(playerIds).toContain("maaz");
+    expect(playerIds).toContain("nayyer");
+    expect(playerIds).toContain("asif");
+    expect(playerIds).not.toContain("fakhar");
+  });
+
+  it("marks players who faced balls but left crease without being dismissed as retired hurt", () => {
+    const batting = [
+      { playerId: "p1", runs: 30, balls: 15, isOut: false },
+      { playerId: "p2", runs: 10, balls: 5, isOut: false },
+      { playerId: "p3", runs: 5, balls: 2, isOut: false, isOnStrike: true }, // p3 is striker
+    ];
+
+    // Suppose p1 and p3 are at crease, p2 left earlier (e.g. retired hurt)
+    const result = sanitizeInningsBatting(batting, {
+      strikerId: "p3",
+      nonStrikerId: "p1",
+    });
+
+    expect(result).toHaveLength(3);
+    const p2Record = result.find((b) => b.playerId === "p2");
+    expect(p2Record?.isOut).toBe(true);
+    expect(p2Record?.dismissal).toBe("retired hurt");
+  });
+
+  it("handles empty or single batter lists safely", () => {
+    expect(sanitizeInningsBatting([])).toEqual([]);
+    const single = [{ playerId: "p1", runs: 4, balls: 2, isOut: false }];
+    expect(sanitizeInningsBatting(single)).toEqual(single);
+  });
+});
+

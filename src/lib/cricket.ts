@@ -621,3 +621,96 @@ export function stageTeamPlaceholders(stage?: string | null, isGrouped?: boolean
   return { teamA: "TBD", teamB: "TBD" };
 }
 
+export interface BattingRecordLike {
+  playerId: string;
+  playerName?: string;
+  runs: number;
+  balls: number;
+  fours?: number;
+  sixes?: number;
+  isOut: boolean;
+  isOnStrike?: boolean;
+  dismissal?: string | null;
+  battingOrder?: number;
+}
+
+export interface CreaseContext {
+  strikerId?: string | null;
+  currentStrikerId?: string | null;
+  nonStrikerId?: string | null;
+}
+
+/**
+ * Cricket Law 25: At max 2 players on the crease can be shown as "not out".
+ *
+ * In real matches, scorers sometimes select an incoming batter (which creates a 0-run, 0-ball record)
+ * and then swap/change them before a ball is bowled, leaving an abandoned orphan record in Firestore.
+ *
+ * This function sanitizes the batting list:
+ * 1. If not-out batters <= 2, returns list as-is.
+ * 2. If > 2 not-out batters:
+ *    - Prioritizes active crease batters (striker, non-striker).
+ *    - Prioritizes batters who faced deliveries or scored runs.
+ *    - Caps "not out" batters to at most 2.
+ *    - Any remaining batter with 0 balls and 0 runs is excluded from batting (so they show under "Did not bat").
+ *    - Any batter who faced deliveries but is displaced is marked "retired hurt".
+ */
+export function sanitizeInningsBatting<T extends BattingRecordLike>(
+  batting: T[],
+  crease?: CreaseContext,
+): T[] {
+  if (!batting || batting.length === 0) return [];
+
+  const notOutBatters = batting.filter((b) => !b.isOut);
+  if (notOutBatters.length <= 2) {
+    return batting;
+  }
+
+  // Identify active crease players
+  const activeCreaseIds = new Set<string>();
+  if (crease?.strikerId) activeCreaseIds.add(crease.strikerId);
+  if (crease?.currentStrikerId) activeCreaseIds.add(crease.currentStrikerId);
+  if (crease?.nonStrikerId) activeCreaseIds.add(crease.nonStrikerId);
+  batting.forEach((b) => {
+    if (b.isOnStrike) activeCreaseIds.add(b.playerId);
+  });
+
+  // Rank not-out batters: Active on crease first, then batters who faced balls/runs, then by balls desc
+  const rankedNotOuts = [...notOutBatters].sort((a, b) => {
+    const aIsCrease = activeCreaseIds.has(a.playerId) ? 1 : 0;
+    const bIsCrease = activeCreaseIds.has(b.playerId) ? 1 : 0;
+    if (aIsCrease !== bIsCrease) return bIsCrease - aIsCrease;
+
+    const aFaced = a.balls > 0 || a.runs > 0 ? 1 : 0;
+    const bFaced = b.balls > 0 || b.runs > 0 ? 1 : 0;
+    if (aFaced !== bFaced) return bFaced - aFaced;
+
+    if (b.balls !== a.balls) return b.balls - a.balls;
+    return (a.battingOrder ?? 99) - (b.battingOrder ?? 99);
+  });
+
+  // Select top 2 legitimate not-out batters for the crease
+  const validNotOutIds = new Set(rankedNotOuts.slice(0, 2).map((b) => b.playerId));
+
+  const result: T[] = [];
+  for (const b of batting) {
+    if (b.isOut) {
+      result.push(b);
+    } else if (validNotOutIds.has(b.playerId)) {
+      result.push(b);
+    } else if (b.balls > 0 || b.runs > 0) {
+      // Faced deliveries but left the crease: marked retired hurt
+      result.push({
+        ...b,
+        isOut: true,
+        dismissal: b.dismissal || "retired hurt",
+      });
+    } else {
+      // 0 balls, 0 runs, not at crease -> omitted so they appear in Did Not Bat
+    }
+  }
+
+  return result;
+}
+
+

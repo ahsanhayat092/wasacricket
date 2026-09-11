@@ -81,6 +81,7 @@ export default function AdminTeams() {
   const [inviteTeamId, setInviteTeamId] = useState("");
   const [inviteGroup, setInviteGroup] = useState<"A" | "B">("A");
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState<"ALL" | "A" | "B">("ALL");
 
   // Queries
   const { data: teams, isLoading } = useQuery({
@@ -204,7 +205,7 @@ export default function AdminTeams() {
 
   const isGroupStage =
     tournament?.stageFormat === "GROUPS_AND_KNOCKOUT" ||
-    (teams && new Set(teams.map((t) => t.groupName)).size >= 2);
+    (tournament?.config?.stages?.some((s: any) => s.type === "GROUPS") ?? false);
 
   const pendingRequests = memberships.filter((m) => m.source === "TEAM_REQUEST" && m.status === "PENDING");
   const sentInvitations = memberships.filter((m) => m.source === "ORGANIZER_INVITE" && m.status === "INVITED");
@@ -363,6 +364,52 @@ export default function AdminTeams() {
             )}
           </div>
 
+          {isGroupStage && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 text-xs">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+                <span className="text-muted-foreground">
+                  <strong>Group Stage Rules:</strong> Teams in Group A play matches within Group A. Teams in Group B play matches within Group B.
+                </span>
+              </div>
+              <div className="flex items-center gap-1 bg-background/80 p-0.5 rounded-lg border text-xs">
+                <button
+                  type="button"
+                  onClick={() => setGroupFilter("ALL")}
+                  className={`px-2.5 py-1 rounded font-bold transition-all ${
+                    groupFilter === "ALL"
+                      ? "bg-foreground text-background shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  All ({teams?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupFilter("A")}
+                  className={`px-2.5 py-1 rounded font-bold transition-all ${
+                    groupFilter === "A"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Group A ({teams?.filter((t) => (t.groupName || "A") === "A").length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupFilter("B")}
+                  className={`px-2.5 py-1 rounded font-bold transition-all ${
+                    groupFilter === "B"
+                      ? "bg-purple-600 text-white shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Group B ({teams?.filter((t) => t.groupName === "B").length || 0})
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-xl border shadow-sm overflow-x-auto bg-card">
             <Table>
               <TableHeader>
@@ -382,7 +429,12 @@ export default function AdminTeams() {
                       <TableCell colSpan={6}>Loading…</TableCell>
                     </TableRow>
                   ))}
-                {teams?.map((t) => {
+                {teams
+                  ?.filter((t) => {
+                    if (groupFilter === "ALL" || !isGroupStage) return true;
+                    return (t.groupName || "A").trim().toUpperCase() === groupFilter;
+                  })
+                  .map((t) => {
                   const teamPlayers = (players ?? []).filter((p) => p.teamId === t.id);
                   const captain = teamPlayers.find((p) => p.isCaptain || p.designation === "Captain");
                   const currentGroup = (t.groupName || "A").trim().toUpperCase();
