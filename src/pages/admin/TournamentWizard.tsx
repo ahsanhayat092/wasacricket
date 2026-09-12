@@ -33,6 +33,9 @@ import {
   Send,
   AlertTriangle,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Sliders,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -173,6 +176,33 @@ export default function TournamentWizard() {
   const [matchDuration, setMatchDuration] = useState(45);
   const [matchesPerDay, setMatchesPerDay] = useState(4);
   const [doubleRoundRobin, setDoubleRoundRobin] = useState(false);
+  const [customQuotasExpanded, setCustomQuotasExpanded] = useState(false);
+  const [matchOversOverrides, setMatchOversOverrides] = useState<Record<number, { oversPerSide?: number; maxOverPerBowler?: number }>>({});
+
+  const handleMatchOverrideChange = (mNum: number, field: "oversPerSide" | "maxOverPerBowler", val: number) => {
+    const safeVal = Math.max(1, isNaN(val) ? 1 : val);
+    setMatchOversOverrides((prev) => {
+      const current = prev[mNum] || {
+        oversPerSide,
+        maxOverPerBowler: maxOverPerBowler || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5)),
+      };
+      return {
+        ...prev,
+        [mNum]: {
+          ...current,
+          [field]: safeVal,
+        },
+      };
+    });
+  };
+
+  const handleResetMatchOverride = (mNum: number) => {
+    setMatchOversOverrides((prev) => {
+      const next = { ...prev };
+      delete next[mNum];
+      return next;
+    });
+  };
 
   // Auto-fill slug from name
   const handleNameChange = (val: string) => {
@@ -421,9 +451,98 @@ export default function TournamentWizard() {
     setCurrentStep(5);
   };
 
+  // Previews for Step 5 scheduling & match quota overrides
+  const previewFixtures = useMemo(() => {
+    if (teams.length < 2) return [];
+    try {
+      if (stageFormat === "GROUPS_AND_KNOCKOUT") {
+        return generateGroupedTournamentSchedule({
+          teams: teams.map((t, i) => ({
+            id: t.teamId || `team-${i}`,
+            name: t.name,
+            groupName: (t.groupName as "A" | "B") || (i < Math.ceil(teams.length / 2) ? "A" : "B"),
+          })),
+          startDate,
+          dailyStartTime,
+          matchDurationMinutes: matchDuration,
+          matchesPerDay,
+          venue: venueName,
+          doubleRoundRobin,
+        });
+      } else {
+        return generateTournamentSchedule({
+          teams: teams.map((t, i) => ({
+            id: t.teamId || `team-${i}`,
+            name: t.name,
+          })),
+          startDate,
+          dailyStartTime,
+          matchDurationMinutes: matchDuration,
+          matchesPerDay,
+          venue: venueName,
+          doubleRoundRobin,
+        });
+      }
+    } catch {
+      return [];
+    }
+  }, [teams, stageFormat, startDate, dailyStartTime, matchDuration, matchesPerDay, venueName, doubleRoundRobin]);
+
+  const plannedFixturesList = useMemo(() => {
+    const list: Array<{ matchNumber: number; title: string; subtitle: string; stage: string }> = [];
+    previewFixtures.forEach((f) => {
+      list.push({
+        matchNumber: f.matchNumber,
+        title: `${f.teamAName} vs ${f.teamBName}`,
+        subtitle: `${f.day} · ${f.time}`,
+        stage: f.groupName ? `Group ${f.groupName}` : "League",
+      });
+    });
+
+    const totalLeague = previewFixtures.length;
+    if (totalLeague > 0) {
+      if (stageFormat === "GROUPS_AND_KNOCKOUT") {
+        if (groupPlayoffFormat === "GROUP_SEMI_FINALS") {
+          list.push({ matchNumber: totalLeague + 1, title: "Group A Winner vs Group B Runner-up", subtitle: "Semi-Final 1", stage: "Playoffs" });
+          list.push({ matchNumber: totalLeague + 2, title: "Group B Winner vs Group A Runner-up", subtitle: "Semi-Final 2", stage: "Playoffs" });
+          list.push({ matchNumber: totalLeague + 3, title: "Winner SF1 vs Winner SF2", subtitle: "Grand Final", stage: "Final" });
+        } else {
+          list.push({ matchNumber: totalLeague + 1, title: "Group A Winner vs Group B Winner", subtitle: "Direct Grand Final", stage: "Final" });
+        }
+      } else {
+        if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
+          list.push({ matchNumber: totalLeague + 1, title: "Rank 2 vs Rank 3", subtitle: "Playoff Qualifier", stage: "Playoffs" });
+          list.push({ matchNumber: totalLeague + 2, title: "Rank 1 vs Winner Playoff", subtitle: "Grand Final", stage: "Final" });
+        } else if (playoffFormat === "IPL_TOP4") {
+          list.push({ matchNumber: totalLeague + 1, title: "Rank 1 vs Rank 2", subtitle: "Qualifier 1", stage: "Playoffs" });
+          list.push({ matchNumber: totalLeague + 2, title: "Rank 3 vs Rank 4", subtitle: "Eliminator", stage: "Playoffs" });
+          list.push({ matchNumber: totalLeague + 3, title: "Loser Q1 vs Winner Elim", subtitle: "Qualifier 2", stage: "Playoffs" });
+          list.push({ matchNumber: totalLeague + 4, title: "Winner Q1 vs Winner Q2", subtitle: "Grand Final", stage: "Final" });
+        } else if (playoffFormat === "SEMI_FINALS") {
+          list.push({ matchNumber: totalLeague + 1, title: "Rank 1 vs Rank 4", subtitle: "Semi-Final 1", stage: "Playoffs" });
+          list.push({ matchNumber: totalLeague + 2, title: "Rank 2 vs Rank 3", subtitle: "Semi-Final 2", stage: "Playoffs" });
+          list.push({ matchNumber: totalLeague + 3, title: "Winner SF1 vs Winner SF2", subtitle: "Grand Final", stage: "Final" });
+        } else if (playoffFormat === "DIRECT_TOP2") {
+          list.push({ matchNumber: totalLeague + 1, title: "Rank 1 vs Rank 2", subtitle: "Grand Final", stage: "Final" });
+        }
+      }
+    }
+    return list;
+  }, [previewFixtures, stageFormat, groupPlayoffFormat, playoffFormat]);
+
   // Complete Tournament Creation Mutation
   const createMutation = useMutation({
     mutationFn: async () => {
+      const maxBowlerOvers = maxOverPerBowler || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5));
+
+      const getMatchQuota = (mNum: number) => {
+        const custom = matchOversOverrides[mNum];
+        return {
+          oversPerSide: (custom?.oversPerSide && custom.oversPerSide > 0) ? custom.oversPerSide : oversPerSide,
+          maxOverPerBowler: (custom?.maxOverPerBowler && custom.maxOverPerBowler > 0) ? custom.maxOverPerBowler : maxBowlerOvers,
+        };
+      };
+
       // 1. Create Tournament doc with ownerId & ownerEmail
       const newTourney = await createTournament({
         name: name.trim(),
@@ -432,7 +551,7 @@ export default function TournamentWizard() {
         description: description.trim() || null,
         formatType: selectedFormat,
         oversPerSide,
-        maxOverPerBowler,
+        maxOverPerBowler: maxBowlerOvers,
         playersPerTeam,
         maxWickets,
         allowLastManStanding,
@@ -553,8 +672,6 @@ export default function TournamentWizard() {
 
       // 3. If 2 or more teams are present, generate initial schedule fixtures
       if (createdTeamsForSchedule.length >= 2) {
-        const maxBowlerOvers = maxOverPerBowler || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5));
-
         if (stageFormat === "GROUPS_AND_KNOCKOUT") {
           const generatedFixtures = generateGroupedTournamentSchedule({
             teams: createdTeamsForSchedule.map((t) => ({
@@ -571,6 +688,7 @@ export default function TournamentWizard() {
           });
 
           for (const fix of generatedFixtures) {
+            const quota = getMatchQuota(fix.matchNumber);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: fix.matchNumber,
@@ -582,14 +700,15 @@ export default function TournamentWizard() {
               teamAId: fix.teamAId,
               teamBId: fix.teamBId,
               venue: fix.venue,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: quota.oversPerSide,
+              maxOverPerBowler: quota.maxOverPerBowler,
             });
           }
 
           const lastLeagueFix = generatedFixtures[generatedFixtures.length - 1];
 
           if (groupPlayoffFormat === "GROUP_SEMI_FINALS") {
+            const sf1Quota = getMatchQuota(generatedFixtures.length + 1);
             // Semi-Final 1 (A1 vs B2)
             await createMatch({
               tournamentId: tourneyId,
@@ -601,12 +720,13 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: sf1Quota.oversPerSide,
+              maxOverPerBowler: sf1Quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
+            const sf2Quota = getMatchQuota(generatedFixtures.length + 2);
             // Semi-Final 2 (B1 vs A2)
             await createMatch({
               tournamentId: tourneyId,
@@ -618,12 +738,13 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: sf2Quota.oversPerSide,
+              maxOverPerBowler: sf2Quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
+            const finalQuota = getMatchQuota(generatedFixtures.length + 3);
             // Grand Final (Winner SF1 vs Winner SF2)
             await createMatch({
               tournamentId: tourneyId,
@@ -635,13 +756,14 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: finalQuota.oversPerSide,
+              maxOverPerBowler: finalQuota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
           } else {
+            const directFinalQuota = getMatchQuota(generatedFixtures.length + 1);
             // Direct Grand Final (A1 vs B1)
             await createMatch({
               tournamentId: tourneyId,
@@ -653,8 +775,8 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: directFinalQuota.oversPerSide,
+              maxOverPerBowler: directFinalQuota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
@@ -673,6 +795,7 @@ export default function TournamentWizard() {
           });
 
           for (const fix of generatedFixtures) {
+            const quota = getMatchQuota(fix.matchNumber);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: fix.matchNumber,
@@ -683,8 +806,8 @@ export default function TournamentWizard() {
               teamAId: fix.teamAId,
               teamBId: fix.teamBId,
               venue: fix.venue,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: quota.oversPerSide,
+              maxOverPerBowler: quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
@@ -694,6 +817,7 @@ export default function TournamentWizard() {
           const lastLeagueFix = generatedFixtures[generatedFixtures.length - 1];
 
           if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
+            const p1Quota = getMatchQuota(generatedFixtures.length + 1);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 1,
@@ -704,12 +828,13 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: p1Quota.oversPerSide,
+              maxOverPerBowler: p1Quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
+            const p2Quota = getMatchQuota(generatedFixtures.length + 2);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 2,
@@ -720,13 +845,14 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: p2Quota.oversPerSide,
+              maxOverPerBowler: p2Quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
           } else if (playoffFormat === "IPL_TOP4") {
+            const q1Quota = getMatchQuota(generatedFixtures.length + 1);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 1,
@@ -737,12 +863,13 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: q1Quota.oversPerSide,
+              maxOverPerBowler: q1Quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
+            const elimQuota = getMatchQuota(generatedFixtures.length + 2);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 2,
@@ -753,12 +880,13 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: elimQuota.oversPerSide,
+              maxOverPerBowler: elimQuota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
+            const q2Quota = getMatchQuota(generatedFixtures.length + 3);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 3,
@@ -769,12 +897,13 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: q2Quota.oversPerSide,
+              maxOverPerBowler: q2Quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
+            const iplFinalQuota = getMatchQuota(generatedFixtures.length + 4);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 4,
@@ -785,13 +914,14 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: iplFinalQuota.oversPerSide,
+              maxOverPerBowler: iplFinalQuota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
           } else if (playoffFormat === "SEMI_FINALS") {
+            const s1Quota = getMatchQuota(generatedFixtures.length + 1);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 1,
@@ -802,12 +932,13 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: s1Quota.oversPerSide,
+              maxOverPerBowler: s1Quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
+            const s2Quota = getMatchQuota(generatedFixtures.length + 2);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 2,
@@ -818,12 +949,13 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: s2Quota.oversPerSide,
+              maxOverPerBowler: s2Quota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
+            const sfFinalQuota = getMatchQuota(generatedFixtures.length + 3);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 3,
@@ -834,13 +966,14 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: sfFinalQuota.oversPerSide,
+              maxOverPerBowler: sfFinalQuota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
             });
           } else if (playoffFormat === "DIRECT_TOP2") {
+            const directFinalQuota = getMatchQuota(generatedFixtures.length + 1);
             await createMatch({
               tournamentId: tourneyId,
               matchNumber: generatedFixtures.length + 1,
@@ -851,8 +984,8 @@ export default function TournamentWizard() {
               teamAId: null,
               teamBId: null,
               venue: venueName,
-              oversPerSide,
-              maxOverPerBowler: maxBowlerOvers,
+              oversPerSide: directFinalQuota.oversPerSide,
+              maxOverPerBowler: directFinalQuota.maxOverPerBowler,
               playersPerTeam,
               maxWickets,
               allowLastManStanding,
@@ -2025,6 +2158,65 @@ export default function TournamentWizard() {
                   </div>
                 </div>
 
+                {/* Match Overs & Quota Controls */}
+                <div className="p-4 rounded-xl border bg-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-bold flex items-center gap-1.5">
+                        <Sliders className="h-3.5 w-3.5 text-emerald-500" /> Default Match Overs & Bowler Quota
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        Applied to generated fixtures unless customized individually below.
+                      </p>
+                    </div>
+                    {/* Quick presets */}
+                    <div className="flex items-center gap-1">
+                      {[4, 5, 6, 8, 10, 12, 20].map((ov) => (
+                        <button
+                          key={ov}
+                          type="button"
+                          onClick={() => {
+                            handleOversChange(ov);
+                            handleMaxBowlerChange(ov <= 5 ? 1 : Math.ceil(ov / 5));
+                          }}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded-md border transition-all ${
+                            oversPerSide === ov
+                              ? "bg-emerald-600 border-emerald-500 text-white shadow-sm"
+                              : "bg-muted/40 hover:bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {ov} Ov
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-semibold text-muted-foreground">Overs Per Side</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={oversPerSide}
+                        onChange={(e) => handleOversChange(parseInt(e.target.value, 10) || 1)}
+                        className="h-9 text-xs font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-semibold text-muted-foreground">Max Overs Per Bowler</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={oversPerSide || 10}
+                        value={maxOverPerBowler || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5))}
+                        onChange={(e) => handleMaxBowlerChange(parseInt(e.target.value, 10) || 1)}
+                        className="h-9 text-xs font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between p-3.5 rounded-xl border bg-card">
                   <div>
                     <Label className="text-xs font-bold">Double Round Robin (Home & Away)</Label>
@@ -2032,6 +2224,128 @@ export default function TournamentWizard() {
                   </div>
                   <Switch checked={doubleRoundRobin} onCheckedChange={setDoubleRoundRobin} />
                 </div>
+
+                {/* Individual Match Quota Customizer Accordion */}
+                {plannedFixturesList.length > 0 && (
+                  <div className="rounded-xl border bg-muted/10 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setCustomQuotasExpanded(!customQuotasExpanded)}
+                      className="w-full p-3.5 flex items-center justify-between bg-muted/20 hover:bg-muted/30 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sliders className="h-4 w-4 text-emerald-500" />
+                        <div>
+                          <span className="text-xs font-bold block text-foreground">
+                            Customize Individual Match Overs (Optional)
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            {plannedFixturesList.length} matches planned ·{" "}
+                            {Object.keys(matchOversOverrides).length > 0 ? (
+                              <strong className="text-emerald-500">
+                                {Object.keys(matchOversOverrides).length} customized
+                              </strong>
+                            ) : (
+                              "all using default quota"
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {Object.keys(matchOversOverrides).length > 0 && (
+                          <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-500">
+                            {Object.keys(matchOversOverrides).length} Overrides
+                          </Badge>
+                        )}
+                        {customQuotasExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </button>
+
+                    {customQuotasExpanded && (
+                      <div className="p-3 space-y-2 border-t max-h-72 overflow-y-auto">
+                        <p className="text-[11px] text-muted-foreground px-1 pb-1">
+                          You can set individual overs or bowler restrictions per match (e.g. 4 overs for league, 6 overs for semi-finals, 8 overs for final).
+                        </p>
+                        {plannedFixturesList.map((f) => {
+                          const override = matchOversOverrides[f.matchNumber];
+                          const effectiveOvers = override?.oversPerSide ?? oversPerSide;
+                          const effectiveMaxBowler =
+                            override?.maxOverPerBowler ?? (maxOverPerBowler || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5)));
+                          const isCustomized = Boolean(override);
+
+                          return (
+                            <div
+                              key={f.matchNumber}
+                              className={`p-2.5 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-colors ${
+                                isCustomized ? "bg-emerald-500/5 border-emerald-500/40" : "bg-card"
+                              }`}
+                            >
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono font-bold text-[11px] text-muted-foreground">
+                                    #{f.matchNumber}
+                                  </span>
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] py-0 px-1.5 font-medium"
+                                  >
+                                    {f.stage}
+                                  </Badge>
+                                  <strong className="text-foreground truncate">{f.title}</strong>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">{f.subtitle}</div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[11px] text-muted-foreground font-medium">Overs:</span>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    max={50}
+                                    value={effectiveOvers}
+                                    onChange={(e) =>
+                                      handleMatchOverrideChange(f.matchNumber, "oversPerSide", parseInt(e.target.value, 10))
+                                    }
+                                    className="h-7 w-14 text-xs font-bold text-center px-1"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[11px] text-muted-foreground font-medium">Bowler:</span>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    max={effectiveOvers || 10}
+                                    value={effectiveMaxBowler}
+                                    onChange={(e) =>
+                                      handleMatchOverrideChange(f.matchNumber, "maxOverPerBowler", parseInt(e.target.value, 10))
+                                    }
+                                    className="h-7 w-14 text-xs font-bold text-center px-1"
+                                  />
+                                </div>
+                                {isCustomized && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleResetMatchOverride(f.matchNumber)}
+                                    className="h-7 px-2 text-[10px] text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                                  >
+                                    Reset
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2046,8 +2360,15 @@ export default function TournamentWizard() {
                   <strong className="text-foreground">{name || "Untitled Tournament"}</strong>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Format</span>
-                  <strong className="text-emerald-500">{oversPerSide} Overs ({selectedFormat})</strong>
+                  <span className="text-muted-foreground block text-[11px]">Format & Quota</span>
+                  <strong className="text-emerald-500">
+                    {oversPerSide} Overs · Max {maxOverPerBowler || (oversPerSide <= 5 ? 1 : Math.ceil(oversPerSide / 5))} Ov/Bowler
+                    {Object.keys(matchOversOverrides).length > 0 && (
+                      <span className="block text-[10px] text-amber-500 font-semibold">
+                        ({Object.keys(matchOversOverrides).length} custom matches)
+                      </span>
+                    )}
+                  </strong>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Invited Teams</span>
