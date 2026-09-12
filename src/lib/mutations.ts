@@ -456,7 +456,11 @@ export async function createMatch(input: {
 }
 
 export async function deleteMatch(matchId: string) {
-  // Delete associated innings and scores if any
+  // 1. Get match document to determine tournamentId
+  const mSnap = await getDoc(matchDoc(matchId));
+  const tId = mSnap.exists() ? mSnap.data()?.tournamentId : undefined;
+
+  // 2. Delete associated innings and scores if any
   const inningsSnap = await getDocs(
     query(inningsCol(), where("matchId", "==", matchId)),
   );
@@ -474,7 +478,29 @@ export async function deleteMatch(matchId: string) {
   }
   batch.delete(matchDoc(matchId));
   await batch.commit();
-  await recalculateStandings();
+
+  // 3. Recalculate standings for this tournament
+  if (tId) {
+    try {
+      await recalculateStandings(tId);
+    } catch (err) {
+      console.warn("Standings recalculation notice after deleteMatch:", err);
+    }
+  }
+}
+
+export async function deleteAllMatches(tournamentId: string) {
+  const matchesSnap = await getDocs(
+    query(matchesCol(), where("tournamentId", "==", tournamentId)),
+  );
+  for (const mDoc of matchesSnap.docs) {
+    await deleteMatch(mDoc.id);
+  }
+  try {
+    await recalculateStandings(tournamentId);
+  } catch (err) {
+    console.warn("Standings recalculation notice after deleteAllMatches:", err);
+  }
 }
 
 export async function updateMatchDetails(input: {

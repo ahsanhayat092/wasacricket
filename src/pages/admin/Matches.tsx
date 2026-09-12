@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/table";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
-import { RotateCcw, Trophy, Trash2, Sliders } from "lucide-react";
+import { RotateCcw, Trophy, Trash2, Sliders, AlertTriangle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HydratedMatch } from "@/lib/firestore";
 
@@ -36,6 +36,7 @@ export default function AdminMatches() {
   const { tournamentId } = useTournament();
 
   const [openOversDialog, setOpenOversDialog] = useState(false);
+  const [matchToDelete, setMatchToDelete] = useState<HydratedMatch | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<HydratedMatch | null>(null);
   const [editOvers, setEditOvers] = useState<number>(4);
   const [editMaxBowler, setEditMaxBowler] = useState<number>(1);
@@ -48,6 +49,8 @@ export default function AdminMatches() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["schedule", tournamentId] });
     queryClient.invalidateQueries({ queryKey: ["schedule"] });
+    queryClient.invalidateQueries({ queryKey: ["matches", tournamentId] });
+    queryClient.invalidateQueries({ queryKey: ["matches"] });
     queryClient.invalidateQueries({ queryKey: ["standings", tournamentId] });
     queryClient.invalidateQueries({ queryKey: ["standings"] });
     queryClient.invalidateQueries({ queryKey: ["statistics"] });
@@ -74,9 +77,10 @@ export default function AdminMatches() {
     mutationFn: (matchId: string) => fbDeleteMatch(matchId),
     onSuccess: () => {
       toast.success("Match and its scorecards deleted successfully!");
+      setMatchToDelete(null);
       invalidate();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message || "Failed to delete match"),
   });
 
   const saveOversMutation = useMutation({
@@ -226,15 +230,7 @@ export default function AdminMatches() {
                       variant="ghost"
                       className="text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 text-xs gap-1"
                       disabled={deleteMatchMutation.isPending}
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `🗑️ Permanently DELETE ${m.stage === "FINAL" ? "Grand Final" : m.stage === "PLAYOFF" ? "Playoff Match" : `Match ${m.matchNumber}`}?\n\nThis will remove the fixture and all associated innings and scorecards.`
-                          )
-                        ) {
-                          deleteMatchMutation.mutate(m.id);
-                        }
-                      }}
+                      onClick={() => setMatchToDelete(m)}
                       title="Permanently Delete Match"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -335,6 +331,60 @@ export default function AdminMatches() {
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
             >
               {saveOversMutation.isPending ? "Saving..." : "Save Match Rules"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Match Confirmation Dialog */}
+      <Dialog open={!!matchToDelete} onOpenChange={(open) => !open && setMatchToDelete(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Delete Match #{matchToDelete?.matchNumber}?
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete this match fixture? All scorecards, toss data, and statistics will be removed.
+            </DialogDescription>
+          </DialogHeader>
+
+          {matchToDelete && (
+            <div className="p-3.5 rounded-xl border bg-muted/20 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Matchup:</span>
+                <strong className="text-foreground">
+                  {matchToDelete.teamA?.name ?? "TBD"} vs {matchToDelete.teamB?.name ?? "TBD"}
+                </strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Stage:</span>
+                <span>{matchToDelete.stage} · {matchToDelete.oversPerSide ?? 4} Overs</span>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t">
+                <span className="text-muted-foreground">Status:</span>
+                <Badge variant="outline" className={statusBadgeClass(matchToDelete.status as MatchStatus)}>
+                  {matchToDelete.status}
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setMatchToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMatchMutation.isPending}
+              onClick={() => {
+                if (matchToDelete) {
+                  deleteMatchMutation.mutate(matchToDelete.id);
+                }
+              }}
+              className="gap-2 font-bold"
+            >
+              {deleteMatchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete Match
             </Button>
           </DialogFooter>
         </DialogContent>

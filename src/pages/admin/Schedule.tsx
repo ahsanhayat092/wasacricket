@@ -5,6 +5,7 @@ import {
   createMatch,
   updateMatchDetails,
   deleteMatch,
+  deleteAllMatches,
   autoGenerateSchedule,
   syncTournamentBowlerQuotaToMatches,
 } from "@/lib/mutations";
@@ -17,6 +18,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -37,7 +39,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { statusBadgeClass, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
-import { Plus, Sparkles, Trash2, Calendar, Clock, MapPin, FileDown, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Sparkles, Trash2, Calendar, Clock, MapPin, FileDown, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { downloadSchedulePDF } from "@/lib/pdf-export";
 import { DatePicker, parseCustomDate } from "@/components/DatePicker";
 import { format } from "date-fns";
@@ -87,12 +89,16 @@ export default function AdminSchedule() {
   });
 
   const [openCreate, setOpenCreate] = useState(false);
+  const [matchToDelete, setMatchToDelete] = useState<HydratedMatch | null>(null);
+  const [openClearAll, setOpenClearAll] = useState(false);
   const [form, setForm] = useState<MatchForm>(defaultForm);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["schedule", tournamentId] });
     queryClient.invalidateQueries({ queryKey: ["schedule"] });
+    queryClient.invalidateQueries({ queryKey: ["matches", tournamentId] });
+    queryClient.invalidateQueries({ queryKey: ["matches"] });
     queryClient.invalidateQueries({ queryKey: ["standings", tournamentId] });
     queryClient.invalidateQueries({ queryKey: ["standings"] });
     queryClient.invalidateQueries({ queryKey: ["overview"] });
@@ -136,10 +142,21 @@ export default function AdminSchedule() {
   const del = useMutation({
     mutationFn: (id: string) => deleteMatch(id),
     onSuccess: () => {
-      toast.success("Match fixture deleted");
+      toast.success("Match fixture deleted successfully");
+      setMatchToDelete(null);
       invalidate();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message || "Failed to delete match fixture"),
+  });
+
+  const clearAllMutation = useMutation({
+    mutationFn: () => deleteAllMatches(tournamentId),
+    onSuccess: () => {
+      toast.success("All tournament fixtures cleared successfully");
+      setOpenClearAll(false);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to clear fixtures"),
   });
 
   const isGroupStage =
@@ -235,6 +252,15 @@ export default function AdminSchedule() {
               Sync Bowler Quota ({tournament?.maxOverPerBowler || 3} Overs)
             </Button>
           )}
+          {matches && matches.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setOpenClearAll(true)}
+              className="gap-1.5 border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 font-bold text-xs"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Clear All Fixtures
+            </Button>
+          )}
           <Button onClick={handleOpenAdd} className="gap-1.5">
             <Plus className="h-4 w-4" /> Add Match Fixture
           </Button>
@@ -279,11 +305,7 @@ export default function AdminSchedule() {
                 saving={update.isPending}
                 deleting={del.isPending}
                 onSave={(v) => update.mutate({ matchId: m.id, ...v })}
-                onDelete={() => {
-                  if (confirm(`Delete Match ${m.matchNumber}?`)) {
-                    del.mutate(m.id);
-                  }
-                }}
+                onDelete={() => setMatchToDelete(m)}
               />
             ))}
           </TableBody>
@@ -529,6 +551,98 @@ export default function AdminSchedule() {
               onClick={() => create.mutate(form)}
             >
               Create Fixture
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Match Confirmation Dialog */}
+      <Dialog open={!!matchToDelete} onOpenChange={(open) => !open && setMatchToDelete(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Delete Match #{matchToDelete?.matchNumber}?
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete this match fixture from the tournament schedule?
+            </DialogDescription>
+          </DialogHeader>
+
+          {matchToDelete && (
+            <div className="p-3.5 rounded-xl border bg-muted/20 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Teams:</span>
+                <strong className="text-foreground">
+                  {matchToDelete.teamA?.name ?? "TBD"} vs {matchToDelete.teamB?.name ?? "TBD"}
+                </strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Stage & Quota:</span>
+                <span>{matchToDelete.stage} · {matchToDelete.oversPerSide ?? 4} Overs</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Scheduled:</span>
+                <span>{matchToDelete.date ? `${matchToDelete.date} at ${matchToDelete.time || "TBD"}` : "Unscheduled"}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t">
+                <span className="text-muted-foreground">Status:</span>
+                <Badge variant="outline" className={statusBadgeClass(matchToDelete.status as MatchStatus)}>
+                  {matchToDelete.status}
+                </Badge>
+              </div>
+              {matchToDelete.status !== "UPCOMING" && (
+                <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[11px] font-medium leading-tight">
+                  ⚠️ Notice: This match has status <strong>{matchToDelete.status}</strong>. Deleting it will permanently remove all associated innings and adjust team standings.
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setMatchToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={del.isPending}
+              onClick={() => {
+                if (matchToDelete) {
+                  del.mutate(matchToDelete.id);
+                }
+              }}
+              className="gap-2 font-bold"
+            >
+              {del.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete Fixture
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear All Fixtures Dialog */}
+      <Dialog open={openClearAll} onOpenChange={setOpenClearAll}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Clear All Tournament Fixtures?
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete all {matches?.length ?? 0} matches from this tournament's schedule. You will be able to add new fixtures or auto-generate a fresh schedule.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setOpenClearAll(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={clearAllMutation.isPending}
+              onClick={() => clearAllMutation.mutate()}
+              className="gap-2 font-bold"
+            >
+              {clearAllMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Clear All ({matches?.length ?? 0}) Fixtures
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -851,17 +965,16 @@ function ScheduleRow({
           >
             Save
           </Button>
-          {match.status === "UPCOMING" && (
-            <Button
-              size="icon"
-              variant="ghost"
-              disabled={deleting}
-              onClick={onDelete}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            disabled={deleting}
+            onClick={onDelete}
+            title={`Delete Match #${match.matchNumber}`}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 shrink-0"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </TableCell>
     </TableRow>
