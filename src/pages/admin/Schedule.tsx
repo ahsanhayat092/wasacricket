@@ -212,7 +212,13 @@ export default function AdminSchedule() {
               onClick={async () => {
                 try {
                   setIsDownloadingPdf(true);
-                  await downloadSchedulePDF(matches as HydratedMatch[]);
+                  await downloadSchedulePDF(matches as HydratedMatch[], {
+                    tournamentName: tournament?.name,
+                    venueName: tournament?.venueName || undefined,
+                    oversPerSide: tournament?.oversPerSide,
+                    maxOverPerBowler: tournament?.maxOverPerBowler,
+                    formatType: tournament?.formatType,
+                  });
                   toast.success("Schedule PDF downloaded successfully!");
                 } catch (err) {
                   console.error("PDF Download error:", err);

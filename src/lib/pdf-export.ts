@@ -4,195 +4,273 @@ import type { HydratedMatch } from "@/components/MatchCard";
 import { formatMatchDay } from "@/lib/cricket";
 import type { TournamentRuleItem } from "@/lib/tournament-rules";
 
+export interface SchedulePDFOptions {
+  tournamentName?: string;
+  venueName?: string;
+  oversPerSide?: number;
+  maxOverPerBowler?: number;
+  formatType?: string;
+}
+
 export async function downloadSchedulePDF(
   matches: HydratedMatch[],
-  tournamentName = "WASA Premier League 2026"
+  optionsOrName?: string | SchedulePDFOptions,
+  extraOptions?: SchedulePDFOptions
 ) {
+  const options: SchedulePDFOptions =
+    typeof optionsOrName === "string"
+      ? { tournamentName: optionsOrName, ...extraOptions }
+      : { ...optionsOrName };
+
+  const tournamentName = (options.tournamentName || "Tournament Schedule").trim();
+  const defaultOvers = options.oversPerSide || 4;
+  const defaultMaxBowler =
+    options.maxOverPerBowler || (defaultOvers <= 5 ? 1 : Math.ceil(defaultOvers / 5));
+  const formatType = (options.formatType || "CRICKET").replace(/_/g, " ");
+  const fallbackVenue = options.venueName || "Askari XI Cricket Ground, Lahore";
+
+  // Landscape A4 provides 297mm width - the optimal orientation for tournament fixtures
   const doc = new jsPDF({
-    orientation: "portrait",
+    orientation: "landscape",
     unit: "mm",
     format: "a4",
   });
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth(); // 297mm
+  const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
 
-  // Primary Colors (Emerald & Slate Theme)
-  const primaryEmerald = [5, 150, 105]; // #059669
-  const darkSlate = [15, 23, 42]; // #0f172a
-  const accentGold = [217, 119, 6]; // #d97706
+  // Premium Palette
+  const darkNavy = [15, 23, 42]; // #0f172a
+  const emeraldPrimary = [5, 150, 105]; // #059669
+  const emeraldHeader = [4, 120, 87]; // #047857
 
-  // 1. Header Banner
-  doc.setFillColor(darkSlate[0], darkSlate[1], darkSlate[2]);
-  doc.rect(0, 0, pageWidth, 38, "F");
+  // 1. Header Banner (Navy Slate with Emerald Stripe)
+  doc.setFillColor(darkNavy[0], darkNavy[1], darkNavy[2]);
+  doc.rect(0, 0, pageWidth, 32, "F");
 
   // Emerald Top Stripe
-  doc.setFillColor(primaryEmerald[0], primaryEmerald[1], primaryEmerald[2]);
-  doc.rect(0, 0, pageWidth, 4, "F");
+  doc.setFillColor(emeraldPrimary[0], emeraldPrimary[1], emeraldPrimary[2]);
+  doc.rect(0, 0, pageWidth, 3.5, "F");
 
-  // Title Text
+  // Tournament Title
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.text(tournamentName.toUpperCase(), 14, 18);
+  doc.setFontSize(16);
+  doc.text(tournamentName.toUpperCase(), 14, 16);
 
   // Subtitle
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(167, 243, 208); // light emerald
-  doc.text("Official Tournament Fixtures & Match Schedule", 14, 25);
-
-  // Meta stats right aligned in header
   doc.setFontSize(8.5);
-  doc.setTextColor(203, 213, 225);
+  doc.setTextColor(167, 243, 208); // light emerald
+  doc.text("OFFICIAL TOURNAMENT FIXTURES & MATCH SCHEDULE", 14, 23);
+
+  // Metadata right-aligned
   const nowStr = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-  doc.text(`Generated: ${nowStr}`, pageWidth - 14, 18, { align: "right" });
-  doc.text(`Total Fixtures: ${matches.length} Matches`, pageWidth - 14, 25, { align: "right" });
+  doc.setFontSize(8);
+  doc.setTextColor(226, 232, 240);
+  doc.text(`Generated: ${nowStr}`, pageWidth - 14, 15, { align: "right" });
+  doc.text(`Total Fixtures: ${matches.length} Matches`, pageWidth - 14, 21, { align: "right" });
+  doc.setTextColor(251, 191, 36); // amber-400
+  doc.text(`Format: ${defaultOvers} OVERS · ${formatType}`, pageWidth - 14, 27, { align: "right" });
 
   // 2. Info Summary Card
   const allDates = Array.from(new Set(matches.map((m) => m.date?.trim()).filter(Boolean)));
   const allVenues = Array.from(new Set(matches.map((m) => m.venue?.trim()).filter(Boolean)));
-  const venueText = allVenues.length > 0 ? allVenues.join(" • ") : "Askari XI Cricket Ground, Lahore";
-  const dateText = allDates.length > 0 ? allDates.join(" to ") : "Scheduled Dates";
+  const venueText = allVenues.length > 0 ? allVenues.join(" • ") : fallbackVenue;
+  const dateText =
+    allDates.length > 1
+      ? `${allDates[0]} to ${allDates[allDates.length - 1]}`
+      : allDates[0] || "Dates As Scheduled";
 
   doc.setFillColor(248, 250, 252); // #f8fafc
   doc.setDrawColor(226, 232, 240); // #e2e8f0
-  doc.roundedRect(14, 43, pageWidth - 28, 14, 2, 2, "FD");
+  doc.roundedRect(14, 36, pageWidth - 28, 11, 2, 2, "FD");
 
-  doc.setFontSize(8.5);
-  doc.setTextColor(51, 65, 85);
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
   doc.setFont("helvetica", "bold");
-  doc.text("VENUE & FORMAT:", 18, 51.5);
+  doc.text("VENUE:", 18, 43);
   doc.setFont("helvetica", "normal");
-  doc.text(`${venueText}  |  ${dateText}  |  4 Overs League / 5 Overs Final`, 55, 51.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(venueText, 32, 43);
 
-  // 3. Table Rows Construction
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(71, 85, 105);
+  doc.text("DATES:", 120, 43);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(15, 23, 42);
+  doc.text(dateText, 133, 43);
+
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(71, 85, 105);
+  doc.text("DEFAULT QUOTA:", 200, 43);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(5, 150, 105);
+  doc.text(`${defaultOvers} Ov / side (Max ${defaultMaxBowler} ov/bowler)`, 229, 43);
+
+  // 3. Build Table Data
   const tableData = matches.map((m) => {
-    const isPlayoff = m.stage === "PLAYOFF" || m.stage?.toUpperCase() === "PLAYOFF";
-    const isFinal = m.stage === "FINAL" || m.stage?.toUpperCase() === "FINAL";
-    const matchLabel = isFinal
-      ? "GRAND FINAL"
-      : isPlayoff
-        ? "PLAYOFF MATCH"
-        : `Match ${m.matchNumber}`;
-    const dayDate = formatMatchDay(m.day, m.date);
+    const isPlayoff =
+      m.stage === "PLAYOFF" ||
+      m.stage === "SEMI_1" ||
+      m.stage === "SEMI_2" ||
+      m.stage === "QUALIFIER_1" ||
+      m.stage === "QUALIFIER_2" ||
+      m.stage === "ELIMINATOR";
+    const isFinal = m.stage === "FINAL";
+
+    let stageLabel = "League";
+    if (isFinal) stageLabel = "🏆 Final";
+    else if (m.stage === "SEMI_1") stageLabel = "Semi-Final 1";
+    else if (m.stage === "SEMI_2") stageLabel = "Semi-Final 2";
+    else if (m.stage === "QUALIFIER_1") stageLabel = "Qualifier 1";
+    else if (m.stage === "QUALIFIER_2") stageLabel = "Qualifier 2";
+    else if (m.stage === "ELIMINATOR") stageLabel = "Eliminator";
+    else if (isPlayoff) stageLabel = "Playoff";
+    else if (m.groupName) stageLabel = `Group ${m.groupName}`;
+
+    const matchNumberLabel = `#${m.matchNumber}`;
+    const dayDate = formatMatchDay(m.day, m.date) || "TBD";
     const time = m.time || "TBD";
-    const teamA = m.teamA
-      ? `${m.teamA.name} (${m.teamA.shortName})`
+
+    const teamAName = m.teamA
+      ? `${m.teamA.name}${m.teamA.shortName ? ` (${m.teamA.shortName})` : ""}`
       : isFinal
-        ? "TBD (Rank 1)"
+        ? "TBD (Finalist 1)"
         : isPlayoff
-          ? "TBD (Rank 2)"
+          ? "TBD (Qualifier)"
           : "TBD";
-    const teamB = m.teamB
-      ? `${m.teamB.name} (${m.teamB.shortName})`
+
+    const teamBName = m.teamB
+      ? `${m.teamB.name}${m.teamB.shortName ? ` (${m.teamB.shortName})` : ""}`
       : isFinal
-        ? "TBD (Playoff Winner)"
+        ? "TBD (Finalist 2)"
         : isPlayoff
-          ? "TBD (Rank 3)"
+          ? "TBD (Qualifier)"
           : "TBD";
-    const matchup = `${teamA} vs ${teamB}`;
-    
-    let statusText = m.status;
+
+    const matchup = `${teamAName}   vs   ${teamBName}`;
+    const matchOvers = `${m.oversPerSide || defaultOvers} Ov`;
+    const venue = m.venue || venueText || "Venue TBD";
+
+    let statusText = m.status || "Upcoming";
     if (m.status === "UPCOMING") statusText = "Upcoming";
     else if (m.status === "LIVE") statusText = "LIVE";
     else if (m.status === "COMPLETED") {
       statusText = m.resultText || "Completed";
     }
 
-    return [matchLabel, dayDate, time, matchup, statusText];
+    return [
+      matchNumberLabel,
+      stageLabel,
+      dayDate,
+      time,
+      matchup,
+      matchOvers,
+      venue,
+      statusText,
+    ];
   });
 
-  // 4. AutoTable for Fixtures
+  // Usable width: 297 - 28 = 269mm (left: 14mm, right: 14mm)
   autoTable(doc, {
-    startY: 62,
-    head: [["Fixture", "Day & Date", "Time", "Teams / Matchup", "Status / Result"]],
+    startY: 51,
+    head: [["Match", "Stage", "Day & Date", "Time", "Teams / Matchup", "Quota", "Venue", "Status / Result"]],
     body: tableData,
     theme: "grid",
+    showHead: "everyPage",
     headStyles: {
-      fillColor: [5, 150, 105], // emerald-600
+      fillColor: emeraldHeader as [number, number, number],
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 9,
+      fontSize: 8.5,
       halign: "left",
-      cellPadding: 3.5,
+      cellPadding: 2.5,
     },
     bodyStyles: {
-      fontSize: 8.5,
-      textColor: [30, 41, 59],
-      cellPadding: 3.5,
+      fontSize: 8,
+      textColor: [15, 23, 42], // deep dark slate for maximum contrast & crisp readability
+      cellPadding: 2.2,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.1,
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
     columnStyles: {
-      0: { cellWidth: 32, fontStyle: "bold" },
-      1: { cellWidth: 36 },
-      2: { cellWidth: 20 },
-      3: { cellWidth: 54, fontStyle: "bold" },
-      4: { cellWidth: "auto" },
+      0: { cellWidth: 16, fontStyle: "bold", halign: "center" },
+      1: { cellWidth: 26, fontStyle: "bold" },
+      2: { cellWidth: 36 },
+      3: { cellWidth: 20, halign: "center" },
+      4: { cellWidth: 88, fontStyle: "bold" },
+      5: { cellWidth: 16, halign: "center" },
+      6: { cellWidth: 36 },
+      7: { cellWidth: 31, halign: "center" },
     },
     didParseCell: (data) => {
-      // Highlight Grand Final row
-      const fixtureText = data.row.raw ? String(data.row.raw[0]) : "";
-      if (fixtureText.includes("GRAND FINAL") && data.section === "body") {
-        data.cell.styles.fillColor = [254, 243, 199]; // amber-100
-        data.cell.styles.textColor = [146, 64, 14]; // amber-800
-        data.cell.styles.fontStyle = "bold";
-      } else if (fixtureText.includes("PLAYOFF") && data.section === "body") {
-        data.cell.styles.fillColor = [243, 232, 255]; // purple-100
-        data.cell.styles.textColor = [107, 33, 168]; // purple-800
-        data.cell.styles.fontStyle = "bold";
-      }
+      const rowRaw = data.row.raw as string[] | undefined;
+      const stageText = rowRaw ? String(rowRaw[1] || "") : "";
 
-      // Highlight Results / Status
-      if (data.column.index === 4 && data.section === "body") {
-        const val = String(data.cell.raw);
-        if (val === "LIVE") {
-          data.cell.styles.textColor = [220, 38, 38]; // red-600
+      if (data.section === "body") {
+        // Highlight Grand Final
+        if (stageText.includes("Final") && !stageText.includes("Semi")) {
+          data.cell.styles.fillColor = [254, 243, 199]; // amber-100
+          data.cell.styles.textColor = [120, 53, 15]; // amber-900
           data.cell.styles.fontStyle = "bold";
-        } else if (val.includes("won by") || val === "Completed") {
-          data.cell.styles.textColor = [5, 150, 105]; // emerald-600
+        }
+        // Highlight Playoffs / Semi-Finals
+        else if (
+          stageText.includes("Semi") ||
+          stageText.includes("Playoff") ||
+          stageText.includes("Qualifier") ||
+          stageText.includes("Eliminator")
+        ) {
+          data.cell.styles.fillColor = [243, 232, 255]; // purple-100
+          data.cell.styles.textColor = [88, 28, 135]; // purple-900
           data.cell.styles.fontStyle = "bold";
+        }
+
+        // Status column styling
+        if (data.column.index === 7) {
+          const val = String(data.cell.raw);
+          if (val === "LIVE") {
+            data.cell.styles.textColor = [220, 38, 38]; // red-600
+            data.cell.styles.fontStyle = "bold";
+          } else if (val.includes("won by") || val === "Completed") {
+            data.cell.styles.textColor = [5, 150, 105]; // emerald-600
+            data.cell.styles.fontStyle = "bold";
+          } else {
+            data.cell.styles.textColor = [71, 85, 105]; // slate-600
+          }
         }
       }
     },
     margin: { left: 14, right: 14 },
   });
 
-  // 5. Tournament Guidelines Box at the bottom
-  const finalY = (doc as any).lastAutoTable?.finalY || 200;
-  
-  if (finalY + 32 < pageHeight) {
-    doc.setFillColor(241, 245, 249);
-    doc.roundedRect(14, finalY + 8, pageWidth - 28, 22, 2, 2, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(30, 41, 59);
-    doc.text("TOURNAMENT GUIDELINES & FORMAT:", 18, finalY + 14);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.text("• All league & playoff matches are 4 overs per side. Grand Final is 5 overs per side.", 18, finalY + 19.5);
-    doc.text("• Team Ranked 1 directly qualifies for Grand Final. Teams Ranked 2 & 3 play in the Playoff match.", 18, finalY + 24.5);
-  }
-
-  // 6. Page Numbers on all pages
+  // 4. Page Numbers and Footer Branding on all pages
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, pageHeight - 9, pageWidth - 14, pageHeight - 9);
+
     doc.setFontSize(7.5);
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(100, 116, 139);
     doc.text(
-      `PitchPe Platform • Page ${i} of ${totalPages}`,
-      pageWidth / 2,
-      pageHeight - 8,
-      { align: "center" }
+      "PitchPe Tournament Management Platform • Official Match Fixtures Schedule",
+      14,
+      pageHeight - 5
+    );
+    doc.text(
+      `Page ${i} of ${totalPages}`,
+      pageWidth - 14,
+      pageHeight - 5,
+      { align: "right" }
     );
   }
 
