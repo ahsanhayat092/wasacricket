@@ -7,9 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatMatchDay } from "@/lib/cricket";
-import { downloadSchedulePDF } from "@/lib/pdf-export";
+import { downloadSchedulePDF, openSchedulePDF } from "@/lib/pdf-export";
 import { toast } from "sonner";
-import { Calendar, MapPin, Clock, Trophy, FileDown, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Clock, Trophy, FileDown, Loader2, ExternalLink } from "lucide-react";
 
 export default function Schedule() {
   const { tournamentId, tournament } = useTournament();
@@ -102,36 +102,65 @@ export default function Schedule() {
         </div>
 
         {matches.length > 0 && (
-          <Button
-            variant="outline"
-            onClick={async () => {
-              try {
-                setIsDownloadingPdf(true);
-                await downloadSchedulePDF(matches as HydratedMatch[], {
-                  tournamentName: tournament?.name,
-                  venueName: tournament?.venueName || undefined,
-                  oversPerSide: tournament?.oversPerSide,
-                  maxOverPerBowler: tournament?.maxOverPerBowler,
-                  formatType: tournament?.formatType,
-                });
-                toast.success("Schedule PDF downloaded successfully!");
-              } catch (err) {
-                console.error("PDF Download error:", err);
-                toast.error("Failed to generate Schedule PDF.");
-              } finally {
-                setIsDownloadingPdf(false);
-              }
-            }}
-            disabled={isDownloadingPdf}
-            className="gap-2 font-bold text-xs sm:text-sm border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 rounded-xl shadow-sm h-9 px-4"
-          >
-            {isDownloadingPdf ? (
-              <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-            ) : (
-              <FileDown className="h-4 w-4 text-emerald-400" />
-            )}
-            <span>Download Schedule PDF</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  setIsDownloadingPdf(true);
+                  await openSchedulePDF(matches as HydratedMatch[], {
+                    tournamentName: tournament?.name,
+                    venueName: tournament?.venueName || undefined,
+                    oversPerSide: tournament?.oversPerSide,
+                    maxOverPerBowler: tournament?.maxOverPerBowler,
+                    formatType: tournament?.formatType,
+                  });
+                } catch (err) {
+                  console.error("PDF View error:", err);
+                  toast.error("Failed to open Schedule PDF.");
+                } finally {
+                  setIsDownloadingPdf(false);
+                }
+              }}
+              disabled={isDownloadingPdf}
+              className="gap-2 font-bold text-xs sm:text-sm border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 rounded-xl shadow-sm h-9 px-4"
+              title="Open fixtures schedule PDF directly in new tab"
+            >
+              <ExternalLink className="h-4 w-4 text-emerald-400" />
+              <span>View PDF</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  setIsDownloadingPdf(true);
+                  await downloadSchedulePDF(matches as HydratedMatch[], {
+                    tournamentName: tournament?.name,
+                    venueName: tournament?.venueName || undefined,
+                    oversPerSide: tournament?.oversPerSide,
+                    maxOverPerBowler: tournament?.maxOverPerBowler,
+                    formatType: tournament?.formatType,
+                  });
+                  toast.success("Schedule PDF downloaded successfully!");
+                } catch (err) {
+                  console.error("PDF Download error:", err);
+                  toast.error("Failed to generate Schedule PDF.");
+                } finally {
+                  setIsDownloadingPdf(false);
+                }
+              }}
+              disabled={isDownloadingPdf}
+              className="gap-2 font-bold text-xs sm:text-sm border-slate-700 text-slate-300 hover:bg-slate-800 rounded-xl shadow-sm h-9 px-4"
+            >
+              {isDownloadingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+              ) : (
+                <FileDown className="h-4 w-4 text-slate-300" />
+              )}
+              <span>Download PDF</span>
+            </Button>
+          </div>
         )}
       </div>
 

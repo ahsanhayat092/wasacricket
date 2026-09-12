@@ -27,8 +27,7 @@ export function cleanPdfText(text: string | null | undefined): string {
 
 /**
  * Bulletproof cross-platform PDF file saver.
- * Creates an explicit application/pdf Blob and triggers browser download
- * compatible with mobile Safari, Chrome, and desktop browsers.
+ * Supports desktop browsers, iOS Safari, Android Chrome, and in-app webviews.
  */
 export function savePdfDocument(doc: jsPDF, filename: string) {
   const safeFilename = filename.toLowerCase().endsWith(".pdf")
@@ -45,35 +44,55 @@ export function savePdfDocument(doc: jsPDF, filename: string) {
     const pdfBlob = new Blob([rawBlob], { type: "application/pdf" });
     const blobUrl = URL.createObjectURL(pdfBlob);
 
-    const a = document.createElement("a");
-    a.style.display = "none";
-    a.href = blobUrl;
-    a.download = safeFilename;
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
+    const isMobile =
+      /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      );
+
+    // On mobile devices, opening the PDF blob directly in a new window/tab
+    // prevents Android DownloadManager "Can't open file" issues
+    if (isMobile) {
+      window.open(blobUrl, "_blank");
+    }
+
+    // Trigger standard jsPDF save (with internal FileSaver fallback)
+    try {
+      doc.save(safeFilename);
+    } catch {
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = blobUrl;
+      a.download = safeFilename;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a.parentNode) document.body.removeChild(a);
+      }, 1000);
+    }
 
     setTimeout(() => {
       try {
-        if (a.parentNode) {
-          document.body.removeChild(a);
-        }
         URL.revokeObjectURL(blobUrl);
       } catch {
         // ignore cleanup error
       }
-    }, 60000);
+    }, 120000);
   } catch (err) {
     console.warn("Custom Blob download fallback to doc.save:", err);
     doc.save(safeFilename);
   }
 }
 
-export async function downloadSchedulePDF(
+/**
+ * Core builder that produces a high-contrast, landscape A4 PDF document
+ */
+export function buildSchedulePdfDoc(
   matches: HydratedMatch[],
   optionsOrName?: string | SchedulePDFOptions,
   extraOptions?: SchedulePDFOptions
-) {
+): { doc: jsPDF; filename: string; tournamentName: string } {
   const options: SchedulePDFOptions =
     typeof optionsOrName === "string"
       ? { tournamentName: optionsOrName, ...extraOptions }
@@ -332,14 +351,42 @@ export async function downloadSchedulePDF(
     );
   }
 
-  // Safe file name and download
+  // Safe file name
   const safeName =
     tournamentName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "tournament";
   const filename = `${safeName}-schedule.pdf`;
+
+  return { doc, filename, tournamentName };
+}
+
+/**
+ * Downloads the fixtures PDF
+ */
+export async function downloadSchedulePDF(
+  matches: HydratedMatch[],
+  optionsOrName?: string | SchedulePDFOptions,
+  extraOptions?: SchedulePDFOptions
+) {
+  const { doc, filename } = buildSchedulePdfDoc(matches, optionsOrName, extraOptions);
   savePdfDocument(doc, filename);
+}
+
+/**
+ * Opens the fixtures PDF directly in a new browser tab for immediate viewing/printing
+ */
+export async function openSchedulePDF(
+  matches: HydratedMatch[],
+  optionsOrName?: string | SchedulePDFOptions,
+  extraOptions?: SchedulePDFOptions
+) {
+  const { doc } = buildSchedulePdfDoc(matches, optionsOrName, extraOptions);
+  const rawBlob = doc.output("blob");
+  const pdfBlob = new Blob([rawBlob], { type: "application/pdf" });
+  const blobUrl = URL.createObjectURL(pdfBlob);
+  window.open(blobUrl, "_blank");
 }
 
 /**
