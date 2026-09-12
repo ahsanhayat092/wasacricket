@@ -209,9 +209,10 @@ export const DEFAULT_TOURNAMENT_RULES: TournamentRuleItem[] = [
 const RULES_DOC_ID = "tournament_rules";
 
 /** Fetch all tournament rules from Firestore (or initialize with defaults) */
-export async function getTournamentRules(): Promise<TournamentRuleItem[]> {
+export async function getTournamentRules(tournamentId?: string): Promise<TournamentRuleItem[]> {
   try {
-    const rulesDocRef = doc(db, "tournaments", TOURNAMENT_ID, "settings", RULES_DOC_ID);
+    const tid = tournamentId || TOURNAMENT_ID;
+    const rulesDocRef = doc(db, "tournaments", tid, "settings", RULES_DOC_ID);
     const snap = await getDoc(rulesDocRef);
     if (snap.exists()) {
       const data = snap.data();
@@ -226,9 +227,13 @@ export async function getTournamentRules(): Promise<TournamentRuleItem[]> {
 }
 
 /** Save updated rules array to Firestore */
-export async function saveTournamentRules(rules: TournamentRuleItem[]): Promise<void> {
+export async function saveTournamentRules(
+  rules: TournamentRuleItem[],
+  tournamentId?: string
+): Promise<void> {
+  const tid = tournamentId || TOURNAMENT_ID;
   const sorted = [...rules].map((r, idx) => ({ ...r, order: idx + 1, updatedAt: Date.now() }));
-  const rulesDocRef = doc(db, "tournaments", TOURNAMENT_ID, "settings", RULES_DOC_ID);
+  const rulesDocRef = doc(db, "tournaments", tid, "settings", RULES_DOC_ID);
   await setDoc(rulesDocRef, {
     rules: sorted,
     updatedAt: Date.now(),
@@ -236,8 +241,9 @@ export async function saveTournamentRules(rules: TournamentRuleItem[]): Promise<
 }
 
 /** Reset rules to the official tournament defaults */
-export async function resetTournamentRules(): Promise<TournamentRuleItem[]> {
-  const rulesDocRef = doc(db, "tournaments", TOURNAMENT_ID, "settings", RULES_DOC_ID);
+export async function resetTournamentRules(tournamentId?: string): Promise<TournamentRuleItem[]> {
+  const tid = tournamentId || TOURNAMENT_ID;
+  const rulesDocRef = doc(db, "tournaments", tid, "settings", RULES_DOC_ID);
   await setDoc(rulesDocRef, {
     rules: DEFAULT_TOURNAMENT_RULES,
     updatedAt: Date.now(),

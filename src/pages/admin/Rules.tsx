@@ -98,7 +98,7 @@ export default function AdminRules() {
 
   // Mutations
   const saveMutation = useMutation({
-    mutationFn: (updated: TournamentRuleItem[]) => saveTournamentRules(updated),
+    mutationFn: (updated: TournamentRuleItem[]) => saveTournamentRules(updated, tournamentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tournament_rules", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament_rules"] });
@@ -110,8 +110,9 @@ export default function AdminRules() {
   });
 
   const resetMutation = useMutation({
-    mutationFn: () => resetTournamentRules(),
+    mutationFn: () => resetTournamentRules(tournamentId),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tournament_rules", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament_rules"] });
       toast.success("Tournament rules reset to official defaults!");
       setResetDialogOpen(false);

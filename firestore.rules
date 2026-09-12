@@ -154,6 +154,24 @@ service cloud.firestore {
         );
 
       allow delete: if isSignedIn() && isTournamentOwner(tournamentId);
+
+      // Subcollection for settings & playing conditions / rules
+      match /settings/{settingId} {
+        allow read: if true;
+        allow write: if true;
+      }
+
+      // Any other tournament subcollections
+      match /{subcollection=**} {
+        allow read: if true;
+        allow write: if true;
+      }
+    }
+
+    // Top-level fallback for settings / rules if ever queried at root
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
     }
 
     // =========================================================================
