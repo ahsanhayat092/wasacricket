@@ -88,12 +88,22 @@ export function savePdfDocument(doc: jsPDF, filename: string) {
 }
 
 /**
- * Standardizes tournament overall date range for info header: e.g. "14 September 2026 to 15 September 2026"
+ * Standardizes tournament overall date range for info header: e.g. "14 September 2026 to 15 September 2026 (2 Days)"
  */
-export function formatTournamentDateRange(matches: { date?: string | null }[]): string {
+export function formatTournamentDateRange(
+  matches: { date?: string | null; day?: string | number | null }[]
+): string {
   const parsedDates = matches
-    .map((m) => (m.date ? parseCustomDate(m.date) : undefined))
-    .filter((d): d is Date => !!d && !isNaN(d.getTime()))
+    .map((m) => {
+      if (!m.date) return undefined;
+      const parsed = parseCustomDate(m.date);
+      if (parsed && !isNaN(parsed.getTime())) {
+        if (parsed.getFullYear() < 2020) parsed.setFullYear(2026);
+        return parsed;
+      }
+      return undefined;
+    })
+    .filter((d): d is Date => !!d)
     .sort((a, b) => a.getTime() - b.getTime());
 
   if (parsedDates.length === 0) {
@@ -110,11 +120,107 @@ export function formatTournamentDateRange(matches: { date?: string | null }[]): 
   const firstStr = format(first, "d MMMM yyyy");
   const lastStr = format(last, "d MMMM yyyy");
 
+  // Calculate distinct calendar days
+  const distinctDays = new Set(
+    parsedDates.map((d) => format(d, "yyyy-MM-dd"))
+  ).size;
+
+  const daySuffix = distinctDays > 1 ? ` (${distinctDays} Days)` : "";
+
   if (firstStr === lastStr) {
-    return firstStr;
+    return `${firstStr}${daySuffix}`;
   }
 
-  return `${firstStr} to ${lastStr}`;
+  return `${firstStr} to ${lastStr}${daySuffix}`;
+}
+
+/**
+ * Resolves tournament day number (1 for Day 1, 2 for Day 2, etc.) for a match
+ */
+export function getTournamentDayNumber(
+  matchDate: string | undefined | null,
+  matchDay: string | number | undefined | null,
+  allMatches: Array<{ date?: string | null; day?: string | number | null }>
+): number {
+  // If explicitly designated Day X
+  if (typeof matchDay === "number") return matchDay;
+  if (matchDay) {
+    const matched = String(matchDay).match(/day\s*(\d+)/i);
+    if (matched) return parseInt(matched[1], 10);
+  }
+
+  // Build sorted distinct midnight timestamps
+  const dateTimestamps: number[] = [];
+  const seenTimestamps = new Set<number>();
+
+  for (const m of allMatches) {
+    if (!m.date) continue;
+    const p = parseCustomDate(m.date);
+    if (p && !isNaN(p.getTime())) {
+      if (p.getFullYear() < 2020) p.setFullYear(2026);
+      const mid = new Date(p.getFullYear(), p.getMonth(), p.getDate()).getTime();
+      if (!seenTimestamps.has(mid)) {
+        seenTimestamps.add(mid);
+        dateTimestamps.push(mid);
+      }
+    }
+  }
+
+  if (dateTimestamps.length > 0) {
+    dateTimestamps.sort((a, b) => a - b);
+    if (matchDate) {
+      const pCurrent = parseCustomDate(matchDate);
+      if (pCurrent && !isNaN(pCurrent.getTime())) {
+        if (pCurrent.getFullYear() < 2020) pCurrent.setFullYear(2026);
+        const midCurrent = new Date(
+          pCurrent.getFullYear(),
+          pCurrent.getMonth(),
+          pCurrent.getDate()
+        ).getTime();
+        const idx = dateTimestamps.indexOf(midCurrent);
+        if (idx !== -1) return idx + 1;
+      }
+    }
+  }
+
+  // Fallback if no dates exist: group by distinct days
+  const distinctDays = Array.from(
+    new Set(
+      allMatches
+        .map((m) => (m.day ? String(m.day).trim().toUpperCase() : ""))
+        .filter(Boolean)
+    )
+  );
+  if (distinctDays.length > 0 && matchDay) {
+    const idx = distinctDays.indexOf(String(matchDay).trim().toUpperCase());
+    if (idx !== -1) return idx + 1;
+  }
+
+  return 1;
+}
+
+/**
+ * Formats day and date for the PDF fixtures table:
+ * e.g. "Day 1 - Mon, 14 September 2026", "Day 2 - Tue, 15 September 2026"
+ */
+export function formatMatchDayWithDayNumber(
+  day: string | number | undefined | null,
+  date: string | undefined | null,
+  allMatches: Array<{ date?: string | null; day?: string | number | null }>
+): string {
+  const baseDayDate = cleanPdfText(formatMatchDay(typeof day === "string" ? day : null, date)) || "";
+  const dayNum = getTournamentDayNumber(date, day, allMatches);
+
+  if (!baseDayDate || baseDayDate === "TBD") {
+    return `Day ${dayNum}`;
+  }
+
+  // Avoid duplicate "Day 1 - Day 1 ..."
+  if (/^day\s*\d+/i.test(baseDayDate)) {
+    return baseDayDate;
+  }
+
+  return `Day ${dayNum} - ${baseDayDate}`;
 }
 
 /**
@@ -205,17 +311,17 @@ export function buildSchedulePdfDoc(
 
   doc.setFont("helvetica", "bold");
   doc.setTextColor(71, 85, 105);
-  doc.text("DATES:", 120, 43);
+  doc.text("DATES:", 115, 43);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(15, 23, 42);
-  doc.text(dateText, 133, 43);
+  doc.text(dateText, 128, 43);
 
   doc.setFont("helvetica", "bold");
   doc.setTextColor(71, 85, 105);
-  doc.text("DEFAULT QUOTA:", 200, 43);
+  doc.text("DEFAULT QUOTA:", 205, 43);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(5, 150, 105);
-  doc.text(`${defaultOvers} Ov / side (Max ${defaultMaxBowler} ov/bowler)`, 229, 43);
+  doc.text(`${defaultOvers} Ov / side (Max ${defaultMaxBowler} ov/bowler)`, 234, 43);
 
   // 3. Build Table Data with Clean ASCII/Latin-1 Text
   const tableData = matches.map((m) => {
@@ -243,7 +349,7 @@ export function buildSchedulePdfDoc(
     else if (m.groupName) stageLabel = `Group ${cleanPdfText(m.groupName)}`;
 
     const matchNumberLabel = `#${m.matchNumber}`;
-    const dayDate = cleanPdfText(formatMatchDay(m.day, m.date)) || "TBD";
+    const dayDate = cleanPdfText(formatMatchDayWithDayNumber(m.day, m.date, matches)) || "TBD";
     const time = cleanPdfText(m.time) || "TBD";
 
     const teamAName = m.teamA
@@ -317,12 +423,12 @@ export function buildSchedulePdfDoc(
     columnStyles: {
       0: { cellWidth: 16, fontStyle: "bold", halign: "center" },
       1: { cellWidth: 26, fontStyle: "bold" },
-      2: { cellWidth: 36 },
-      3: { cellWidth: 20, halign: "center" },
-      4: { cellWidth: 88, fontStyle: "bold" },
+      2: { cellWidth: 46 },
+      3: { cellWidth: 18, halign: "center" },
+      4: { cellWidth: 80, fontStyle: "bold" },
       5: { cellWidth: 16, halign: "center" },
-      6: { cellWidth: 36 },
-      7: { cellWidth: 31, halign: "center" },
+      6: { cellWidth: 34 },
+      7: { cellWidth: 33, halign: "center" },
     },
     didParseCell: (data) => {
       const rowRaw = data.row.raw as string[] | undefined;
