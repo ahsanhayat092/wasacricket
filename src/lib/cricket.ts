@@ -613,6 +613,11 @@ export function stageBadgeText(
   if (s === "QUALIFIER_1") return "🔥 Qualifier 1 (Rank 1 vs 2)";
   if (s === "ELIMINATOR") return "⚔️ Eliminator (Rank 3 vs 4)";
   if (s === "QUALIFIER_2") return "⚡ Qualifier 2";
+  if (s === "GROUP_STAGE" || s === "GROUP") {
+    return groupName
+      ? (matchNumber ? `Group ${groupName} · Match #${matchNumber}` : `Group ${groupName}`)
+      : (matchNumber ? `Group Stage · Match #${matchNumber}` : "Group Stage");
+  }
   if (groupName) {
     return matchNumber ? `Group ${groupName} · Match #${matchNumber}` : `Group ${groupName}`;
   }
@@ -626,6 +631,7 @@ export function stageBadgeClass(stage?: string | null): string {
   if (s === "PLAYOFF" || s === "ELIMINATOR") return "bg-purple-500/15 text-purple-400 border-purple-500/40 font-bold";
   if (s === "QUALIFIER_1" || s === "QUALIFIER_2") return "bg-orange-500/15 text-orange-400 border-orange-500/40 font-bold";
   if (s === "SEMI_1" || s === "SEMI_2" || s === "SEMI_FINAL" || s === "SEMI") return "bg-blue-500/15 text-blue-400 border-blue-500/40 font-bold";
+  if (s === "GROUP_STAGE" || s === "GROUP") return "bg-emerald-500/15 text-emerald-400 border-emerald-500/40 font-bold";
   return "bg-muted/50 text-foreground border-border";
 }
 

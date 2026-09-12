@@ -378,7 +378,8 @@ export default function AdminSchedule() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="LEAGUE">League Stage</SelectItem>
+                    <SelectItem value="LEAGUE">League Match</SelectItem>
+                    <SelectItem value="GROUP_STAGE">Group Stage</SelectItem>
                     <SelectItem value="SEMI_FINAL">🎯 Semi-Final</SelectItem>
                     <SelectItem value="SEMI_1">🎯 Semi-Final 1</SelectItem>
                     <SelectItem value="SEMI_2">🎯 Semi-Final 2</SelectItem>
@@ -416,7 +417,7 @@ export default function AdminSchedule() {
               </Select>
             </div>
 
-            {isGroupStage && form.stage === "LEAGUE" && (
+            {isGroupStage && (form.stage === "LEAGUE" || form.stage === "GROUP_STAGE" || form.stage === "GROUP") && (
               <div className="space-y-1.5 p-3 rounded-xl border border-blue-500/30 bg-blue-500/5">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-bold text-foreground">Select Group</Label>
@@ -467,7 +468,7 @@ export default function AdminSchedule() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__TBD__">TBD (Auto-assign)</SelectItem>
-                    {(isGroupStage && form.stage === "LEAGUE"
+                    {(isGroupStage && (form.stage === "LEAGUE" || form.stage === "GROUP_STAGE" || form.stage === "GROUP")
                       ? (teams || []).filter((t) => (t.groupName || "A") === (form.groupName || "A"))
                       : teams || []
                     ).map((t) => (
@@ -499,7 +500,7 @@ export default function AdminSchedule() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__TBD__">TBD (Auto-assign)</SelectItem>
-                    {(isGroupStage && form.stage === "LEAGUE"
+                    {(isGroupStage && (form.stage === "LEAGUE" || form.stage === "GROUP_STAGE" || form.stage === "GROUP")
                       ? (teams || []).filter((t) => (t.groupName || "A") === (form.groupName || "A"))
                       : teams || []
                     ).map((t) => (
@@ -840,6 +841,7 @@ function ScheduleRow({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="LEAGUE">League Match</SelectItem>
+              <SelectItem value="GROUP_STAGE">Group Stage</SelectItem>
               <SelectItem value="SEMI_FINAL">🎯 Semi-Final</SelectItem>
               <SelectItem value="SEMI_1">🎯 Semi-Final 1</SelectItem>
               <SelectItem value="SEMI_2">🎯 Semi-Final 2</SelectItem>

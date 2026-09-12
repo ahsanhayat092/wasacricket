@@ -197,6 +197,8 @@ export type TeamChallenge = {
 export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED" | "NO_RESULT";
 export type MatchStage =
   | "LEAGUE"
+  | "GROUP_STAGE"
+  | "GROUP"
   | "PLAYOFF"
   | "FINAL"
   | "SEMI_FINAL"

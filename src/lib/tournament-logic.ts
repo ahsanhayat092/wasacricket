@@ -200,7 +200,9 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
       teams.push(t);
     }
   }
-  const leagueMatches = allMatches.filter((m) => m.stage === "LEAGUE");
+  const leagueMatches = allMatches.filter(
+    (m) => m.stage === "LEAGUE" || m.stage === "GROUP_STAGE" || m.stage === "GROUP"
+  );
 
   const completedMatches = allMatches.filter((m) => m.status === "COMPLETED");
   const completedIds = completedMatches.map((m) => m.id);
@@ -329,7 +331,12 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
     }
 
     // League match points & NRR aggregation (Playoff and Final do not affect league points table)
-    if (m.stage === "LEAGUE" || (!m.stage && (m.matchNumber ?? 0) <= 9)) {
+    if (
+      m.stage === "LEAGUE" ||
+      m.stage === "GROUP_STAGE" ||
+      m.stage === "GROUP" ||
+      (!m.stage && (m.matchNumber ?? 0) <= 9)
+    ) {
       const aA = agg.get(m.teamAId);
       const aB = agg.get(m.teamBId);
       if (aA && aB) {

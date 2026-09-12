@@ -346,6 +346,9 @@ export function buildSchedulePdfDoc(
     else if (m.stage === "QUALIFIER_2") stageLabel = "Qualifier 2";
     else if (m.stage === "ELIMINATOR") stageLabel = "Eliminator";
     else if (isPlayoff) stageLabel = "Playoff";
+    else if (m.stage === "GROUP_STAGE" || m.stage === "GROUP") {
+      stageLabel = m.groupName ? `Group ${cleanPdfText(m.groupName)}` : "Group Stage";
+    }
     else if (m.groupName) stageLabel = `Group ${cleanPdfText(m.groupName)}`;
 
     const matchNumberLabel = `#${m.matchNumber}`;

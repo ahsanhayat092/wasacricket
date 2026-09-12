@@ -108,7 +108,11 @@ export default function Home() {
   );
 
   const leagueMatches = (scheduleMatches || []).filter(
-    (m) => m.stage === "LEAGUE" || (!m.stage && (m.matchNumber ?? 0) <= 9)
+    (m) =>
+      m.stage === "LEAGUE" ||
+      m.stage === "GROUP_STAGE" ||
+      m.stage === "GROUP" ||
+      (!m.stage && (m.matchNumber ?? 0) <= 9)
   );
   const allLeagueMatchesCompleted =
     leagueMatches.length > 0 &&
