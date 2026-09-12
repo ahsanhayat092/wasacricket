@@ -12,6 +12,63 @@ export interface SchedulePDFOptions {
   formatType?: string;
 }
 
+/**
+ * Sanitizes text to remove emojis, surrogate pairs, and non-printable characters
+ * that corrupt standard PDF-1.3/1.4 font streams (WinAnsiEncoding).
+ */
+export function cleanPdfText(text: string | null | undefined): string {
+  if (!text) return "";
+  return String(text)
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "") // remove surrogate pairs & emojis
+    .replace(/[^\x20-\x7E\u00A0-\u00FF]/g, " ") // keep printable ASCII and Latin-1
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Bulletproof cross-platform PDF file saver.
+ * Creates an explicit application/pdf Blob and triggers browser download
+ * compatible with mobile Safari, Chrome, and desktop browsers.
+ */
+export function savePdfDocument(doc: jsPDF, filename: string) {
+  const safeFilename = filename.toLowerCase().endsWith(".pdf")
+    ? filename
+    : `${filename}.pdf`;
+
+  if (typeof window === "undefined") {
+    doc.save(safeFilename);
+    return;
+  }
+
+  try {
+    const rawBlob = doc.output("blob");
+    const pdfBlob = new Blob([rawBlob], { type: "application/pdf" });
+    const blobUrl = URL.createObjectURL(pdfBlob);
+
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = blobUrl;
+    a.download = safeFilename;
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      try {
+        if (a.parentNode) {
+          document.body.removeChild(a);
+        }
+        URL.revokeObjectURL(blobUrl);
+      } catch {
+        // ignore cleanup error
+      }
+    }, 60000);
+  } catch (err) {
+    console.warn("Custom Blob download fallback to doc.save:", err);
+    doc.save(safeFilename);
+  }
+}
+
 export async function downloadSchedulePDF(
   matches: HydratedMatch[],
   optionsOrName?: string | SchedulePDFOptions,
@@ -22,14 +79,15 @@ export async function downloadSchedulePDF(
       ? { tournamentName: optionsOrName, ...extraOptions }
       : { ...optionsOrName };
 
-  const tournamentName = (options.tournamentName || "Tournament Schedule").trim();
+  const rawName = (options.tournamentName || "Tournament Schedule").trim();
+  const tournamentName = cleanPdfText(rawName) || "Tournament Schedule";
   const defaultOvers = options.oversPerSide || 4;
   const defaultMaxBowler =
     options.maxOverPerBowler || (defaultOvers <= 5 ? 1 : Math.ceil(defaultOvers / 5));
-  const formatType = (options.formatType || "CRICKET").replace(/_/g, " ");
-  const fallbackVenue = options.venueName || "Askari XI Cricket Ground, Lahore";
+  const formatType = cleanPdfText((options.formatType || "CRICKET").replace(/_/g, " "));
+  const fallbackVenue = cleanPdfText(options.venueName || "Askari XI Cricket Ground, Lahore");
 
-  // Landscape A4 provides 297mm width - the optimal orientation for tournament fixtures
+  // Landscape A4 provides 297mm width - optimal orientation for 8-column tournament fixtures
   const doc = new jsPDF({
     orientation: "landscape",
     unit: "mm",
@@ -39,7 +97,7 @@ export async function downloadSchedulePDF(
   const pageWidth = doc.internal.pageSize.getWidth(); // 297mm
   const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
 
-  // Premium Palette
+  // Palette
   const darkNavy = [15, 23, 42]; // #0f172a
   const emeraldPrimary = [5, 150, 105]; // #059669
   const emeraldHeader = [4, 120, 87]; // #047857
@@ -75,12 +133,12 @@ export async function downloadSchedulePDF(
   doc.text(`Generated: ${nowStr}`, pageWidth - 14, 15, { align: "right" });
   doc.text(`Total Fixtures: ${matches.length} Matches`, pageWidth - 14, 21, { align: "right" });
   doc.setTextColor(251, 191, 36); // amber-400
-  doc.text(`Format: ${defaultOvers} OVERS · ${formatType}`, pageWidth - 14, 27, { align: "right" });
+  doc.text(`Format: ${defaultOvers} OVERS | ${formatType}`, pageWidth - 14, 27, { align: "right" });
 
   // 2. Info Summary Card
-  const allDates = Array.from(new Set(matches.map((m) => m.date?.trim()).filter(Boolean)));
-  const allVenues = Array.from(new Set(matches.map((m) => m.venue?.trim()).filter(Boolean)));
-  const venueText = allVenues.length > 0 ? allVenues.join(" • ") : fallbackVenue;
+  const allDates = Array.from(new Set(matches.map((m) => cleanPdfText(m.date)).filter(Boolean)));
+  const allVenues = Array.from(new Set(matches.map((m) => cleanPdfText(m.venue)).filter(Boolean)));
+  const venueText = allVenues.length > 0 ? allVenues.join(" | ") : fallbackVenue;
   const dateText =
     allDates.length > 1
       ? `${allDates[0]} to ${allDates[allDates.length - 1]}`
@@ -112,7 +170,7 @@ export async function downloadSchedulePDF(
   doc.setTextColor(5, 150, 105);
   doc.text(`${defaultOvers} Ov / side (Max ${defaultMaxBowler} ov/bowler)`, 229, 43);
 
-  // 3. Build Table Data
+  // 3. Build Table Data with Clean ASCII/Latin-1 Text
   const tableData = matches.map((m) => {
     const isPlayoff =
       m.stage === "PLAYOFF" ||
@@ -124,21 +182,21 @@ export async function downloadSchedulePDF(
     const isFinal = m.stage === "FINAL";
 
     let stageLabel = "League";
-    if (isFinal) stageLabel = "🏆 Final";
+    if (isFinal) stageLabel = "GRAND FINAL";
     else if (m.stage === "SEMI_1") stageLabel = "Semi-Final 1";
     else if (m.stage === "SEMI_2") stageLabel = "Semi-Final 2";
     else if (m.stage === "QUALIFIER_1") stageLabel = "Qualifier 1";
     else if (m.stage === "QUALIFIER_2") stageLabel = "Qualifier 2";
     else if (m.stage === "ELIMINATOR") stageLabel = "Eliminator";
     else if (isPlayoff) stageLabel = "Playoff";
-    else if (m.groupName) stageLabel = `Group ${m.groupName}`;
+    else if (m.groupName) stageLabel = `Group ${cleanPdfText(m.groupName)}`;
 
     const matchNumberLabel = `#${m.matchNumber}`;
-    const dayDate = formatMatchDay(m.day, m.date) || "TBD";
-    const time = m.time || "TBD";
+    const dayDate = cleanPdfText(formatMatchDay(m.day, m.date)) || "TBD";
+    const time = cleanPdfText(m.time) || "TBD";
 
     const teamAName = m.teamA
-      ? `${m.teamA.name}${m.teamA.shortName ? ` (${m.teamA.shortName})` : ""}`
+      ? `${cleanPdfText(m.teamA.name)}${m.teamA.shortName ? ` (${cleanPdfText(m.teamA.shortName)})` : ""}`
       : isFinal
         ? "TBD (Finalist 1)"
         : isPlayoff
@@ -146,7 +204,7 @@ export async function downloadSchedulePDF(
           : "TBD";
 
     const teamBName = m.teamB
-      ? `${m.teamB.name}${m.teamB.shortName ? ` (${m.teamB.shortName})` : ""}`
+      ? `${cleanPdfText(m.teamB.name)}${m.teamB.shortName ? ` (${cleanPdfText(m.teamB.shortName)})` : ""}`
       : isFinal
         ? "TBD (Finalist 2)"
         : isPlayoff
@@ -155,13 +213,13 @@ export async function downloadSchedulePDF(
 
     const matchup = `${teamAName}   vs   ${teamBName}`;
     const matchOvers = `${m.oversPerSide || defaultOvers} Ov`;
-    const venue = m.venue || venueText || "Venue TBD";
+    const venue = cleanPdfText(m.venue) || venueText || "Venue TBD";
 
-    let statusText = m.status || "Upcoming";
+    let statusText = cleanPdfText(m.status) || "Upcoming";
     if (m.status === "UPCOMING") statusText = "Upcoming";
     else if (m.status === "LIVE") statusText = "LIVE";
     else if (m.status === "COMPLETED") {
-      statusText = m.resultText || "Completed";
+      statusText = cleanPdfText(m.resultText) || "Completed";
     }
 
     return [
@@ -217,7 +275,7 @@ export async function downloadSchedulePDF(
 
       if (data.section === "body") {
         // Highlight Grand Final
-        if (stageText.includes("Final") && !stageText.includes("Semi")) {
+        if (stageText.includes("FINAL") && !stageText.includes("Semi")) {
           data.cell.styles.fillColor = [254, 243, 199]; // amber-100
           data.cell.styles.textColor = [120, 53, 15]; // amber-900
           data.cell.styles.fontStyle = "bold";
@@ -240,7 +298,7 @@ export async function downloadSchedulePDF(
           if (val === "LIVE") {
             data.cell.styles.textColor = [220, 38, 38]; // red-600
             data.cell.styles.fontStyle = "bold";
-          } else if (val.includes("won by") || val === "Completed") {
+          } else if (val.toLowerCase().includes("won") || val === "Completed") {
             data.cell.styles.textColor = [5, 150, 105]; // emerald-600
             data.cell.styles.fontStyle = "bold";
           } else {
@@ -262,7 +320,7 @@ export async function downloadSchedulePDF(
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
     doc.text(
-      "PitchPe Tournament Management Platform • Official Match Fixtures Schedule",
+      "PitchPe Tournament Management Platform - Official Match Fixtures Schedule",
       14,
       pageHeight - 5
     );
@@ -274,9 +332,14 @@ export async function downloadSchedulePDF(
     );
   }
 
-  // Save the PDF
-  const filename = `${tournamentName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-schedule.pdf`;
-  doc.save(filename);
+  // Safe file name and download
+  const safeName =
+    tournamentName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "tournament";
+  const filename = `${safeName}-schedule.pdf`;
+  savePdfDocument(doc, filename);
 }
 
 /**
@@ -284,8 +347,9 @@ export async function downloadSchedulePDF(
  */
 export async function downloadRulesPDF(
   rules: TournamentRuleItem[],
-  tournamentName = "WASA Premier League 2026"
+  rawTournamentName = "WASA Premier League 2026"
 ) {
+  const tournamentName = cleanPdfText(rawTournamentName) || "Tournament Rules";
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -297,7 +361,6 @@ export async function downloadRulesPDF(
 
   const primaryEmerald = [5, 150, 105]; // #059669
   const darkSlate = [15, 23, 42]; // #0f172a
-  const accentAmber = [217, 119, 6]; // #d97706
 
   // 1. Header Banner
   doc.setFillColor(darkSlate[0], darkSlate[1], darkSlate[2]);
@@ -340,11 +403,11 @@ export async function downloadRulesPDF(
   doc.setFont("helvetica", "bold");
   doc.text("TOURNAMENT FORMAT:", 18, 51.5);
   doc.setFont("helvetica", "normal");
-  doc.text("6-a-Side Tape Ball Cricket  •  4 Overs League / 5 Overs Final  •  Askari XI Ground, Lahore", 60, 51.5);
+  doc.text("Tape Ball Cricket | League & Knockouts | Official Match Rules", 60, 51.5);
 
-  // 3. Build Categorized Table Body
+  // 3. Build Categorized Table Body with Clean Text
   const tableData: (string | number)[][] = rules.map((r, index) => {
-    return [index + 1, r.category, r.rule];
+    return [index + 1, cleanPdfText(r.category), cleanPdfText(r.rule)];
   });
 
   autoTable(doc, {
@@ -396,14 +459,19 @@ export async function downloadRulesPDF(
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
     doc.text(
-      `PitchPe Platform • Tournament Rules • Page ${i} of ${totalPages}`,
+      `PitchPe Platform - Tournament Rules - Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 8,
       { align: "center" }
     );
   }
 
-  // Save the PDF
-  const filename = `${tournamentName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-tournament-rules.pdf`;
-  doc.save(filename);
+  // Safe file name and download
+  const safeName =
+    tournamentName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "tournament";
+  const filename = `${safeName}-tournament-rules.pdf`;
+  savePdfDocument(doc, filename);
 }
