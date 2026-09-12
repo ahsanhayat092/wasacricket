@@ -59,6 +59,7 @@ import {
   type UserAccount,
   type UserRole,
   now,
+  stripUndefined,
 } from "./firestore";
 import { normalizeTournamentToConfig } from "./tournament-config";
 import { db } from "./firebase";
@@ -114,10 +115,14 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
     freeHitEnabled: norm.freeHitOnNoBall,
     playoffFormat: input.playoffFormat ?? "DIRECT_TOP2",
     stageFormat: input.stageFormat ?? "ROUND_ROBIN",
-    groupCount: input.stageFormat === "GROUPS_AND_KNOCKOUT" ? (input.groupCount ?? 2) : undefined,
-    groups: input.stageFormat === "GROUPS_AND_KNOCKOUT" ? (input.groups ?? ["A", "B"]) : undefined,
-    teamsPerGroupAdvance: input.stageFormat === "GROUPS_AND_KNOCKOUT" ? (input.teamsPerGroupAdvance ?? 2) : undefined,
-    groupPlayoffFormat: input.stageFormat === "GROUPS_AND_KNOCKOUT" ? (input.groupPlayoffFormat ?? "GROUP_SEMI_FINALS") : undefined,
+    ...(input.stageFormat === "GROUPS_AND_KNOCKOUT"
+      ? {
+          groupCount: input.groupCount ?? 2,
+          groups: input.groups ?? ["A", "B"],
+          teamsPerGroupAdvance: input.teamsPerGroupAdvance ?? 2,
+          groupPlayoffFormat: input.groupPlayoffFormat ?? "GROUP_SEMI_FINALS",
+        }
+      : {}),
     scorerPin: input.scorerPin || null,
     venueName: input.venueName || "Askari XI, Lahore",
     venueMapsUrl: input.venueMapsUrl || null,
@@ -139,7 +144,7 @@ export async function createTournament(input: Partial<Tournament> & { name: stri
   (newTournament as any).config = finalConfig;
   (newTournament as any).uiPresentation = input.uiPresentation || finalConfig.uiPresentation;
 
-  await setDoc(docRef, newTournament);
+  await setDoc(docRef, stripUndefined(newTournament));
 
   // Automatically record creator as OWNER in tournamentMembers collection
   if (input.ownerId || input.ownerEmail) {

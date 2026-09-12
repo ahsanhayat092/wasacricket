@@ -440,10 +440,14 @@ export default function TournamentWizard() {
         noBallRuns,
         freeHitEnabled,
         stageFormat,
-        groupCount: stageFormat === "GROUPS_AND_KNOCKOUT" ? 2 : undefined,
-        groups: stageFormat === "GROUPS_AND_KNOCKOUT" ? ["A", "B"] : undefined,
-        teamsPerGroupAdvance: stageFormat === "GROUPS_AND_KNOCKOUT" ? (groupPlayoffFormat === "GROUP_SEMI_FINALS" ? 2 : 1) : undefined,
-        groupPlayoffFormat: stageFormat === "GROUPS_AND_KNOCKOUT" ? groupPlayoffFormat : undefined,
+        ...(stageFormat === "GROUPS_AND_KNOCKOUT"
+          ? {
+              groupCount: 2,
+              groups: ["A", "B"],
+              teamsPerGroupAdvance: groupPlayoffFormat === "GROUP_SEMI_FINALS" ? 2 : 1,
+              groupPlayoffFormat,
+            }
+          : {}),
         playoffFormat: stageFormat === "GROUPS_AND_KNOCKOUT"
           ? (groupPlayoffFormat === "GROUP_SEMI_FINALS" ? "SEMI_FINALS" : "DIRECT_TOP2")
           : playoffFormat,
@@ -493,7 +497,6 @@ export default function TournamentWizard() {
                       ...s,
                       type: "ROUND_ROBIN",
                       name: "Round Robin League",
-                      groups: undefined,
                       advancementRule: {
                         type: playoffFormat === "DIRECT_TOP2" ? "DIRECT_FINAL" : playoffFormat === "PAGE_PLAYOFF_TOP3" ? "PAGE_PLAYOFF" : "SEMI_FINALS",
                         advancingTeamsCount: playoffFormat === "DIRECT_TOP2" ? 2 : playoffFormat === "PAGE_PLAYOFF_TOP3" ? 3 : 4,
@@ -1357,7 +1360,6 @@ export default function TournamentWizard() {
                                 ...s,
                                 type: "ROUND_ROBIN",
                                 name: "Round Robin League",
-                                groups: undefined,
                                 advancementRule: {
                                   type: playoffFormat === "DIRECT_TOP2" ? "DIRECT_FINAL" : playoffFormat === "PAGE_PLAYOFF_TOP3" ? "PAGE_PLAYOFF" : "SEMI_FINALS",
                                   advancingTeamsCount: playoffFormat === "DIRECT_TOP2" ? 2 : playoffFormat === "PAGE_PLAYOFF_TOP3" ? 3 : 4,

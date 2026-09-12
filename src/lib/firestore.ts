@@ -484,3 +484,26 @@ export async function getDocsChunkedIn(
 
   return results.flatMap((snap) => snap.docs);
 }
+
+/**
+ * Recursively strips undefined keys from any object/array so Firestore setDoc/updateDoc/addDoc never rejects it.
+ */
+export function stripUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== "object") return obj;
+  if (obj instanceof Date) return obj;
+  // Preserve Firestore FieldValue instances (deleteField, serverTimestamp, arrayUnion, etc.)
+  if (typeof (obj as any)._methodName === "string" || typeof (obj as any).isEqual === "function") return obj;
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => stripUndefined(item)).filter((item) => item !== undefined) as unknown as T;
+  }
+
+  const clean: Record<string, any> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      clean[key] = stripUndefined(val);
+    }
+  }
+  return clean as T;
+}

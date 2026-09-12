@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { stripUndefined } from "./firestore";
 
 /**
  * Mock Firestore Security Rules Evaluator.
@@ -411,6 +412,47 @@ describe("Firestore Security Rules Matrix & Privilege Hardening", () => {
     it("ALLOWS Super Admin full bypass across all operations", () => {
       expect(evalRules.canUpdate("tournaments/wpl_2026", { name: "SuperAdmin Edit", ownerId: "new_owner" }, superAdmin)).toBe(true);
       expect(evalRules.canRead("users/private_user_1", superAdmin)).toBe(true);
+    });
+  });
+
+  describe("6. Firestore Sanitization (stripUndefined)", () => {
+    it("strips top-level and deeply nested undefined fields while preserving null, booleans, and dates", () => {
+      const now = new Date();
+      const input = {
+        name: "WASA Premier League Season 2",
+        stageFormat: "ROUND_ROBIN",
+        groupCount: undefined,
+        groups: undefined,
+        teamsPerGroupAdvance: undefined,
+        description: null,
+        active: true,
+        zeroVal: 0,
+        createdAt: now,
+        config: {
+          showTabs: false,
+          nestedUndefined: undefined,
+          stages: [
+            {
+              name: "Stage 1",
+              groups: undefined,
+              validProp: "ok",
+            },
+          ],
+        },
+      };
+
+      const cleaned = stripUndefined(input);
+
+      expect(cleaned).not.toHaveProperty("groupCount");
+      expect(cleaned).not.toHaveProperty("groups");
+      expect(cleaned).not.toHaveProperty("teamsPerGroupAdvance");
+      expect(cleaned.description).toBeNull();
+      expect(cleaned.active).toBe(true);
+      expect(cleaned.zeroVal).toBe(0);
+      expect(cleaned.createdAt).toBe(now);
+      expect(cleaned.config).not.toHaveProperty("nestedUndefined");
+      expect(cleaned.config.stages[0]).not.toHaveProperty("groups");
+      expect(cleaned.config.stages[0].validProp).toBe("ok");
     });
   });
 });
