@@ -3,6 +3,8 @@ import autoTable from "jspdf-autotable";
 import type { HydratedMatch } from "@/components/MatchCard";
 import { formatMatchDay } from "@/lib/cricket";
 import type { TournamentRuleItem } from "@/lib/tournament-rules";
+import { parseCustomDate } from "@/components/DatePicker";
+import { format } from "date-fns";
 
 export interface SchedulePDFOptions {
   tournamentName?: string;
@@ -86,6 +88,36 @@ export function savePdfDocument(doc: jsPDF, filename: string) {
 }
 
 /**
+ * Standardizes tournament overall date range for info header: e.g. "14 September 2026 to 15 September 2026"
+ */
+export function formatTournamentDateRange(matches: { date?: string | null }[]): string {
+  const parsedDates = matches
+    .map((m) => (m.date ? parseCustomDate(m.date) : undefined))
+    .filter((d): d is Date => !!d && !isNaN(d.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (parsedDates.length === 0) {
+    const rawDates = Array.from(
+      new Set(matches.map((m) => m.date?.trim()).filter(Boolean))
+    );
+    if (rawDates.length > 1) return `${rawDates[0]} to ${rawDates[rawDates.length - 1]}`;
+    return rawDates[0] || "Dates As Scheduled";
+  }
+
+  const first = parsedDates[0];
+  const last = parsedDates[parsedDates.length - 1];
+
+  const firstStr = format(first, "d MMMM yyyy");
+  const lastStr = format(last, "d MMMM yyyy");
+
+  if (firstStr === lastStr) {
+    return firstStr;
+  }
+
+  return `${firstStr} to ${lastStr}`;
+}
+
+/**
  * Core builder that produces a high-contrast, landscape A4 PDF document
  */
 export function buildSchedulePdfDoc(
@@ -155,13 +187,9 @@ export function buildSchedulePdfDoc(
   doc.text(`Format: ${defaultOvers} OVERS | ${formatType}`, pageWidth - 14, 27, { align: "right" });
 
   // 2. Info Summary Card
-  const allDates = Array.from(new Set(matches.map((m) => cleanPdfText(m.date)).filter(Boolean)));
   const allVenues = Array.from(new Set(matches.map((m) => cleanPdfText(m.venue)).filter(Boolean)));
   const venueText = allVenues.length > 0 ? allVenues.join(" | ") : fallbackVenue;
-  const dateText =
-    allDates.length > 1
-      ? `${allDates[0]} to ${allDates[allDates.length - 1]}`
-      : allDates[0] || "Dates As Scheduled";
+  const dateText = formatTournamentDateRange(matches);
 
   doc.setFillColor(248, 250, 252); // #f8fafc
   doc.setDrawColor(226, 232, 240); // #e2e8f0

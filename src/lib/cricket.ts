@@ -185,15 +185,35 @@ export function teamColor(shortName?: string | null): string {
 
 import type { FallOfWicket, Partnership, Player } from "./firestore";
 
+import { parseCustomDate } from "@/components/DatePicker";
+import { format } from "date-fns";
+
 /** Format match day & date display text consistently */
 export function formatMatchDay(day?: string | null, date?: string | null): string {
   if (date && date.trim()) {
     const trimmed = date.trim();
-    if (day && !trimmed.toLowerCase().includes(day.toLowerCase().slice(0, 3))) {
-      const shortDay = day.charAt(0).toUpperCase() + day.slice(1, 3).toLowerCase();
-      return `${shortDay}, ${trimmed}`;
+    let standardizedDate = trimmed;
+    const parsed = parseCustomDate(trimmed);
+    if (parsed && !isNaN(parsed.getTime())) {
+      if (parsed.getFullYear() < 2020) {
+        parsed.setFullYear(2026);
+      }
+      standardizedDate = format(parsed, "d MMMM yyyy");
     }
-    return trimmed;
+
+    let shortDay = "";
+    if (day && day.trim()) {
+      const d = day.trim();
+      shortDay = d.charAt(0).toUpperCase() + d.slice(1, 3).toLowerCase();
+    } else if (parsed && !isNaN(parsed.getTime())) {
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      shortDay = dayNames[parsed.getDay()];
+    }
+
+    if (shortDay && !standardizedDate.toLowerCase().startsWith(shortDay.toLowerCase())) {
+      return `${shortDay}, ${standardizedDate}`;
+    }
+    return standardizedDate;
   }
   if (!day) return "";
   const d = (day || "").toUpperCase().trim();
