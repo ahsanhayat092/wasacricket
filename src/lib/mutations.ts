@@ -506,7 +506,7 @@ export async function deleteAllMatches(tournamentId: string) {
 export async function updateMatchDetails(input: {
   matchId: string;
   matchNumber?: number;
-  stage?: "LEAGUE" | "PLAYOFF" | "FINAL";
+  stage?: MatchStage;
   day?: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   date?: string;
   time?: string;

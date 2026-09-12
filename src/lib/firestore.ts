@@ -195,7 +195,16 @@ export type TeamChallenge = {
 };
 
 export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED" | "NO_RESULT";
-export type MatchStage = "LEAGUE" | "PLAYOFF" | "FINAL";
+export type MatchStage =
+  | "LEAGUE"
+  | "PLAYOFF"
+  | "FINAL"
+  | "SEMI_FINAL"
+  | "SEMI_1"
+  | "SEMI_2"
+  | "QUALIFIER_1"
+  | "QUALIFIER_2"
+  | "ELIMINATOR";
 export type MatchDay = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
 
 export type Match = {

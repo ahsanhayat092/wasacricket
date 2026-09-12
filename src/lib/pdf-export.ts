@@ -219,10 +219,13 @@ export function buildSchedulePdfDoc(
 
   // 3. Build Table Data with Clean ASCII/Latin-1 Text
   const tableData = matches.map((m) => {
+    const isSemi =
+      m.stage === "SEMI_FINAL" ||
+      m.stage === "SEMI_1" ||
+      m.stage === "SEMI_2";
     const isPlayoff =
       m.stage === "PLAYOFF" ||
-      m.stage === "SEMI_1" ||
-      m.stage === "SEMI_2" ||
+      isSemi ||
       m.stage === "QUALIFIER_1" ||
       m.stage === "QUALIFIER_2" ||
       m.stage === "ELIMINATOR";
@@ -230,6 +233,7 @@ export function buildSchedulePdfDoc(
 
     let stageLabel = "League";
     if (isFinal) stageLabel = "GRAND FINAL";
+    else if (m.stage === "SEMI_FINAL") stageLabel = "Semi-Final";
     else if (m.stage === "SEMI_1") stageLabel = "Semi-Final 1";
     else if (m.stage === "SEMI_2") stageLabel = "Semi-Final 2";
     else if (m.stage === "QUALIFIER_1") stageLabel = "Qualifier 1";
@@ -246,17 +250,21 @@ export function buildSchedulePdfDoc(
       ? `${cleanPdfText(m.teamA.name)}${m.teamA.shortName ? ` (${cleanPdfText(m.teamA.shortName)})` : ""}`
       : isFinal
         ? "TBD (Finalist 1)"
-        : isPlayoff
-          ? "TBD (Qualifier)"
-          : "TBD";
+        : isSemi
+          ? "TBD (Semi-Finalist 1)"
+          : isPlayoff
+            ? "TBD (Qualifier)"
+            : "TBD";
 
     const teamBName = m.teamB
       ? `${cleanPdfText(m.teamB.name)}${m.teamB.shortName ? ` (${cleanPdfText(m.teamB.shortName)})` : ""}`
       : isFinal
         ? "TBD (Finalist 2)"
-        : isPlayoff
-          ? "TBD (Qualifier)"
-          : "TBD";
+        : isSemi
+          ? "TBD (Semi-Finalist 2)"
+          : isPlayoff
+            ? "TBD (Qualifier)"
+            : "TBD";
 
     const matchup = `${teamAName}   vs   ${teamBName}`;
     const matchOvers = `${m.oversPerSide || defaultOvers} Ov`;

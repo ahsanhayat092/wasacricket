@@ -44,11 +44,11 @@ import { downloadSchedulePDF, openSchedulePDF } from "@/lib/pdf-export";
 import { DatePicker, parseCustomDate } from "@/components/DatePicker";
 import { format } from "date-fns";
 import { TimePicker } from "@/components/TimePicker";
-import type { HydratedMatch, Team } from "@/lib/firestore";
+import type { HydratedMatch, Team, MatchStage } from "@/lib/firestore";
 
 type MatchForm = {
   matchNumber: number;
-  stage: "LEAGUE" | "PLAYOFF" | "FINAL" | "SEMI_1" | "SEMI_2";
+  stage: MatchStage;
   groupName?: string;
   day: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
   teamAId: string;
@@ -371,7 +371,7 @@ export default function AdminSchedule() {
                 <Select
                   value={form.stage}
                   onValueChange={(v) =>
-                    setForm({ ...form, stage: v as "LEAGUE" | "PLAYOFF" | "FINAL" })
+                    setForm({ ...form, stage: v as MatchStage })
                   }
                 >
                   <SelectTrigger>
@@ -379,6 +379,9 @@ export default function AdminSchedule() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="LEAGUE">League Stage</SelectItem>
+                    <SelectItem value="SEMI_FINAL">🎯 Semi-Final</SelectItem>
+                    <SelectItem value="SEMI_1">🎯 Semi-Final 1</SelectItem>
+                    <SelectItem value="SEMI_2">🎯 Semi-Final 2</SelectItem>
                     <SelectItem value="PLAYOFF">⚔️ Playoff (Rank 2 vs 3)</SelectItem>
                     <SelectItem value="FINAL">🏆 Grand Final</SelectItem>
                   </SelectContent>
@@ -456,7 +459,9 @@ export default function AdminSchedule() {
                           ? "TBD (Rank 1 - Auto)"
                           : form.stage === "PLAYOFF"
                             ? "TBD (Rank 2 - Auto)"
-                            : "Select team"
+                            : form.stage.startsWith("SEMI")
+                              ? "TBD (Semi-Finalist 1)"
+                              : "Select team"
                       }
                     />
                   </SelectTrigger>
@@ -486,7 +491,9 @@ export default function AdminSchedule() {
                           ? "TBD (Playoff Winner - Auto)"
                           : form.stage === "PLAYOFF"
                             ? "TBD (Rank 3 - Auto)"
-                            : "Select team"
+                            : form.stage.startsWith("SEMI")
+                              ? "TBD (Semi-Finalist 2)"
+                              : "Select team"
                       }
                     />
                   </SelectTrigger>
@@ -747,7 +754,7 @@ function ScheduleRow({
   deleting: boolean;
   onSave: (v: {
     matchNumber?: number;
-    stage?: "LEAGUE" | "PLAYOFF" | "FINAL";
+    stage?: MatchStage;
     day?: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
     date?: string;
     time?: string;
@@ -758,7 +765,7 @@ function ScheduleRow({
   onDelete: () => void;
 }) {
   const [matchNumber, setMatchNumber] = useState<number>(match.matchNumber);
-  const [stage, setStage] = useState<"LEAGUE" | "PLAYOFF" | "FINAL">(match.stage);
+  const [stage, setStage] = useState<MatchStage>(match.stage);
   const [day, setDay] = useState<"MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY">(
     match.day as "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY",
   );
@@ -788,6 +795,7 @@ function ScheduleRow({
   }, [date, allMatches]);
 
   const isPlayoff = stage === "PLAYOFF";
+  const isSemi = stage.startsWith("SEMI");
   const isFinal = stage === "FINAL";
   const teamsEditable = match.status === "UPCOMING";
 
@@ -825,13 +833,16 @@ function ScheduleRow({
 
           <Select
             value={stage}
-            onValueChange={(v) => setStage(v as "LEAGUE" | "PLAYOFF" | "FINAL")}
+            onValueChange={(v) => setStage(v as MatchStage)}
           >
             <SelectTrigger className="w-36 h-7 text-[11px] font-medium text-muted-foreground">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="LEAGUE">League Match</SelectItem>
+              <SelectItem value="SEMI_FINAL">🎯 Semi-Final</SelectItem>
+              <SelectItem value="SEMI_1">🎯 Semi-Final 1</SelectItem>
+              <SelectItem value="SEMI_2">🎯 Semi-Final 2</SelectItem>
               <SelectItem value="PLAYOFF">⚔️ Playoff</SelectItem>
               <SelectItem value="FINAL">🏆 Grand Final</SelectItem>
             </SelectContent>
@@ -883,9 +894,11 @@ function ScheduleRow({
                   placeholder={
                     isFinal
                       ? "TBD (Rank 1)"
-                      : isPlayoff
-                        ? "TBD (Rank 2)"
-                        : "TBD"
+                      : isSemi
+                        ? "TBD (Semi-Finalist 1)"
+                        : isPlayoff
+                          ? "TBD (Rank 2)"
+                          : "TBD"
                   }
                 />
               </SelectTrigger>
@@ -893,9 +906,11 @@ function ScheduleRow({
                 <SelectItem value="__TBD__">
                   {isFinal
                     ? "TBD (Rank 1 - Auto)"
-                    : isPlayoff
-                      ? "TBD (Rank 2 - Auto)"
-                      : "TBD (Unassigned)"}
+                    : isSemi
+                      ? "TBD (Semi-Finalist 1)"
+                      : isPlayoff
+                        ? "TBD (Rank 2 - Auto)"
+                        : "TBD (Unassigned)"}
                 </SelectItem>
                 {teams.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
@@ -913,20 +928,24 @@ function ScheduleRow({
                 <SelectValue
                   placeholder={
                     isFinal
-                      ? "TBD (Playoff Winner)"
-                      : isPlayoff
-                        ? "TBD (Rank 3)"
-                        : "TBD"
+                      ? "TBD (Finalist 2)"
+                      : isSemi
+                        ? "TBD (Semi-Finalist 2)"
+                        : isPlayoff
+                          ? "TBD (Rank 3)"
+                          : "TBD"
                   }
                 />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__TBD__">
                   {isFinal
-                    ? "TBD (Playoff Winner - Auto)"
-                    : isPlayoff
-                      ? "TBD (Rank 3 - Auto)"
-                      : "TBD (Unassigned)"}
+                    ? "TBD (Finalist 2 - Auto)"
+                    : isSemi
+                      ? "TBD (Semi-Finalist 2)"
+                      : isPlayoff
+                        ? "TBD (Rank 3 - Auto)"
+                        : "TBD (Unassigned)"}
                 </SelectItem>
                 {teams.map((t) => (
                   <SelectItem key={t.id} value={t.id}>

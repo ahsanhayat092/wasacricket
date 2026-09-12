@@ -14,7 +14,7 @@ import { Calendar, MapPin, Clock, Trophy, FileDown, Loader2, ExternalLink } from
 export default function Schedule() {
   const { tournamentId, tournament } = useTournament();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const [stageFilter, setStageFilter] = useState<"ALL" | "LEAGUE" | "PLAYOFF" | "FINAL">("ALL");
+  const [stageFilter, setStageFilter] = useState<"ALL" | "LEAGUE" | "SEMI" | "PLAYOFF" | "FINAL">("ALL");
 
   const { data: matches, isLoading } = useQuery({
     queryKey: ["schedule", tournamentId],
@@ -25,6 +25,9 @@ export default function Schedule() {
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
     if (stageFilter === "ALL") return matches;
+    if (stageFilter === "SEMI") {
+      return matches.filter((m) => m.stage?.toUpperCase().startsWith("SEMI"));
+    }
     return matches.filter((m) => {
       const s = m.stage?.toUpperCase();
       return s === stageFilter;
@@ -182,6 +185,20 @@ export default function Schedule() {
         >
           League Matches ({matches.filter((m) => m.stage === "LEAGUE").length})
         </Button>
+        {matches.some((m) => m.stage?.toUpperCase().startsWith("SEMI")) && (
+          <Button
+            variant={stageFilter === "SEMI" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStageFilter("SEMI")}
+            className={`h-8 text-xs font-bold ${
+              stageFilter === "SEMI"
+                ? "bg-blue-600 text-white"
+                : "border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+            }`}
+          >
+            🎯 Semi-Finals ({matches.filter((m) => m.stage?.toUpperCase().startsWith("SEMI")).length})
+          </Button>
+        )}
         <Button
           variant={stageFilter === "PLAYOFF" ? "default" : "outline"}
           size="sm"
