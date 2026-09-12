@@ -3,8 +3,19 @@ import { queryClient } from "@/providers/trpc";
 import { getSchedule } from "@/lib/queries";
 import { updateMatchDetails, setMatchStatus, resetMatch as fbResetMatch, deleteMatch as fbDeleteMatch } from "@/lib/mutations";
 import { Link } from "react-router";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -15,12 +26,19 @@ import {
 } from "@/components/ui/table";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
-import { RotateCcw, Trophy, Trash2 } from "lucide-react";
+import { RotateCcw, Trophy, Trash2, Sliders } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { HydratedMatch } from "@/lib/firestore";
 
 import { useTournament } from "@/context/TournamentContext";
 
 export default function AdminMatches() {
   const { tournamentId } = useTournament();
+
+  const [openOversDialog, setOpenOversDialog] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<HydratedMatch | null>(null);
+  const [editOvers, setEditOvers] = useState<number>(4);
+  const [editMaxBowler, setEditMaxBowler] = useState<number>(1);
 
   const { data: matches, isLoading } = useQuery({
     queryKey: ["schedule", tournamentId],
@@ -61,6 +79,23 @@ export default function AdminMatches() {
     onError: (e) => toast.error(e.message),
   });
 
+  const saveOversMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedMatch) throw new Error("No match selected");
+      return updateMatchDetails({
+        matchId: selectedMatch.id,
+        oversPerSide: editOvers,
+        maxOverPerBowler: editMaxBowler,
+      });
+    },
+    onSuccess: () => {
+      toast.success(`Match updated: ${editOvers} overs per side, ${editMaxBowler} max per bowler`);
+      setOpenOversDialog(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Matches & Scorecards</h1>
@@ -84,8 +119,13 @@ export default function AdminMatches() {
             )}
             {matches?.map((m) => (
               <TableRow key={m.id}>
-                <TableCell className="font-bold">
-                  {m.stage === "FINAL" ? "🏆 Grand Final" : m.stage === "PLAYOFF" ? "⚔️ Playoff" : `Match ${m.matchNumber}`}
+                <TableCell>
+                  <div className="font-bold">
+                    {m.stage === "FINAL" ? "🏆 Grand Final" : m.stage === "PLAYOFF" ? "⚔️ Playoff" : `Match ${m.matchNumber}`}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground font-medium">
+                    {m.oversPerSide ?? 4} Ov · {m.maxOverPerBowler ?? (m.oversPerSide && m.oversPerSide <= 5 ? 1 : Math.ceil((m.oversPerSide || 4) / 5))} max
+                  </div>
                 </TableCell>
                 <TableCell className="text-xs">
                   <div className="font-semibold text-foreground">{formatMatchDay(m.day, m.date)}</div>
@@ -120,6 +160,22 @@ export default function AdminMatches() {
                     <Link to={`/admin/matches/${m.id}`}>
                       <Button size="sm">Manage</Button>
                     </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs gap-1 border-border/80 font-medium"
+                      onClick={() => {
+                        setSelectedMatch(m);
+                        const ov = m.oversPerSide ?? 4;
+                        const maxB = m.maxOverPerBowler ?? (ov <= 5 ? 1 : Math.ceil(ov / 5));
+                        setEditOvers(ov);
+                        setEditMaxBowler(maxB);
+                        setOpenOversDialog(true);
+                      }}
+                      title="Change match overs & bowler quota"
+                    >
+                      <Sliders className="h-3 w-3 text-emerald-500" /> Overs
+                    </Button>
                     {(m.status === "UPCOMING" || m.status === "LIVE") && (
                       <>
                         <Button
@@ -190,6 +246,99 @@ export default function AdminMatches() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Edit Match Overs Dialog */}
+      <Dialog open={openOversDialog} onOpenChange={setOpenOversDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Sliders className="h-5 w-5 text-emerald-500" />
+              Edit Match Overs & Bowler Quota
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Customize the total match overs and maximum bowler quota for Match #{selectedMatch?.matchNumber} ({selectedMatch?.teamA?.shortName ?? "Team A"} vs {selectedMatch?.teamB?.shortName ?? "Team B"}).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                <Label className="text-xs font-bold text-foreground">Total Overs</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={editOvers}
+                  onChange={(e) => {
+                    const ov = Number(e.target.value) || 1;
+                    setEditOvers(ov);
+                    if (editMaxBowler > ov) setEditMaxBowler(ov);
+                  }}
+                  className="h-10 text-base font-bold text-center"
+                />
+                <span className="text-[11px] text-muted-foreground">Overs per side</span>
+              </div>
+              <div className="space-y-1.5 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                <Label className="text-xs font-bold text-foreground">Max Per Bowler</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={editOvers}
+                  value={editMaxBowler}
+                  onChange={(e) => setEditMaxBowler(Number(e.target.value) || 1)}
+                  className="h-10 text-base font-bold text-center"
+                />
+                <span className="text-[11px] text-muted-foreground">Quota per bowler</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Quick Presets</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { overs: 4, bowler: 1, label: "4 Ov (1 max)" },
+                  { overs: 5, bowler: 1, label: "5 Ov (1 max)" },
+                  { overs: 6, bowler: 2, label: "6 Ov (2 max)" },
+                  { overs: 8, bowler: 2, label: "8 Ov (2 max)" },
+                  { overs: 10, bowler: 2, label: "10 Ov (2 max)" },
+                  { overs: 12, bowler: 3, label: "12 Ov (3 max)" },
+                  { overs: 20, bowler: 4, label: "20 Ov (4 max)" },
+                ].map((p) => (
+                  <Button
+                    key={p.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-7 text-xs font-medium",
+                      editOvers === p.overs && editMaxBowler === p.bowler && "border-emerald-500 bg-emerald-500/15 text-emerald-500 font-bold"
+                    )}
+                    onClick={() => {
+                      setEditOvers(p.overs);
+                      setEditMaxBowler(p.bowler);
+                    }}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setOpenOversDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={saveOversMutation.isPending}
+              onClick={() => saveOversMutation.mutate()}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+            >
+              {saveOversMutation.isPending ? "Saving..." : "Save Match Rules"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

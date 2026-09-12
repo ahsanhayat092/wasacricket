@@ -54,6 +54,8 @@ type MatchForm = {
   date: string;
   time: string;
   venue: string;
+  oversPerSide?: number;
+  maxOverPerBowler?: number;
 };
 
 const defaultForm: MatchForm = {
@@ -66,6 +68,8 @@ const defaultForm: MatchForm = {
   date: "24 August",
   time: "9:00 PM",
   venue: "Askari XI, Lahore",
+  oversPerSide: 4,
+  maxOverPerBowler: 1,
 };
 
 import { useTournament } from "@/context/TournamentContext";
@@ -158,12 +162,18 @@ export default function AdminSchedule() {
     const groupTeams = isGroupStage
       ? teams?.filter((t) => (t.groupName || "A") === "A") || []
       : teams || [];
+    const defaultOvers = tournament?.oversPerSide || 4;
+    const defaultMaxBowler =
+      tournament?.maxOverPerBowler ||
+      (defaultOvers <= 5 ? 1 : Math.ceil(defaultOvers / 5));
     setForm({
       ...defaultForm,
       matchNumber: nextMatchNumber,
       groupName: defaultGroup,
       teamAId: groupTeams[0]?.id ?? teams?.[0]?.id ?? "",
       teamBId: groupTeams[1]?.id ?? teams?.[1]?.id ?? "",
+      oversPerSide: defaultOvers,
+      maxOverPerBowler: defaultMaxBowler,
     });
     setOpenCreate(true);
   };
@@ -471,6 +481,41 @@ export default function AdminSchedule() {
                 placeholder="Askari XI, Lahore"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Overs Per Side</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={form.oversPerSide ?? 4}
+                  onChange={(e) => {
+                    const ov = Number(e.target.value) || 1;
+                    const maxB = (form.maxOverPerBowler ?? 1) > ov ? ov : (form.maxOverPerBowler ?? 1);
+                    setForm({ ...form, oversPerSide: ov, maxOverPerBowler: maxB });
+                  }}
+                  placeholder="Overs"
+                  className="h-9 text-xs font-bold"
+                />
+                <span className="text-[10px] text-muted-foreground">Match total overs</span>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Max Per Bowler</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={form.oversPerSide ?? 4}
+                  value={form.maxOverPerBowler ?? 1}
+                  onChange={(e) =>
+                    setForm({ ...form, maxOverPerBowler: Number(e.target.value) || 1 })
+                  }
+                  placeholder="Max/Bowler"
+                  className="h-9 text-xs font-bold"
+                />
+                <span className="text-[10px] text-muted-foreground">Bowler quota limit</span>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -643,18 +688,37 @@ function ScheduleRow({
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground pt-0.5">
-            <span className="text-[10px] font-semibold text-muted-foreground/80">Quota:</span>
-            <Input
-              type="number"
-              min={1}
-              max={oversPerSide}
-              value={maxOverPerBowler}
-              onChange={(e) => setMaxOverPerBowler(Number(e.target.value) || 1)}
-              title="Max overs per bowler for this match"
-              className="w-12 h-6 text-[11px] font-bold text-center p-0.5"
-            />
-            <span className="text-[10px]">ov/bowler</span>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground pt-1 flex-wrap">
+            <div className="flex items-center gap-1 bg-muted/40 px-1.5 py-0.5 rounded border border-border/60 shadow-2xs">
+              <span className="text-[10px] font-bold text-foreground">Overs:</span>
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={oversPerSide}
+                onChange={(e) => {
+                  const ov = Number(e.target.value) || 1;
+                  setOversPerSide(ov);
+                  if (maxOverPerBowler > ov) setMaxOverPerBowler(ov);
+                }}
+                title="Total match overs per side"
+                className="w-11 h-5 text-[11px] font-bold text-center p-0.5"
+              />
+              <span className="text-[10px]">ov</span>
+            </div>
+            <div className="flex items-center gap-1 bg-muted/40 px-1.5 py-0.5 rounded border border-border/60 shadow-2xs">
+              <span className="text-[10px] font-bold text-foreground">Bowler:</span>
+              <Input
+                type="number"
+                min={1}
+                max={oversPerSide}
+                value={maxOverPerBowler}
+                onChange={(e) => setMaxOverPerBowler(Number(e.target.value) || 1)}
+                title="Max overs allowed per individual bowler"
+                className="w-11 h-5 text-[11px] font-bold text-center p-0.5"
+              />
+              <span className="text-[10px]">max</span>
+            </div>
           </div>
         </div>
       </TableCell>

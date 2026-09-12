@@ -65,7 +65,6 @@ export function computeStandingsData(params: {
 
   const oversPerSide = tournament.config?.matchRules?.oversPerSide ?? tournament.oversPerSide ?? 4;
   const ballsPerOver = tournament.config?.matchRules?.ballsPerOver ?? 6;
-  const quotaBalls = oversPerSide * ballsPerOver;
 
   const distinctGroups = new Set(
     teams
@@ -188,8 +187,9 @@ export function computeStandingsData(params: {
       const allOut1 = Boolean(inn1.isAllOut ?? (inn1 as any).allOut);
       const allOut2 = Boolean(inn2.isAllOut ?? (inn2 as any).allOut);
 
-      const b1 = effectiveNrrBalls(balls1, allOut1, quotaBalls);
-      const b2 = effectiveNrrBalls(balls2, allOut2, quotaBalls);
+      const matchQuotaBalls = ((m.oversPerSide ?? oversPerSide) || 4) * ballsPerOver;
+      const b1 = effectiveNrrBalls(balls1, allOut1, matchQuotaBalls);
+      const b2 = effectiveNrrBalls(balls2, allOut2, matchQuotaBalls);
 
       const team1 = recordMap.get(inn1.battingTeamId);
       const team2 = recordMap.get(inn2.battingTeamId);

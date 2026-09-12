@@ -359,8 +359,8 @@ export async function recalculateStandings(tournamentId: string = TOURNAMENT_ID)
         if (!inn) continue;
         const batting = agg.get(inn.battingTeamId);
         const bowling = agg.get(inn.bowlingTeamId);
-        if (!batting || !bowling) continue;
-        const effBalls = effectiveNrrBalls(inn.balls, inn.allOut, quotaBalls);
+        const matchQuotaBalls = ((m.oversPerSide ?? oversPerSide) || 4) * ballsPerOver;
+        const effBalls = effectiveNrrBalls(inn.balls, inn.allOut, matchQuotaBalls);
         batting.runsFor += inn.runs;
         batting.ballsFor += effBalls;
         bowling.runsAgainst += inn.runs;

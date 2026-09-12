@@ -80,7 +80,9 @@ import {
   RefreshCw,
   Trash2,
   Tv,
+  Sliders,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type {
   Match,
   Team,
@@ -115,6 +117,43 @@ export default function AdminMatchControl() {
 
   const [activeInningsTab, setActiveInningsTab] = useState<string>("1");
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
+  const [openOversModal, setOpenOversModal] = useState(false);
+  const [modalOvers, setModalOvers] = useState<number>(10);
+  const [modalMaxBowler, setModalMaxBowler] = useState<number>(2);
+
+  useEffect(() => {
+    if (data?.match) {
+      const curOvers = Number(data.match.oversPerSide || data.tournament?.oversPerSide || 10);
+      const curMax = Number(
+        data.match.maxOverPerBowler ||
+        data.tournament?.maxOverPerBowler ||
+        (curOvers <= 5 ? 1 : Math.ceil(curOvers / 5))
+      );
+      setModalOvers(curOvers);
+      setModalMaxBowler(curMax);
+    }
+  }, [
+    data?.match?.oversPerSide,
+    data?.match?.maxOverPerBowler,
+    data?.tournament?.oversPerSide,
+    data?.tournament?.maxOverPerBowler,
+  ]);
+
+  const saveOversMutation = useMutation({
+    mutationFn: () =>
+      fbUpdateMatchDetails({
+        matchId: id!,
+        oversPerSide: modalOvers,
+        maxOverPerBowler: modalMaxBowler,
+      }),
+    onSuccess: () => {
+      toast.success(`Match updated: ${modalOvers} overs per side, ${modalMaxBowler} max per bowler`);
+      setOpenOversModal(false);
+      refetch();
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["matchWorkspace", id] });
@@ -255,9 +294,23 @@ export default function AdminMatchControl() {
                 {match.status.replace("_", " ")}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {formatMatchDateTime(match.day, match.date, match.time)} · {match.venue ?? "Askari XI, Lahore"} · {match.oversPerSide ?? (match.stage === "FINAL" ? 5 : 4)} Overs Match
-            </p>
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+              <p className="text-xs text-muted-foreground">
+                {formatMatchDateTime(match.day, match.date, match.time)} · {match.venue ?? "Askari XI, Lahore"} ·{" "}
+                <span className="font-semibold text-foreground">
+                  {match.oversPerSide ?? (match.stage === "FINAL" ? 5 : 4)} Overs
+                </span>{" "}
+                ({match.maxOverPerBowler ?? (match.oversPerSide && match.oversPerSide <= 5 ? 1 : Math.ceil((match.oversPerSide || 4) / 5))} max/bowler)
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] gap-1 px-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold"
+                onClick={() => setOpenOversModal(true)}
+              >
+                <Sliders className="h-3 w-3" /> Edit Match Overs
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -459,6 +512,99 @@ export default function AdminMatchControl() {
         matchId={match.id}
         matchTitle={`${teamA?.name ?? "Team A"} vs ${teamB?.name ?? "Team B"}`}
       />
+
+      {/* Edit Match Overs & Bowler Quota Modal */}
+      <Dialog open={openOversModal} onOpenChange={setOpenOversModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Sliders className="h-5 w-5 text-emerald-500" />
+              Edit Match Overs & Bowler Quota
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Customize the total match overs and maximum bowler quota for Match #{match.matchNumber} ({teamA?.shortName ?? "Team A"} vs {teamB?.shortName ?? "Team B"}).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                <Label className="text-xs font-bold text-foreground">Total Overs</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={modalOvers}
+                  onChange={(e) => {
+                    const ov = Number(e.target.value) || 1;
+                    setModalOvers(ov);
+                    if (modalMaxBowler > ov) setModalMaxBowler(ov);
+                  }}
+                  className="h-10 text-base font-bold text-center"
+                />
+                <span className="text-[11px] text-muted-foreground">Overs per innings</span>
+              </div>
+              <div className="space-y-1.5 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                <Label className="text-xs font-bold text-foreground">Max Per Bowler</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={modalOvers}
+                  value={modalMaxBowler}
+                  onChange={(e) => setModalMaxBowler(Number(e.target.value) || 1)}
+                  className="h-10 text-base font-bold text-center"
+                />
+                <span className="text-[11px] text-muted-foreground">Quota per bowler</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Quick Presets</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { overs: 4, bowler: 1, label: "4 Ov (1 max)" },
+                  { overs: 5, bowler: 1, label: "5 Ov (1 max)" },
+                  { overs: 6, bowler: 2, label: "6 Ov (2 max)" },
+                  { overs: 8, bowler: 2, label: "8 Ov (2 max)" },
+                  { overs: 10, bowler: 2, label: "10 Ov (2 max)" },
+                  { overs: 12, bowler: 3, label: "12 Ov (3 max)" },
+                  { overs: 20, bowler: 4, label: "20 Ov (4 max)" },
+                ].map((p) => (
+                  <Button
+                    key={p.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-7 text-xs font-medium",
+                      modalOvers === p.overs && modalMaxBowler === p.bowler && "border-emerald-500 bg-emerald-500/15 text-emerald-500 font-bold"
+                    )}
+                    onClick={() => {
+                      setModalOvers(p.overs);
+                      setModalMaxBowler(p.bowler);
+                    }}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setOpenOversModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={saveOversMutation.isPending}
+              onClick={() => saveOversMutation.mutate()}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+            >
+              {saveOversMutation.isPending ? "Saving..." : "Save Match Rules"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
