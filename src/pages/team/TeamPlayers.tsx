@@ -7,6 +7,7 @@ import { getUnassignedPlayers } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUploader } from "@/components/ImageUploader";
 import {
   Dialog,
   DialogContent,
@@ -568,15 +569,14 @@ export default function TeamPlayers() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Photo URL (Optional)</Label>
-                <Input
-                  value={form.photoUrl}
-                  onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
-                  placeholder="https://..."
-                  className="h-10 text-xs rounded-xl"
-                />
-              </div>
+              <ImageUploader
+                value={form.photoUrl}
+                onChange={(url) => setForm({ ...form, photoUrl: url })}
+                folder="players"
+                label="Player Photo (Optional)"
+                placeholderText="Upload photo or enter URL"
+              />
+
 
               <DialogFooter className="pt-4 border-t gap-2">
                 <Button

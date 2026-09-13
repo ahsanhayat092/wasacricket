@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TeamBadge } from "@/components/TeamBadge";
+import { ImageUploader } from "@/components/ImageUploader";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
@@ -819,14 +820,15 @@ export default function AdminTeams() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Logo URL (optional)</Label>
-              <Input
-                value={form.logoUrl}
-                onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
-                placeholder="https://…"
-              />
-            </div>
+            <ImageUploader
+              value={form.logoUrl}
+              onChange={(url) => setForm({ ...form, logoUrl: url })}
+              folder="teams"
+              label="Team Logo (Optional)"
+              placeholderText="Upload logo or enter image link"
+              avatarSize="md"
+            />
+
             <Button
               className="w-full"
               disabled={upsert.isPending || !form.name || !form.shortName}

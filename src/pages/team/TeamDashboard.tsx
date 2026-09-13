@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { TeamBadge } from "@/components/TeamBadge";
+import { ImageUploader } from "@/components/ImageUploader";
 import { toast } from "sonner";
+
 import {
   Users,
   Trophy,
@@ -192,15 +194,14 @@ export default function TeamDashboard() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Team Logo URL (Optional)</Label>
-                <Input
-                  value={createLogoUrl}
-                  onChange={(e) => setCreateLogoUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="h-10 text-xs rounded-xl"
-                />
-              </div>
+              <ImageUploader
+                value={createLogoUrl}
+                onChange={setCreateLogoUrl}
+                folder="teams"
+                label="Team Logo (Optional)"
+                placeholderText="Upload logo or enter image link"
+              />
+
 
               <Button
                 type="submit"
@@ -534,15 +535,14 @@ export default function TeamDashboard() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Logo URL</Label>
-              <Input
-                value={editLogoUrl}
-                onChange={(e) => setEditLogoUrl(e.target.value)}
-                placeholder="https://..."
-                className="h-10 text-xs rounded-xl"
-              />
-            </div>
+            <ImageUploader
+              value={editLogoUrl}
+              onChange={setEditLogoUrl}
+              folder="teams"
+              label="Team Logo (Optional)"
+              placeholderText="Upload logo or enter image link"
+            />
+
 
             <DialogFooter className="pt-3 border-t gap-2">
               <Button

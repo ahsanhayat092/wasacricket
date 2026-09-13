@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -8,6 +9,7 @@ import {
   type Firestore,
 } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAWfUvvBF-8SGrA6ENwtz1nNMnSIwU2Z8",
@@ -41,6 +43,7 @@ if (typeof window !== "undefined") {
 }
 
 export const db = firestoreDb;
+export const storage = getStorage(app);
 
 // Analytics only in browser environments
 if (typeof window !== "undefined") {

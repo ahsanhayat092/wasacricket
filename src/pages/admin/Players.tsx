@@ -35,7 +35,9 @@ import { toast } from "sonner";
 import { Crown, Pencil, Plus, Trash2, Shield, User, Star } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { normalizeImageUrl } from "@/lib/image-utils";
+import { ImageUploader } from "@/components/ImageUploader";
 import type { Player } from "@/lib/firestore";
+
 
 type Role = "Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper";
 type Designation = "Captain" | "Vice Captain" | "Team Member";
@@ -384,23 +386,16 @@ export default function AdminPlayers() {
               />
             </div>
 
-            {/* Player Photo URL & Live Preview */}
-            <div className="space-y-2">
-              <Label>Player Photo URL (Optional)</Label>
-              <div className="flex items-center gap-3">
-                <PlayerAvatar name={form.name || "Player"} photoUrl={form.photoUrl} size="lg" />
-                <div className="flex-1 space-y-1">
-                  <Input
-                    value={form.photoUrl}
-                    onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
-                    placeholder="https://drive.google.com/file/d/.../view or direct image URL"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Supports Google Drive share links, Dropbox, or web image URLs. (Ensure Google Drive file access is set to <em>"Anyone with the link can view"</em>).
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* Player Photo Uploader & Live Preview */}
+            <ImageUploader
+              value={form.photoUrl}
+              onChange={(url) => setForm({ ...form, photoUrl: url })}
+              folder="players"
+              label="Player Photo (Optional)"
+              placeholderText="Upload photo from device or paste image link"
+              avatarSize="lg"
+            />
+
 
             {/* Squad Designation (Captain / Vice Captain / Member) */}
             <div className="grid grid-cols-2 gap-4">
