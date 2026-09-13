@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useTeam } from "@/context/TeamContext";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
-import { upsertPlayer, deletePlayer } from "@/lib/mutations";
+import { upsertPlayer, removePlayerFromTeam, assignPlayerToTeam } from "@/lib/mutations";
+import { getUnassignedPlayers } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -42,6 +53,7 @@ import {
   Search,
   ShieldAlert,
   UserCheck,
+  UserPlus,
 } from "lucide-react";
 import type { Player } from "@/lib/firestore";
 
@@ -73,11 +85,24 @@ export default function TeamPlayers() {
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<PlayerFormState>(emptyForm);
+  const [playerToRemove, setPlayerToRemove] = useState<Player | null>(null);
+
+  // Free agent / unassigned player selection
+  const [addMode, setAddMode] = useState<"new" | "unassigned">("new");
+  const [selectedUnassignedId, setSelectedUnassignedId] = useState<string>("");
+  const [unassignedJersey, setUnassignedJersey] = useState<string>("");
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["team_players", activeTeam?.id] });
     queryClient.invalidateQueries({ queryKey: ["players"] });
+    queryClient.invalidateQueries({ queryKey: ["unassigned_players"] });
   };
+
+  // Query unassigned players from the database
+  const { data: unassignedPlayers = [] } = useQuery({
+    queryKey: ["unassigned_players"],
+    queryFn: () => getUnassignedPlayers(),
+  });
 
   // Upsert Player Mutation
   const upsertMutation = useMutation({
@@ -106,14 +131,36 @@ export default function TeamPlayers() {
     onError: (err: any) => toast.error(err?.message || "Failed to save player."),
   });
 
-  // Delete Player Mutation
-  const deleteMutation = useMutation({
-    mutationFn: (playerId: string) => deletePlayer(playerId),
+  // Remove Player from Team Mutation (Preserves historical stats)
+  const removeMutation = useMutation({
+    mutationFn: (playerId: string) => removePlayerFromTeam(playerId),
     onSuccess: () => {
-      toast.success("Player removed from team roster.");
+      toast.success(
+        `${playerToRemove?.name || "Player"} removed from ${activeTeam?.name || "team"} roster. Stats preserved.`,
+      );
+      setPlayerToRemove(null);
       invalidate();
     },
-    onError: (err: any) => toast.error(err?.message || "Cannot delete player."),
+    onError: (err: any) => toast.error(err?.message || "Failed to remove player."),
+  });
+
+  // Assign existing unassigned player to team
+  const assignMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeTeam?.id) throw new Error("No active team selected.");
+      if (!selectedUnassignedId) throw new Error("Please select a player to add.");
+      await assignPlayerToTeam(selectedUnassignedId, activeTeam.id, {
+        jerseyNumber: unassignedJersey ? parseInt(unassignedJersey, 10) : undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Player added to roster!");
+      setModalOpen(false);
+      setSelectedUnassignedId("");
+      setUnassignedJersey("");
+      invalidate();
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to add player."),
   });
 
   const filteredPlayers = players.filter((p) => {
@@ -135,8 +182,10 @@ export default function TeamPlayers() {
       bowlingStyle: p.bowlingStyle || "Right-arm medium",
       photoUrl: p.photoUrl || "",
     });
+    setAddMode("new");
     setModalOpen(true);
   };
+
 
   return (
     <div className="space-y-6">
@@ -276,13 +325,9 @@ export default function TeamPlayers() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => {
-                          if (confirm(`Remove ${p.name} from roster?`)) {
-                            deleteMutation.mutate(p.id);
-                          }
-                        }}
+                        onClick={() => setPlayerToRemove(p)}
                         className="h-8 w-8 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10"
-                        title="Delete Player"
+                        title="Remove Player from Team"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -303,6 +348,9 @@ export default function TeamPlayers() {
           <Button
             onClick={() => {
               setForm(emptyForm);
+              setAddMode("new");
+              setSelectedUnassignedId("");
+              setUnassignedJersey("");
               setModalOpen(true);
             }}
             size="sm"
@@ -318,142 +366,291 @@ export default function TeamPlayers() {
         <DialogContent className="max-w-md p-6 bg-card border-emerald-500/40">
           <DialogHeader className="space-y-1 pb-2">
             <DialogTitle className="text-xl font-bold">
-              {form.id ? "Edit Player" : "Add Player to Roster"}
+              {form.id
+                ? "Edit Player"
+                : addMode === "unassigned"
+                ? "Add Free Agent / Existing Player"
+                : "Add Player to Roster"}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Player information for {activeTeam?.name}.
+              {form.id
+                ? `Update player details for ${activeTeam?.name}.`
+                : addMode === "unassigned"
+                ? `Assign a registered player to ${activeTeam?.name}.`
+                : `Create a new player profile for ${activeTeam?.name}.`}
             </DialogDescription>
           </DialogHeader>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!form.name.trim()) {
-                toast.error("Player name is required.");
-                return;
-              }
-              upsertMutation.mutate(form);
-            }}
-            className="space-y-4 pt-2"
-          >
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Player Full Name *</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. Babar Azam"
-                className="h-10 text-xs rounded-xl"
-                required
-                autoFocus
-              />
+          {/* Mode Switcher when adding a new player and unassigned players exist */}
+          {!form.id && unassignedPlayers.length > 0 && (
+            <div className="flex rounded-lg bg-muted p-1 gap-1 text-xs mb-2">
+              <button
+                type="button"
+                onClick={() => setAddMode("new")}
+                className={`flex-1 py-1.5 px-3 rounded-md font-bold transition-all ${
+                  addMode === "new"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Plus className="inline h-3.5 w-3.5 mr-1" />
+                Create New Profile
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddMode("unassigned")}
+                className={`flex-1 py-1.5 px-3 rounded-md font-bold transition-all ${
+                  addMode === "unassigned"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <UserPlus className="inline h-3.5 w-3.5 mr-1" />
+                Free Agents ({unassignedPlayers.length})
+              </button>
             </div>
+          )}
 
-            <div className="grid grid-cols-2 gap-3">
+          {addMode === "unassigned" && !form.id ? (
+            <div className="space-y-4 pt-1">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Jersey Number</Label>
+                <Label className="text-xs font-bold">Select Player *</Label>
+                <Select
+                  value={selectedUnassignedId}
+                  onValueChange={setSelectedUnassignedId}
+                >
+                  <SelectTrigger className="h-10 text-xs rounded-xl font-bold">
+                    <SelectValue placeholder="Choose a registered player..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {unassignedPlayers.map((u) => (
+                      <SelectItem key={u.id} value={u.id} className="text-xs">
+                        <span className="font-bold">{u.name}</span>
+                        <span className="text-muted-foreground ml-1.5">
+                          ({u.role}{u.battingStyle ? ` · ${u.battingStyle}` : ""})
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  These players are in the database without an assigned team. Assigning them keeps all their previous match records and career statistics intact.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Team Jersey Number (Optional)</Label>
                 <Input
                   type="number"
-                  value={form.jerseyNumber}
-                  onChange={(e) => setForm({ ...form, jerseyNumber: e.target.value })}
-                  placeholder="e.g. 56"
+                  value={unassignedJersey}
+                  onChange={(e) => setUnassignedJersey(e.target.value)}
+                  placeholder="e.g. 10"
                   className="h-10 text-xs rounded-xl font-mono font-bold"
                 />
               </div>
 
+              <DialogFooter className="pt-4 border-t gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setModalOpen(false)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => assignMutation.mutate()}
+                  disabled={!selectedUnassignedId || assignMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm"
+                >
+                  {assignMutation.isPending ? "Adding..." : "Add to Team"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!form.name.trim()) {
+                  toast.error("Player name is required.");
+                  return;
+                }
+                upsertMutation.mutate(form);
+              }}
+              className="space-y-4 pt-1"
+            >
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Playing Role *</Label>
+                <Label className="text-xs font-bold">Player Full Name *</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. Babar Azam"
+                  className="h-10 text-xs rounded-xl"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">Jersey Number</Label>
+                  <Input
+                    type="number"
+                    value={form.jerseyNumber}
+                    onChange={(e) => setForm({ ...form, jerseyNumber: e.target.value })}
+                    placeholder="e.g. 56"
+                    className="h-10 text-xs rounded-xl font-mono font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">Playing Role *</Label>
+                  <Select
+                    value={form.role}
+                    onValueChange={(v) => setForm({ ...form, role: v as any })}
+                  >
+                    <SelectTrigger className="h-10 text-xs rounded-xl font-bold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Batsman" className="text-xs font-bold">Batsman</SelectItem>
+                      <SelectItem value="Bowler" className="text-xs font-bold">Bowler</SelectItem>
+                      <SelectItem value="All-rounder" className="text-xs font-bold">All-rounder</SelectItem>
+                      <SelectItem value="Wicketkeeper" className="text-xs font-bold">Wicketkeeper</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Team Designation</Label>
                 <Select
-                  value={form.role}
-                  onValueChange={(v) => setForm({ ...form, role: v as any })}
+                  value={form.designation}
+                  onValueChange={(v) => setForm({ ...form, designation: v as any })}
                 >
                   <SelectTrigger className="h-10 text-xs rounded-xl font-bold">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Batsman" className="text-xs font-bold">Batsman</SelectItem>
-                    <SelectItem value="Bowler" className="text-xs font-bold">Bowler</SelectItem>
-                    <SelectItem value="All-rounder" className="text-xs font-bold">All-rounder</SelectItem>
-                    <SelectItem value="Wicketkeeper" className="text-xs font-bold">Wicketkeeper</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Team Designation</Label>
-              <Select
-                value={form.designation}
-                onValueChange={(v) => setForm({ ...form, designation: v as any })}
-              >
-                <SelectTrigger className="h-10 text-xs rounded-xl font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Team Member" className="text-xs">Team Member</SelectItem>
-                  <SelectItem value="Captain" className="text-xs font-bold text-amber-500">👑 Captain</SelectItem>
-                  <SelectItem value="Vice Captain" className="text-xs font-bold text-sky-500">🛡️ Vice Captain</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Batting Style</Label>
-                <Select
-                  value={form.battingStyle}
-                  onValueChange={(v) => setForm({ ...form, battingStyle: v })}
-                >
-                  <SelectTrigger className="h-10 text-xs rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Right-hand bat" className="text-xs">Right-hand bat</SelectItem>
-                    <SelectItem value="Left-hand bat" className="text-xs">Left-hand bat</SelectItem>
+                    <SelectItem value="Team Member" className="text-xs">Team Member</SelectItem>
+                    <SelectItem value="Captain" className="text-xs font-bold text-amber-500">👑 Captain</SelectItem>
+                    <SelectItem value="Vice Captain" className="text-xs font-bold text-sky-500">🛡️ Vice Captain</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">Batting Style</Label>
+                  <Select
+                    value={form.battingStyle}
+                    onValueChange={(v) => setForm({ ...form, battingStyle: v })}
+                  >
+                    <SelectTrigger className="h-10 text-xs rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Right-hand bat" className="text-xs">Right-hand bat</SelectItem>
+                      <SelectItem value="Left-hand bat" className="text-xs">Left-hand bat</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">Bowling Style</Label>
+                  <Input
+                    value={form.bowlingStyle}
+                    onChange={(e) => setForm({ ...form, bowlingStyle: e.target.value })}
+                    placeholder="e.g. Right-arm fast"
+                    className="h-10 text-xs rounded-xl"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Bowling Style</Label>
+                <Label className="text-xs font-bold">Photo URL (Optional)</Label>
                 <Input
-                  value={form.bowlingStyle}
-                  onChange={(e) => setForm({ ...form, bowlingStyle: e.target.value })}
-                  placeholder="e.g. Right-arm fast"
+                  value={form.photoUrl}
+                  onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
+                  placeholder="https://..."
                   className="h-10 text-xs rounded-xl"
                 />
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Photo URL (Optional)</Label>
-              <Input
-                value={form.photoUrl}
-                onChange={(e) => setForm({ ...form, photoUrl: e.target.value })}
-                placeholder="https://..."
-                className="h-10 text-xs rounded-xl"
-              />
-            </div>
-
-            <DialogFooter className="pt-4 border-t gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setModalOpen(false)}
-                className="text-xs"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={upsertMutation.isPending}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm"
-              >
-                {upsertMutation.isPending ? "Saving..." : "Save Player"}
-              </Button>
-            </DialogFooter>
-          </form>
+              <DialogFooter className="pt-4 border-t gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setModalOpen(false)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={upsertMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm"
+                >
+                  {upsertMutation.isPending ? "Saving..." : "Save Player"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
+
+      {/* Remove Player from Team Confirmation Dialog */}
+      <AlertDialog
+        open={!!playerToRemove}
+        onOpenChange={(open) => {
+          if (!open && !removeMutation.isPending) {
+            setPlayerToRemove(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-500">
+              <ShieldAlert className="h-5 w-5" />
+              Remove Player from Team?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2 text-xs text-left">
+              <p className="text-foreground">
+                Are you sure you want to remove{" "}
+                <span className="font-bold text-foreground">{playerToRemove?.name}</span> from{" "}
+                <span className="font-bold text-foreground">{activeTeam?.name}</span>'s active roster?
+              </p>
+              <div className="rounded-xl bg-muted/60 p-3.5 text-xs space-y-1.5 border border-border">
+                <div className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <UserCheck className="h-4 w-4 shrink-0" />
+                  Past Stats & Scores are Preserved
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  Removing this player only removes them from this team's active squad for future matches. Their profile, batting/bowling statistics, and scorecard history with this team will <strong>not</strong> be deleted from the database.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0 pt-2">
+            <AlertDialogCancel disabled={removeMutation.isPending} className="text-xs">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (playerToRemove) {
+                  removeMutation.mutate(playerToRemove.id);
+                }
+              }}
+              disabled={removeMutation.isPending}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
+            >
+              {removeMutation.isPending ? "Removing..." : "Remove from Team"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -304,7 +304,7 @@ export async function deleteTeam(teamId: string) {
 
 export async function upsertPlayer(input: {
   id?: string;
-  teamId: string;
+  teamId?: string | null;
   name: string;
   jerseyNumber?: number;
   role: "Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper";
@@ -324,7 +324,7 @@ export async function upsertPlayer(input: {
     (isCaptain ? "Captain" : isViceCaptain ? "Vice Captain" : "Team Member");
 
   const data = {
-    teamId: input.teamId,
+    teamId: input.teamId ?? null,
     name: input.name,
     jerseyNumber: input.jerseyNumber ?? null,
     role: input.role,
@@ -346,17 +346,100 @@ export async function upsertPlayer(input: {
   return { id: ref.id };
 }
 
+/**
+ * Removes a player from their current team without deleting their profile or past stats.
+ * Preserves their scorecard history for matches already played, but clears their team assignment
+ * and removes them from active tournament squads for future matches.
+ */
+export async function removePlayerFromTeam(playerId: string): Promise<void> {
+  const pDoc = playerDoc(playerId);
+  const snap = await getDoc(pDoc);
+  if (!snap.exists()) return;
+
+  const currentTeamId = snap.data().teamId;
+
+  // Clear team assignment and leadership roles on player document
+  await updateDoc(pDoc, {
+    teamId: null,
+    isCaptain: false,
+    isViceCaptain: false,
+    designation: "Team Member",
+    updatedAt: now(),
+  });
+
+  // Remove player from active tournament team membership squads for this team
+  if (currentTeamId) {
+    try {
+      const membershipsSnap = await getDocs(
+        query(tournamentTeamMembershipsCol(), where("teamId", "==", currentTeamId))
+      );
+      for (const mDoc of membershipsSnap.docs) {
+        const mData = mDoc.data();
+        if (Array.isArray(mData.squadPlayerIds) && mData.squadPlayerIds.includes(playerId)) {
+          await updateDoc(mDoc.ref, {
+            squadPlayerIds: mData.squadPlayerIds.filter((id) => id !== playerId),
+            updatedAt: now(),
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Could not remove player from tournament squad memberships:", err);
+    }
+  }
+}
+
 export async function deletePlayer(playerId: string) {
-  // Check if player has scorecard entries
+  // Check if player has scorecard entries in any match
   const [battingSnap, bowlingSnap] = await Promise.all([
     getDocs(query(battingScoresCol(), where("playerId", "==", playerId))),
     getDocs(query(bowlingScoresCol(), where("playerId", "==", playerId))),
   ]);
+
   if (!battingSnap.empty || !bowlingSnap.empty) {
-    throw new Error("Player has scorecard entries and cannot be deleted.");
+    // If player has scorecard entries, DO NOT delete from entire database.
+    // Detach from current team so stats remain intact while player is removed from roster.
+    await removePlayerFromTeam(playerId);
+    return { removedFromTeam: true };
   }
+
+  // If player never played any match and has zero scorecard records:
+  // Remove from any squad memberships first, then safely delete player record
+  await removePlayerFromTeam(playerId);
   await deleteDoc(playerDoc(playerId));
+  return { deleted: true };
 }
+
+/**
+ * Re-assigns an existing unassigned player to a team roster.
+ */
+export async function assignPlayerToTeam(
+  playerId: string,
+  teamId: string,
+  updates?: {
+    role?: Player["role"];
+    jerseyNumber?: number;
+    designation?: Player["designation"];
+  }
+): Promise<void> {
+  const pDoc = playerDoc(playerId);
+  const snap = await getDoc(pDoc);
+  if (!snap.exists()) return;
+
+  const dataToUpdate: any = {
+    teamId,
+    updatedAt: now(),
+  };
+  if (updates?.role) dataToUpdate.role = updates.role;
+  if (updates?.jerseyNumber !== undefined) dataToUpdate.jerseyNumber = updates.jerseyNumber;
+  if (updates?.designation) {
+    dataToUpdate.designation = updates.designation;
+    dataToUpdate.isCaptain = updates.designation === "Captain";
+    dataToUpdate.isViceCaptain = updates.designation === "Vice Captain";
+  }
+
+  await updateDoc(pDoc, dataToUpdate);
+}
+
 
 // ---------------------------------------------------------------------------
 // Match management (Create, Update, Delete, Auto-generate)

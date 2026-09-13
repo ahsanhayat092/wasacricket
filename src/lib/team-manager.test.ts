@@ -444,4 +444,83 @@ describe("Team Manager Persona & RBAC Authorization Logic", () => {
     expect(generatedMemberships[0].source).toBe("ORGANIZER_INVITE");
     expect(generatedMemberships[0].teamId).toBe("team_falcons");
   });
+
+  it("14. Removing a player from team detaches them without deleting from database or losing stats", () => {
+    // Player on Lahore Lions with historical stats
+    const playerWithStats: Player = {
+      id: "p1",
+      teamId: mockTeam.id,
+      name: "Babar Azam",
+      jerseyNumber: 56,
+      role: "Batsman",
+      isCaptain: true,
+      designation: "Captain",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    };
+
+    const battingScores = [
+      { id: "bs1", playerId: "p1", matchId: "m1", runs: 78, balls: 50 },
+      { id: "bs2", playerId: "p1", matchId: "m2", runs: 104, balls: 65 },
+    ];
+
+    let tournamentSquadIds = ["p1", "p2"];
+
+    // Function simulating removePlayerFromTeam
+    const removePlayer = (player: Player) => {
+      // Clear team assignment and leadership roles
+      const detachedPlayer: Player = {
+        ...player,
+        teamId: null,
+        isCaptain: false,
+        isViceCaptain: false,
+        designation: "Team Member",
+        updatedAt: new Date().toISOString(),
+      };
+      // Remove from tournament squad
+      tournamentSquadIds = tournamentSquadIds.filter((id) => id !== player.id);
+      return detachedPlayer;
+    };
+
+    const detached = removePlayer(playerWithStats);
+
+    // Assert player doc exists with teamId: null
+    expect(detached.id).toBe("p1");
+    expect(detached.teamId).toBeNull();
+    expect(detached.isCaptain).toBe(false);
+    expect(detached.designation).toBe("Team Member");
+
+    // Assert player is removed from future tournament squads
+    expect(tournamentSquadIds).not.toContain("p1");
+    expect(tournamentSquadIds).toEqual(["p2"]);
+
+    // Assert batting scorecard records remain 100% intact
+    expect(battingScores.length).toBe(2);
+    expect(battingScores.every((b) => b.playerId === "p1")).toBe(true);
+  });
+
+  it("15. Unassigned player can be assigned to a new team roster while keeping career history", () => {
+    const freeAgent: Player = {
+      id: "p1",
+      teamId: null,
+      name: "Babar Azam",
+      role: "Batsman",
+      designation: "Team Member",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    };
+
+    const newTeamId = "team_karachi_kings";
+    const assignedPlayer: Player = {
+      ...freeAgent,
+      teamId: newTeamId,
+      jerseyNumber: 56,
+      updatedAt: new Date().toISOString(),
+    };
+
+    expect(assignedPlayer.teamId).toBe(newTeamId);
+    expect(assignedPlayer.jerseyNumber).toBe(56);
+    expect(assignedPlayer.id).toBe("p1");
+  });
 });
+

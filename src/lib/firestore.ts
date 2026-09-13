@@ -94,7 +94,7 @@ export type Team = {
 
 export type Player = {
   id: string;
-  teamId: string;
+  teamId?: string | null;
   name: string;
   jerseyNumber?: number | null;
   role: "Batsman" | "Bowler" | "All-rounder" | "Wicketkeeper";

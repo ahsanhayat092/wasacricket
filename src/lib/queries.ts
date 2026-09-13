@@ -457,6 +457,14 @@ export async function getPlayersByTeam(teamId: string): Promise<Player[]> {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
 }
 
+export async function getUnassignedPlayers(): Promise<Player[]> {
+  const snap = await getDocs(playersCol());
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Player)
+    .filter((p) => !p.teamId);
+}
+
+
 // ---------------------------------------------------------------------------
 // Matches
 // ---------------------------------------------------------------------------
