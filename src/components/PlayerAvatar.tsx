@@ -1,4 +1,4 @@
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import React, { useState } from "react";
 import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizeImageUrl } from "@/lib/image-utils";
@@ -20,6 +20,13 @@ const sizeClasses = {
 };
 
 export function PlayerAvatar({ name, photoUrl, size = "md", className }: PlayerAvatarProps) {
+  const [hasError, setHasError] = useState(false);
+
+  // Reset error state whenever the photo URL changes
+  React.useEffect(() => {
+    setHasError(false);
+  }, [photoUrl]);
+
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -31,11 +38,27 @@ export function PlayerAvatar({ name, photoUrl, size = "md", className }: PlayerA
   const directImageUrl = normalizeImageUrl(photoUrl);
 
   return (
-    <Avatar className={cn(sizeClasses[size], "border border-border/50 shrink-0 font-bold", className)}>
-      {directImageUrl && <AvatarImage src={directImageUrl} alt={name} className="object-cover" />}
-      <AvatarFallback className="bg-primary/10 text-primary font-bold">
-        {initials || <User className="h-4 w-4" />}
-      </AvatarFallback>
-    </Avatar>
+    <div
+      className={cn(
+        sizeClasses[size],
+        "relative rounded-full border border-border/50 shrink-0 font-bold overflow-hidden flex items-center justify-center bg-primary/10 text-primary",
+        className
+      )}
+    >
+      {directImageUrl && !hasError ? (
+        <img
+          src={directImageUrl}
+          alt={name}
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <span className="font-bold select-none">
+          {initials || <User className="h-4 w-4" />}
+        </span>
+      )}
+    </div>
   );
 }
+

@@ -43,8 +43,9 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { toast } from "sonner";
+
 import {
   Users,
   Plus,
@@ -273,12 +274,7 @@ export default function TeamPlayers() {
 
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 border">
-                        <AvatarImage src={p.photoUrl || undefined} />
-                        <AvatarFallback className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500">
-                          {p.name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="sm" />
                       <div>
                         <div className="font-bold text-xs flex items-center gap-1.5">
                           {p.name}
@@ -286,6 +282,7 @@ export default function TeamPlayers() {
                       </div>
                     </div>
                   </TableCell>
+
 
                   <TableCell>
                     <Badge variant="outline" className="text-[10px] font-bold">
@@ -571,11 +568,27 @@ export default function TeamPlayers() {
 
               <ImageUploader
                 value={form.photoUrl}
-                onChange={(url) => setForm({ ...form, photoUrl: url })}
+                onChange={(url) => {
+                  setForm((prev) => ({ ...prev, photoUrl: url }));
+                  if (form.id && activeTeam?.id) {
+                    upsertPlayer({
+                      id: form.id,
+                      teamId: activeTeam.id,
+                      name: form.name,
+                      photoUrl: url,
+                      role: form.role,
+                      designation: form.designation,
+                      jerseyNumber: form.jerseyNumber ? parseInt(form.jerseyNumber, 10) : undefined,
+                    })
+                      .then(() => invalidate())
+                      .catch((err) => console.warn("Auto-save photo error:", err));
+                  }
+                }}
                 folder="players"
                 label="Player Photo (Optional)"
                 placeholderText="Upload photo or enter URL"
               />
+
 
 
               <DialogFooter className="pt-4 border-t gap-2">

@@ -1,10 +1,10 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { uploadImage } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UploadCloud, Loader2, X, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { normalizeImageUrl } from "@/lib/image-utils";
 
 interface ImageUploaderProps {
   value?: string;
@@ -26,7 +26,12 @@ export function ImageUploader({
   className = "",
 }: ImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [value]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,18 +58,30 @@ export function ImageUploader({
       ? "h-20 w-20"
       : "h-14 w-14";
 
+  const normalizedPreview = normalizeImageUrl(value);
+
   return (
     <div className={`space-y-2 ${className}`}>
       {label && <label className="text-xs font-bold text-foreground block">{label}</label>}
 
       <div className="flex items-center gap-3">
         {/* Preview Thumbnail */}
-        <Avatar className={`${avatarDimensions} border border-border shrink-0 bg-muted/30`}>
-          <AvatarImage src={value || undefined} className="object-cover" />
-          <AvatarFallback className="text-muted-foreground text-xs font-bold bg-muted/60">
-            <ImageIcon className="h-5 w-5 opacity-60" />
-          </AvatarFallback>
-        </Avatar>
+        <div
+          className={`${avatarDimensions} rounded-full border border-border shrink-0 bg-muted/30 overflow-hidden relative flex items-center justify-center`}
+        >
+          {normalizedPreview && !imgError ? (
+            <img
+              src={normalizedPreview}
+              alt="Preview"
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <ImageIcon className="h-5 w-5 text-muted-foreground opacity-60" />
+          )}
+        </div>
+
 
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center gap-2">

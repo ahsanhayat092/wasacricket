@@ -389,7 +389,7 @@ export default function AdminPlayers() {
             {/* Player Photo Uploader & Live Preview */}
             <ImageUploader
               value={form.photoUrl}
-              onChange={(url) => setForm({ ...form, photoUrl: url })}
+              onChange={(url) => setForm((prev) => ({ ...prev, photoUrl: url }))}
               folder="players"
               label="Player Photo (Optional)"
               placeholderText="Upload photo from device or paste image link"
