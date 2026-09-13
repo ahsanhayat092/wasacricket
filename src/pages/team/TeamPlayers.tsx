@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useTeam } from "@/context/TeamContext";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
 import { upsertPlayer, removePlayerFromTeam, assignPlayerToTeam } from "@/lib/mutations";
-import { getUnassignedPlayers } from "@/lib/queries";
+import { getAllPlayers, getTeams } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +56,8 @@ import {
   ShieldAlert,
   UserCheck,
   UserPlus,
+  Check,
+  X,
 } from "lucide-react";
 import type { Player } from "@/lib/firestore";
 
@@ -89,24 +91,66 @@ export default function TeamPlayers() {
   const [form, setForm] = useState<PlayerFormState>(emptyForm);
   const [playerToRemove, setPlayerToRemove] = useState<Player | null>(null);
 
-  // Free agent / unassigned player selection
-  const [addMode, setAddMode] = useState<"new" | "unassigned">("new");
-  const [selectedUnassignedId, setSelectedUnassignedId] = useState<string>("");
-  const [unassignedJersey, setUnassignedJersey] = useState<string>("");
+  // Add Mode: "search" (Search System Players - default) vs "new" (Create brand new player profile)
+  const [addMode, setAddMode] = useState<"search" | "new">("search");
+  const [systemSearch, setSystemSearch] = useState<string>("");
+  const [systemRoleFilter, setSystemRoleFilter] = useState<string>("ALL");
+  const [selectedPlayerForAdd, setSelectedPlayerForAdd] = useState<Player | null>(null);
+  const [assignJersey, setAssignJersey] = useState<string>("");
+  const [assignDesignation, setAssignDesignation] = useState<string>("Team Member");
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["team_players", activeTeam?.id] });
     queryClient.invalidateQueries({ queryKey: ["players"] });
-    queryClient.invalidateQueries({ queryKey: ["unassigned_players"] });
+    queryClient.invalidateQueries({ queryKey: ["all_players"] });
+    queryClient.invalidateQueries({ queryKey: ["teams"] });
   };
 
-  // Query unassigned players from the database
-  const { data: unassignedPlayers = [] } = useQuery({
-    queryKey: ["unassigned_players"],
-    queryFn: () => getUnassignedPlayers(),
+  // Query all players registered across the entire system
+  const { data: allSystemPlayers = [], isLoading: isLoadingAllPlayers } = useQuery({
+    queryKey: ["all_players"],
+    queryFn: () => getAllPlayers(),
   });
 
-  // Upsert Player Mutation
+  // Query all teams to resolve current team badges for players
+  const { data: allTeams = [] } = useQuery({
+    queryKey: ["teams"],
+    queryFn: () => getTeams(),
+  });
+
+  const teamNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    allTeams.forEach((t) => map.set(t.id, t.name));
+    return map;
+  }, [allTeams]);
+
+  // Filtered system players for the search directory
+  const filteredSystemPlayers = useMemo(() => {
+    const q = systemSearch.trim().toLowerCase();
+    return allSystemPlayers.filter((p) => {
+      if (systemRoleFilter !== "ALL" && p.role !== systemRoleFilter) return false;
+      if (!q) return true;
+
+      if (p.name.toLowerCase().includes(q)) return true;
+      if (p.jerseyNumber && p.jerseyNumber.toString().includes(q)) return true;
+      if (p.battingStyle && p.battingStyle.toLowerCase().includes(q)) return true;
+      if (p.bowlingStyle && p.bowlingStyle.toLowerCase().includes(q)) return true;
+
+      const playerTeamIds = Array.isArray(p.teamIds)
+        ? p.teamIds
+        : p.teamId
+        ? [p.teamId]
+        : [];
+      const hasMatchingTeam = playerTeamIds.some((tid) =>
+        (teamNameById.get(tid) || "").toLowerCase().includes(q)
+      );
+      if (hasMatchingTeam) return true;
+
+      return false;
+    });
+  }, [allSystemPlayers, systemSearch, systemRoleFilter, teamNameById]);
+
+  // Upsert Player Mutation (for creating new profiles or editing)
   const upsertMutation = useMutation({
     mutationFn: (data: PlayerFormState) => {
       if (!activeTeam?.id) throw new Error("No active team selected.");
@@ -135,7 +179,7 @@ export default function TeamPlayers() {
 
   // Remove Player from Team Mutation (Preserves historical stats)
   const removeMutation = useMutation({
-    mutationFn: (playerId: string) => removePlayerFromTeam(playerId),
+    mutationFn: (playerId: string) => removePlayerFromTeam(playerId, activeTeam?.id),
     onSuccess: () => {
       toast.success(
         `${playerToRemove?.name || "Player"} removed from ${activeTeam?.name || "team"} roster. Stats preserved.`,
@@ -146,20 +190,20 @@ export default function TeamPlayers() {
     onError: (err: any) => toast.error(err?.message || "Failed to remove player."),
   });
 
-  // Assign existing unassigned player to team
+  // Assign existing player from system to active team roster
   const assignMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (playerToAdd: Player) => {
       if (!activeTeam?.id) throw new Error("No active team selected.");
-      if (!selectedUnassignedId) throw new Error("Please select a player to add.");
-      await assignPlayerToTeam(selectedUnassignedId, activeTeam.id, {
-        jerseyNumber: unassignedJersey ? parseInt(unassignedJersey, 10) : undefined,
+      await assignPlayerToTeam(playerToAdd.id, activeTeam.id, {
+        jerseyNumber: assignJersey ? parseInt(assignJersey, 10) : playerToAdd.jerseyNumber ?? undefined,
+        designation: assignDesignation as any,
       });
     },
-    onSuccess: () => {
-      toast.success("Player added to roster!");
-      setModalOpen(false);
-      setSelectedUnassignedId("");
-      setUnassignedJersey("");
+    onSuccess: (_data, playerToAdd) => {
+      toast.success(`${playerToAdd.name} added to ${activeTeam?.name || "team"} roster!`);
+      setSelectedPlayerForAdd(null);
+      setAssignJersey("");
+      setAssignDesignation("Team Member");
       invalidate();
     },
     onError: (err: any) => toast.error(err?.message || "Failed to add player."),
@@ -208,6 +252,9 @@ export default function TeamPlayers() {
         <Button
           onClick={() => {
             setForm(emptyForm);
+            setAddMode("search");
+            setSelectedPlayerForAdd(null);
+            setSystemSearch("");
             setModalOpen(true);
           }}
           className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl gap-1.5 h-9 shadow-sm"
@@ -346,9 +393,9 @@ export default function TeamPlayers() {
           <Button
             onClick={() => {
               setForm(emptyForm);
-              setAddMode("new");
-              setSelectedUnassignedId("");
-              setUnassignedJersey("");
+              setAddMode("search");
+              setSelectedPlayerForAdd(null);
+              setSystemSearch("");
               setModalOpen(true);
             }}
             size="sm"
@@ -360,109 +407,347 @@ export default function TeamPlayers() {
       )}
 
       {/* Add / Edit Player Dialog */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-md p-6 bg-card border-emerald-500/40">
-          <DialogHeader className="space-y-1 pb-2">
-            <DialogTitle className="text-xl font-bold">
-              {form.id
-                ? "Edit Player"
-                : addMode === "unassigned"
-                ? "Add Free Agent / Existing Player"
-                : "Add Player to Roster"}
+      <Dialog
+        open={modalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open);
+          if (!open) {
+            setSelectedPlayerForAdd(null);
+            setSystemSearch("");
+            setAssignJersey("");
+            setAssignDesignation("Team Member");
+          }
+        }}
+      >
+        <DialogContent
+          className={`${
+            form.id || addMode === "new" ? "max-w-md" : "max-w-2xl"
+          } p-6 bg-card border-emerald-500/40 max-h-[90vh] flex flex-col`}
+        >
+          <DialogHeader className="space-y-1 pb-2 shrink-0">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              {form.id ? (
+                <>
+                  <Pencil className="h-5 w-5 text-emerald-500" />
+                  Edit Player Profile
+                </>
+              ) : addMode === "search" ? (
+                <>
+                  <Search className="h-5 w-5 text-emerald-500" />
+                  Add Registered Player to Roster
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-5 w-5 text-emerald-500" />
+                  Create New Player Profile
+                </>
+              )}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {form.id
-                ? `Update player details for ${activeTeam?.name}.`
-                : addMode === "unassigned"
-                ? `Assign a registered player to ${activeTeam?.name}.`
-                : `Create a new player profile for ${activeTeam?.name}.`}
+                ? `Update player details and statistics for ${activeTeam?.name}.`
+                : addMode === "search"
+                ? `Search and add existing players across PitchPe to ${activeTeam?.name}. Profiles and stats are shared without duplicate entries.`
+                : `Register a brand new player profile if they are not yet in the system.`}
             </DialogDescription>
           </DialogHeader>
 
-          {/* Mode Switcher when adding a new player and unassigned players exist */}
-          {!form.id && unassignedPlayers.length > 0 && (
-            <div className="flex rounded-lg bg-muted p-1 gap-1 text-xs mb-2">
+          {/* Mode Switcher when adding a player */}
+          {!form.id && (
+            <div className="flex rounded-xl bg-muted/70 p-1 gap-1 text-xs mb-2 border border-border/50 shrink-0">
               <button
                 type="button"
-                onClick={() => setAddMode("new")}
-                className={`flex-1 py-1.5 px-3 rounded-md font-bold transition-all ${
-                  addMode === "new"
-                    ? "bg-card text-foreground shadow-sm"
+                onClick={() => {
+                  setAddMode("search");
+                  setSelectedPlayerForAdd(null);
+                }}
+                className={`flex-1 py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  addMode === "search"
+                    ? "bg-card text-emerald-500 shadow-sm border border-border/60"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Plus className="inline h-3.5 w-3.5 mr-1" />
-                Create New Profile
+                <Search className="h-3.5 w-3.5" />
+                Search System Players ({allSystemPlayers.length})
               </button>
               <button
                 type="button"
-                onClick={() => setAddMode("unassigned")}
-                className={`flex-1 py-1.5 px-3 rounded-md font-bold transition-all ${
-                  addMode === "unassigned"
-                    ? "bg-card text-foreground shadow-sm"
+                onClick={() => {
+                  setAddMode("new");
+                  setSelectedPlayerForAdd(null);
+                }}
+                className={`flex-1 py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  addMode === "new"
+                    ? "bg-card text-emerald-500 shadow-sm border border-border/60"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <UserPlus className="inline h-3.5 w-3.5 mr-1" />
-                Free Agents ({unassignedPlayers.length})
+                <Plus className="h-3.5 w-3.5" />
+                Create New Profile
               </button>
             </div>
           )}
 
-          {addMode === "unassigned" && !form.id ? (
-            <div className="space-y-4 pt-1">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Select Player *</Label>
-                <Select
-                  value={selectedUnassignedId}
-                  onValueChange={setSelectedUnassignedId}
-                >
-                  <SelectTrigger className="h-10 text-xs rounded-xl font-bold">
-                    <SelectValue placeholder="Choose a registered player..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {unassignedPlayers.map((u) => (
-                      <SelectItem key={u.id} value={u.id} className="text-xs">
-                        <span className="font-bold">{u.name}</span>
-                        <span className="text-muted-foreground ml-1.5">
-                          ({u.role}{u.battingStyle ? ` · ${u.battingStyle}` : ""})
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  These players are in the database without an assigned team. Assigning them keeps all their previous match records and career statistics intact.
-                </p>
+          {addMode === "search" && !form.id ? (
+            <div className="flex flex-col flex-1 min-h-0 space-y-3 overflow-hidden">
+              {/* Search input & role filters */}
+              <div className="space-y-2 shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={systemSearch}
+                    onChange={(e) => setSystemSearch(e.target.value)}
+                    placeholder="Search player by name, current team, role, or style..."
+                    className="pl-9 pr-8 h-9 text-xs rounded-xl"
+                    autoFocus
+                  />
+                  {systemSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setSystemSearch("")}
+                      className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Role Filter Chips */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {["ALL", "Batsman", "Bowler", "All-rounder", "Wicketkeeper"].map((role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => setSystemRoleFilter(role)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 ${
+                        systemRoleFilter === role
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "bg-muted text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Team Jersey Number (Optional)</Label>
-                <Input
-                  type="number"
-                  value={unassignedJersey}
-                  onChange={(e) => setUnassignedJersey(e.target.value)}
-                  placeholder="e.g. 10"
-                  className="h-10 text-xs rounded-xl font-mono font-bold"
-                />
+              {/* Player Directory List */}
+              <div className="flex-1 overflow-y-auto max-h-[300px] divide-y divide-border/60 border rounded-xl bg-card/50 p-1">
+                {filteredSystemPlayers.length === 0 ? (
+                  <div className="py-8 text-center space-y-2">
+                    <Users className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                    <p className="text-xs text-muted-foreground">
+                      No players match your search.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAddMode("new")}
+                      className="text-xs font-bold gap-1 mt-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Create new profile for this player
+                    </Button>
+                  </div>
+                ) : (
+                  filteredSystemPlayers.map((p) => {
+                    const isAlreadyInActiveTeam =
+                      p.teamId === activeTeam?.id ||
+                      (Array.isArray(p.teamIds) && p.teamIds.includes(activeTeam?.id || "")) ||
+                      players.some((tp) => tp.id === p.id);
+
+                    const playerTeamIds = Array.isArray(p.teamIds)
+                      ? p.teamIds
+                      : p.teamId
+                      ? [p.teamId]
+                      : [];
+
+                    const teamBadges = playerTeamIds
+                      .map((tid) => teamNameById.get(tid))
+                      .filter(Boolean);
+
+                    const isSelected = selectedPlayerForAdd?.id === p.id;
+
+                    return (
+                      <div
+                        key={p.id}
+                        className={`p-2.5 rounded-lg flex items-center justify-between gap-3 transition-colors ${
+                          isSelected
+                            ? "bg-emerald-500/10 border border-emerald-500/30"
+                            : "hover:bg-muted/40"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <PlayerAvatar name={p.name} photoUrl={p.photoUrl} size="sm" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs text-foreground truncate">
+                                {p.name}
+                              </span>
+                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-semibold">
+                                {p.role}
+                              </Badge>
+                              {p.jerseyNumber && (
+                                <span className="text-[10px] font-mono text-muted-foreground">
+                                  #{p.jerseyNumber}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1 mt-1 flex-wrap">
+                              {teamBadges.length > 0 ? (
+                                teamBadges.map((tName) => (
+                                  <Badge
+                                    key={tName}
+                                    variant="secondary"
+                                    className="text-[9px] py-0 px-1.5 bg-muted text-muted-foreground font-medium"
+                                  >
+                                    {tName}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground/80 italic">
+                                  Free Agent
+                                </span>
+                              )}
+                              {p.battingStyle && (
+                                <span className="text-[10px] text-muted-foreground/70">
+                                  · {p.battingStyle}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0">
+                          {isAlreadyInActiveTeam ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/15 border border-emerald-500/30 text-[10px] gap-1 px-2 py-1 font-bold">
+                              <Check className="h-3 w-3" /> In Roster
+                            </Badge>
+                          ) : isSelected ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setSelectedPlayerForAdd(null)}
+                              className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Cancel
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedPlayerForAdd(p);
+                                setAssignJersey(p.jerseyNumber ? String(p.jerseyNumber) : "");
+                                setAssignDesignation(p.designation || "Team Member");
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-7 px-2.5 rounded-lg gap-1 shadow-sm"
+                            >
+                              <Plus className="h-3.5 w-3.5" /> Add
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
-              <DialogFooter className="pt-4 border-t gap-2">
+              {/* Active Player Configuration Drawer when a player is selected */}
+              {selectedPlayerForAdd && (
+                <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/20 p-3 space-y-2.5 shrink-0 animate-in fade-in-50 duration-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <PlayerAvatar
+                        name={selectedPlayerForAdd.name}
+                        photoUrl={selectedPlayerForAdd.photoUrl}
+                        size="xs"
+                      />
+                      <span className="text-xs font-bold text-foreground">
+                        Add <strong>{selectedPlayerForAdd.name}</strong> to {activeTeam?.name}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPlayerForAdd(null)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-bold">Jersey # in {activeTeam?.name}</Label>
+                      <Input
+                        type="number"
+                        value={assignJersey}
+                        onChange={(e) => setAssignJersey(e.target.value)}
+                        placeholder="e.g. 10"
+                        className="h-8 text-xs font-mono font-bold rounded-lg"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-bold">Squad Designation</Label>
+                      <Select
+                        value={assignDesignation}
+                        onValueChange={setAssignDesignation as any}
+                      >
+                        <SelectTrigger className="h-8 text-xs rounded-lg font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Team Member" className="text-xs">
+                            Team Member
+                          </SelectItem>
+                          <SelectItem value="Captain" className="text-xs font-bold text-amber-500">
+                            👑 Captain
+                          </SelectItem>
+                          <SelectItem value="Vice Captain" className="text-xs font-bold text-sky-500">
+                            🛡️ Vice Captain
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedPlayerForAdd(null)}
+                      className="h-7 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={assignMutation.isPending}
+                      onClick={() => assignMutation.mutate(selectedPlayerForAdd)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-7 px-3 rounded-lg shadow-sm"
+                    >
+                      {assignMutation.isPending ? "Adding..." : "Confirm & Add to Team"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter className="pt-2 border-t flex items-center justify-between shrink-0">
+                <span className="text-[11px] text-muted-foreground">
+                  Can't find a player? Switch to <strong>Create New Profile</strong>.
+                </span>
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
                   onClick={() => setModalOpen(false)}
                   className="text-xs"
                 >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => assignMutation.mutate()}
-                  disabled={!selectedUnassignedId || assignMutation.isPending}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm"
-                >
-                  {assignMutation.isPending ? "Adding..." : "Add to Team"}
+                  Close
                 </Button>
               </DialogFooter>
             </div>

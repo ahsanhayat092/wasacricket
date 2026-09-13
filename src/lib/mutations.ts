@@ -338,40 +338,86 @@ export async function upsertPlayer(input: {
   };
 
   if (input.id) {
-    await updateDoc(playerDoc(input.id), data);
+    const existingSnap = await getDoc(playerDoc(input.id));
+    let teamIds: string[] = [];
+    if (existingSnap.exists()) {
+      const existing = existingSnap.data() as Player;
+      teamIds = Array.isArray(existing.teamIds)
+        ? [...existing.teamIds]
+        : existing.teamId
+        ? [existing.teamId]
+        : [];
+    }
+    if (input.teamId && !teamIds.includes(input.teamId)) {
+      teamIds.push(input.teamId);
+    }
+    const updatePayload = stripUndefined({
+      ...data,
+      teamIds: teamIds.length > 0 ? teamIds : null,
+    });
+    await updateDoc(playerDoc(input.id), updatePayload);
     return { id: input.id };
   }
 
-  const ref = await addDoc(playersCol(), { ...data, createdAt: now() });
+  const teamIds = input.teamId ? [input.teamId] : [];
+  const createPayload = stripUndefined({
+    ...data,
+    teamIds,
+    createdAt: now(),
+  });
+  const ref = await addDoc(playersCol(), createPayload);
   return { id: ref.id };
 }
 
 /**
- * Removes a player from their current team without deleting their profile or past stats.
- * Preserves their scorecard history for matches already played, but clears their team assignment
- * and removes them from active tournament squads for future matches.
+ * Removes a player from a team roster without deleting their profile or past stats.
+ * Preserves their scorecard history for matches already played, clears their association
+ * with this specific team, and keeps other team associations intact.
  */
-export async function removePlayerFromTeam(playerId: string): Promise<void> {
+export async function removePlayerFromTeam(playerId: string, teamIdToRemove?: string): Promise<void> {
   const pDoc = playerDoc(playerId);
   const snap = await getDoc(pDoc);
   if (!snap.exists()) return;
 
-  const currentTeamId = snap.data().teamId;
+  const pData = snap.data() as Player;
+  const targetTeamId = teamIdToRemove || pData.teamId;
 
-  // Clear team assignment and leadership roles on player document
-  await updateDoc(pDoc, {
-    teamId: null,
-    isCaptain: false,
-    isViceCaptain: false,
-    designation: "Team Member",
-    updatedAt: now(),
-  });
+  const existingTeamIds: string[] = Array.isArray(pData.teamIds)
+    ? pData.teamIds
+    : pData.teamId
+    ? [pData.teamId]
+    : [];
 
-  // Remove player from active tournament team membership squads for this team
-  if (currentTeamId) {
+  // Remove the specific team from teamIds array
+  const updatedTeamIds = targetTeamId
+    ? existingTeamIds.filter((id) => id !== targetTeamId)
+    : [];
+
+  // If the removed team was the primary teamId, assign the next available team or null
+  const newPrimaryTeamId =
+    pData.teamId === targetTeamId ? updatedTeamIds[0] || null : pData.teamId;
+
+  await updateDoc(
+    pDoc,
+    stripUndefined({
+      teamIds: updatedTeamIds,
+      teamId: newPrimaryTeamId,
+      ...(pData.teamId === targetTeamId
+        ? {
+            isCaptain: false,
+            isViceCaptain: false,
+            designation: "Team Member",
+          }
+        : {}),
+      updatedAt: now(),
+    })
+  );
+
+  // Remove player from active tournament team membership squads for this specific team
+  if (targetTeamId) {
     try {
       const membershipsSnap = await getDocs(
-        query(tournamentTeamMembershipsCol(), where("teamId", "==", currentTeamId))
+        query(tournamentTeamMembershipsCol(), where("teamId", "==", targetTeamId))
       );
       for (const mDoc of membershipsSnap.docs) {
         const mData = mDoc.data();
@@ -410,7 +456,8 @@ export async function deletePlayer(playerId: string) {
 }
 
 /**
- * Re-assigns an existing unassigned player to a team roster.
+ * Assigns an existing player from the system to a team roster.
+ * Supports players playing for multiple teams simultaneously by appending to teamIds.
  */
 export async function assignPlayerToTeam(
   playerId: string,
@@ -425,8 +472,18 @@ export async function assignPlayerToTeam(
   const snap = await getDoc(pDoc);
   if (!snap.exists()) return;
 
+  const currentData = snap.data() as Player;
+  const existingTeamIds: string[] = Array.isArray(currentData.teamIds)
+    ? currentData.teamIds
+    : currentData.teamId
+    ? [currentData.teamId]
+    : [];
+
+  const updatedTeamIds = Array.from(new Set([...existingTeamIds, teamId]));
+
   const dataToUpdate: any = {
-    teamId,
+    teamIds: updatedTeamIds,
+    teamId: currentData.teamId || teamId,
     updatedAt: now(),
   };
   if (updates?.role) dataToUpdate.role = updates.role;
@@ -437,7 +494,7 @@ export async function assignPlayerToTeam(
     dataToUpdate.isViceCaptain = updates.designation === "Vice Captain";
   }
 
-  await updateDoc(pDoc, dataToUpdate);
+  await updateDoc(pDoc, stripUndefined(dataToUpdate));
 }
 
 

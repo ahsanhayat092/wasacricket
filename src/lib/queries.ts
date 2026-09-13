@@ -433,12 +433,15 @@ export async function getPlayers(idOrContext?: any): Promise<Player[]> {
   const snap = await getDocs(playersCol());
   const allDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
 
+  const belongsToTournamentTeam = (p: Player) =>
+    (p.teamId && teamIds.has(p.teamId)) ||
+    (Array.isArray(p.teamIds) && p.teamIds.some((tid) => teamIds.has(tid)));
+
   if (tournamentId === TOURNAMENT_ID || tournamentId === "main") {
     return allDocs.filter(
       (p) =>
         (p.tournamentId === "main" || !p.tournamentId || p.tournamentId === TOURNAMENT_ID) &&
-        p.teamId &&
-        teamIds.has(p.teamId),
+        belongsToTournamentTeam(p),
     );
   }
 
@@ -446,14 +449,23 @@ export async function getPlayers(idOrContext?: any): Promise<Player[]> {
   return allDocs.filter(
     (p) =>
       (p.tournamentId === tournamentId) ||
-      (p.teamId && teamIds.has(p.teamId)),
+      belongsToTournamentTeam(p),
   );
 }
 
 export async function getPlayersByTeam(teamId: string): Promise<Player[]> {
-  const snap = await getDocs(
-    query(playersCol(), where("teamId", "==", teamId)),
-  );
+  const snap = await getDocs(playersCol());
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Player)
+    .filter(
+      (p) =>
+        p.teamId === teamId ||
+        (Array.isArray(p.teamIds) && p.teamIds.includes(teamId)),
+    );
+}
+
+export async function getAllPlayers(): Promise<Player[]> {
+  const snap = await getDocs(playersCol());
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player);
 }
 
@@ -461,7 +473,7 @@ export async function getUnassignedPlayers(): Promise<Player[]> {
   const snap = await getDocs(playersCol());
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as Player)
-    .filter((p) => !p.teamId);
+    .filter((p) => !p.teamId && (!Array.isArray(p.teamIds) || p.teamIds.length === 0));
 }
 
 

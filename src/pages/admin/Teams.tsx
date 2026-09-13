@@ -436,7 +436,9 @@ export default function AdminTeams() {
                     return (t.groupName || "A").trim().toUpperCase() === groupFilter;
                   })
                   .map((t) => {
-                  const teamPlayers = (players ?? []).filter((p) => p.teamId === t.id);
+                  const teamPlayers = (players ?? []).filter(
+                    (p) => p.teamId === t.id || (Array.isArray(p.teamIds) && p.teamIds.includes(t.id))
+                  );
                   const captain = teamPlayers.find((p) => p.isCaptain || p.designation === "Captain");
                   const currentGroup = (t.groupName || "A").trim().toUpperCase();
 

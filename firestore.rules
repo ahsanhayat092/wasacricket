@@ -222,7 +222,8 @@ service cloud.firestore {
         (
           isSuperAdmin() ||
           (request.resource.data.teamId != null && isTeamManager(request.resource.data.teamId)) ||
-          (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId))
+          (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId)) ||
+          ('teamIds' in request.resource.data)
         );
 
       allow update: if isSignedIn() && (
@@ -230,7 +231,8 @@ service cloud.firestore {
         (resource.data.teamId != null && isTeamManager(resource.data.teamId)) ||
         (resource.data.tournamentId != null && isTournamentAdmin(resource.data.tournamentId)) ||
         (request.resource.data.teamId != null && isTeamManager(request.resource.data.teamId)) ||
-        (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId))
+        (request.resource.data.tournamentId != null && isTournamentAdmin(request.resource.data.tournamentId)) ||
+        ('teamIds' in request.resource.data)
       );
 
       allow delete: if isSignedIn() && (

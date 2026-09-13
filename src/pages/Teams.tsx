@@ -65,7 +65,9 @@ export default function Teams() {
             {teams
               .filter((t) => t.groupName === group)
               .map((t) => {
-                const teamPlayers = (players ?? []).filter((p) => p.teamId === t.id);
+                const teamPlayers = (players ?? []).filter(
+                  (p) => p.teamId === t.id || (Array.isArray(p.teamIds) && p.teamIds.includes(t.id))
+                );
                 const isChampion = tournament?.championTeamId === t.id;
 
                 return (
