@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import { teamColor } from "@/lib/cricket";
 import { cn } from "@/lib/utils";
 import { normalizeImageUrl } from "@/lib/image-utils";
@@ -13,6 +14,12 @@ export function TeamBadge({
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [logoUrl]);
+
   const sizeCls =
     size === "sm"
       ? "h-8 w-8 text-[10px]"
@@ -24,11 +31,13 @@ export function TeamBadge({
 
   const directLogoUrl = normalizeImageUrl(logoUrl);
 
-  if (directLogoUrl) {
+  if (directLogoUrl && !hasError) {
     return (
       <img
         src={directLogoUrl}
         alt={shortName ?? "team"}
+        referrerPolicy="no-referrer"
+        onError={() => setHasError(true)}
         className={cn("rounded-full object-cover border", sizeCls, className)}
       />
     );

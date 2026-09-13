@@ -1978,16 +1978,23 @@ export async function updateManagedTeam(input: {
     }
   }
 
-  const updateData: Partial<Team> = {
+  const updateData: Record<string, any> = {
     name: input.name.trim(),
     shortName: input.shortName.trim().toUpperCase(),
-    logoUrl: input.logoUrl !== undefined ? (input.logoUrl ? input.logoUrl.trim() : null) : existingData.logoUrl,
-    city: input.city !== undefined ? (input.city ? input.city.trim() : null) : existingData.city,
-    description: input.description !== undefined ? (input.description ? input.description.trim() : null) : existingData.description,
     updatedAt: now(),
   };
 
-  await updateDoc(teamDoc(input.id), updateData);
+  if (input.logoUrl !== undefined) {
+    updateData.logoUrl = input.logoUrl ? input.logoUrl.trim() : null;
+  }
+  if (input.city !== undefined) {
+    updateData.city = input.city ? input.city.trim() : null;
+  }
+  if (input.description !== undefined) {
+    updateData.description = input.description ? input.description.trim() : null;
+  }
+
+  await updateDoc(teamDoc(input.id), stripUndefined(updateData));
   return { id: input.id, ...updateData };
 }
 
