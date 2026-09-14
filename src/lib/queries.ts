@@ -6,6 +6,7 @@
 import {
   getDocs,
   getDoc,
+  updateDoc,
   query,
   where,
   onSnapshot,
@@ -33,6 +34,7 @@ import {
   TOURNAMENT_ID,
   getDocsChunkedIn,
   type Tournament,
+  type TournamentStatus,
   type TournamentMember,
   type TournamentTeamMembership,
   type TournamentRole,
@@ -62,8 +64,77 @@ import {
 // ---------------------------------------------------------------------------
 
 export async function getTournaments(): Promise<Tournament[]> {
-  const snap = await getDocs(tournamentsCol());
-  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Tournament);
+  const [snap, matchesSnap, teamsSnap] = await Promise.all([
+    getDocs(tournamentsCol()),
+    getDocs(matchesCol()),
+    getDocs(teamsCol()),
+  ]);
+
+  const teamsMap = new Map<string, Team>();
+  teamsSnap.docs.forEach((d) => teamsMap.set(d.id, { id: d.id, ...d.data() } as Team));
+
+  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Match);
+
+  const list: Tournament[] = snap.docs.map((d) => {
+    const data = d.data() as Tournament;
+    const tourneyId = d.id;
+
+    const tMatches = allMatches.filter((m) => (m.tournamentId || TOURNAMENT_ID) === tourneyId);
+    const totalMatches = tMatches.length;
+    const completedMatches = tMatches.filter(
+      (m) => m.status === "COMPLETED" || m.status === "ABANDONED" || m.status === "NO_RESULT",
+    ).length;
+    const hasLiveMatch = tMatches.some((m) => m.status === "LIVE");
+
+    // Final match
+    const finalMatch = tMatches.find(
+      (m) =>
+        (m.stage === "FINAL" || m.stage === "GRAND_FINAL") &&
+        (m.status === "COMPLETED" || !!m.winningTeamId),
+    );
+
+    const isAllMatchesPlayed = totalMatches > 0 && completedMatches >= totalMatches;
+    const isFinalAnnounced = Boolean(finalMatch && (finalMatch.status === "COMPLETED" || finalMatch.winningTeamId));
+
+    const isCompleted =
+      (data.status || "").toUpperCase() === "COMPLETED" || isAllMatchesPlayed || isFinalAnnounced;
+
+    const championTeamId = data.championTeamId || finalMatch?.winningTeamId || null;
+    const championTeam = championTeamId ? teamsMap.get(championTeamId) : null;
+
+    let computedStatus: TournamentStatus = "UPCOMING";
+    if (isCompleted) {
+      computedStatus = "COMPLETED";
+    } else if (hasLiveMatch || completedMatches > 0) {
+      computedStatus = "ONGOING";
+    } else if (data.status) {
+      computedStatus = data.status;
+    }
+
+    // Auto-heal firestore document if missing COMPLETED status or championTeamId
+    if (
+      isCompleted &&
+      (data.status !== "COMPLETED" || (championTeamId && data.championTeamId !== championTeamId))
+    ) {
+      updateDoc(tournamentDoc(tourneyId), {
+        status: "COMPLETED",
+        ...(championTeamId ? { championTeamId } : {}),
+        updatedAt: new Date().toISOString(),
+      }).catch((err) => console.warn("Auto-sync completed tournament status error:", err));
+    }
+
+    return {
+      id: tourneyId,
+      ...data,
+      status: computedStatus,
+      championTeamId,
+      championTeamName: championTeam?.name || null,
+      championTeamLogo: championTeam?.logoUrl || null,
+      totalMatches,
+      completedMatches,
+    };
+  });
+
   // If "main" not in DB, prepend default WASA
   if (!list.some((t) => t.id === TOURNAMENT_ID)) {
     list.unshift({
@@ -767,12 +838,11 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
           const rawList = filteredDocs
             .map((d) => {
               const raw = d.data() as any;
-              const nrr =
-                typeof raw.nrr === "number" && !isNaN(raw.nrr)
-                  ? raw.nrr
-                  : typeof raw.netRunRate === "number" && !isNaN(raw.netRunRate)
-                    ? raw.netRunRate
-                    : 0;
+              const rawNrr = typeof raw.nrr === "number" && !isNaN(raw.nrr) ? raw.nrr : null;
+              const rawNetRunRate = typeof raw.netRunRate === "number" && !isNaN(raw.netRunRate) ? raw.netRunRate : null;
+              const nrr = (rawNrr !== null && rawNrr !== 0)
+                ? rawNrr
+                : (rawNetRunRate !== null ? rawNetRunRate : (rawNrr ?? 0));
               const s = { id: d.id, ...raw, groupName: isGroupStage ? (raw.groupName || null) : null, nrr } as Standing;
               return { ...s, team: teamMap.get(s.teamId) ?? null };
             })
@@ -848,12 +918,11 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
     const standings = standingSnap.docs
       .map((d) => {
         const raw = d.data() as any;
-        const nrr =
-          typeof raw.nrr === "number" && !isNaN(raw.nrr)
-            ? raw.nrr
-            : typeof raw.netRunRate === "number" && !isNaN(raw.netRunRate)
-              ? raw.netRunRate
-              : 0;
+        const rawNrr = typeof raw.nrr === "number" && !isNaN(raw.nrr) ? raw.nrr : null;
+        const rawNetRunRate = typeof raw.netRunRate === "number" && !isNaN(raw.netRunRate) ? raw.netRunRate : null;
+        const nrr = (rawNrr !== null && rawNrr !== 0)
+          ? rawNrr
+          : (rawNetRunRate !== null ? rawNetRunRate : (rawNrr ?? 0));
         const team = teamMap.get(raw.teamId || d.id) ?? null;
         const s = {
           id: d.id,
@@ -892,6 +961,21 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
       }
     }
 
+    // Sort standings so that active documents (with matches played or points) take priority during deduplication
+    standings.sort((a, b) => {
+      const aPlayed = a.played ?? 0;
+      const bPlayed = b.played ?? 0;
+      if (bPlayed !== aPlayed) return bPlayed - aPlayed;
+      const aPoints = a.points ?? 0;
+      const bPoints = b.points ?? 0;
+      if (bPoints !== aPoints) return bPoints - aPoints;
+      // Prefer docs starting with tournamentId prefix
+      const aMatchesTournament = a.id.startsWith(`${tournamentId}_`);
+      const bMatchesTournament = b.id.startsWith(`${tournamentId}_`);
+      if (aMatchesTournament !== bMatchesTournament) return aMatchesTournament ? -1 : 1;
+      return 0;
+    });
+
     const seenTeamIds = new Set<string>();
     const seenTeamNames = new Set<string>();
 
@@ -905,15 +989,17 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
       return true;
     });
 
-    const distinctGroups = Array.from(
-      new Set(
-        deduplicatedStandings
-          .map((s) => s.groupName || s.team?.groupName)
-          .filter((g): g is string => Boolean(g)),
-      ),
-    ).sort();
+    const distinctGroups = isGroupStage
+      ? Array.from(
+          new Set(
+            deduplicatedStandings
+              .map((s) => s.groupName || s.team?.groupName)
+              .filter((g): g is string => Boolean(g)),
+          ),
+        ).sort()
+      : [];
 
-    const isGrouped = distinctGroups.length >= 2;
+    const isGrouped = isGroupStage && distinctGroups.length >= 2;
 
     if (isGrouped) {
       const finalResult: StandingWithTeam[] = [];
@@ -941,7 +1027,7 @@ export async function getStandings(idOrContext?: any): Promise<StandingWithTeam[
           ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
           (a.position || 0) - (b.position || 0),
       );
-      return deduplicatedStandings.map((s, idx) => ({ ...s, position: idx + 1 }));
+      return deduplicatedStandings.map((s, idx) => ({ ...s, position: idx + 1, groupName: null }));
     }
   } catch (err) {
     console.error("Error loading standings:", err);

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -210,12 +211,20 @@ export function StandingsTable({
     return (
       <div className="space-y-6">
         {distinctGroups.map((groupName) => {
-          const groupRows = rows.filter(
-            (r) =>
-              (r.groupName || r.team?.groupName || "A")
-                .trim()
-                .toUpperCase() === groupName,
-          );
+          const groupRows = rows
+            .filter(
+              (r) =>
+                (r.groupName || r.team?.groupName || "A")
+                  .trim()
+                  .toUpperCase() === groupName,
+            )
+            .sort(
+              (a, b) =>
+                (b.points ?? 0) - (a.points ?? 0) ||
+                (b.nrr ?? 0) - (a.nrr ?? 0) ||
+                ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
+                (a.position || 0) - (b.position || 0),
+            );
           return (
             <div key={groupName} className="rounded-lg border overflow-hidden bg-card/60 shadow-sm">
               <div className="px-4 py-2.5 bg-muted/40 border-b flex items-center justify-between">
@@ -291,7 +300,17 @@ export function StandingsTable({
     );
   }
 
-  // Single table default
+  // Single table default (ensure strictly sorted by points, NRR, and tiebreakers)
+  const sortedSingleRows = useMemo(() => {
+    return [...rows].sort(
+      (a, b) =>
+        (b.points ?? 0) - (a.points ?? 0) ||
+        (b.nrr ?? 0) - (a.nrr ?? 0) ||
+        ((b.adminTiebreak ?? 0) - (a.adminTiebreak ?? 0)) ||
+        (a.position || 0) - (b.position || 0),
+    );
+  }, [rows]);
+
   return (
     <div className="rounded-lg border overflow-hidden overflow-x-auto">
       <Table>
@@ -309,7 +328,7 @@ export function StandingsTable({
           </TableRow>
         </TableHeader>
         <RenderTableRows
-          groupRows={rows}
+          groupRows={sortedSingleRows}
           compact={compact}
           playoffFormat={playoffFormat}
           isGrouped={false}

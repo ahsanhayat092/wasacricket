@@ -124,18 +124,47 @@ export default function TournamentsList() {
                     {(t.formatType || "TAPE_BALL_INDOOR").replace(/_/g, " ")}
                   </Badge>
                   <Badge
-                    className={`text-[10px] font-bold ${
+                    className={`text-[10px] font-black ${
                       (t.status || "").toUpperCase() === "COMPLETED"
-                        ? "bg-muted/80 text-muted-foreground border-border"
+                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/35"
                         : (t.status || "").toUpperCase() === "UPCOMING"
-                        ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                        : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                        ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
+                        : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                     }`}
                   >
-                    {t.status || "ACTIVE"}
+                    {(t.status || "").toUpperCase() === "COMPLETED" ? "🏆 COMPLETED" : t.status || "ACTIVE"}
                   </Badge>
+                  {t.totalMatches !== undefined && t.totalMatches > 0 && (
+                    <Badge variant="outline" className="text-[10px] font-medium text-muted-foreground border-border/70">
+                      {t.completedMatches !== undefined && t.completedMatches >= t.totalMatches
+                        ? `All ${t.totalMatches} Matches Played`
+                        : `${t.completedMatches ?? 0}/${t.totalMatches} Matches`}
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
+
+              {/* Champion banner if completed */}
+              {(t.status || "").toUpperCase() === "COMPLETED" && (t.championTeamName || t.championTeamId) && (
+                <div className="mx-6 mb-2 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/30 flex items-center justify-between gap-2 shadow-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="p-1 rounded-lg bg-amber-500/25 text-amber-400 shadow-sm shrink-0">
+                      <Trophy className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500">
+                        Grand Final Champion
+                      </p>
+                      <p className="text-xs font-black text-foreground truncate">
+                        {t.championTeamName || "Champion Crowned"}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="bg-amber-500 text-black font-black text-[10px] px-2 py-0.5 shadow-sm shrink-0">
+                    1st Place
+                  </Badge>
+                </div>
+              )}
 
               <CardContent className="space-y-4 pt-2 border-t">
                 {t.description && (

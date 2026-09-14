@@ -56,7 +56,7 @@ export default function AdminPointsTable() {
   });
 
   const applyTiebreak = useMutation({
-    mutationFn: (args: { teamId: string; value: number }) => setTiebreak(args),
+    mutationFn: (args: { teamId: string; value: number }) => setTiebreak({ ...args, tournamentId }),
     onSuccess: () => { toast.success("Tiebreak applied"); invalidate(); },
     onError: (e) => toast.error(e.message),
   });

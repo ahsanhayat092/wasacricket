@@ -48,6 +48,7 @@ export interface StandingsCalculationResult {
   runsAgainst: number;
   ballsAgainst: number;
   netRunRate: number;
+  nrr?: number;
   position: number;
   status: "QUALIFIED_PLAYOFF" | "ELIMINATED" | "ACTIVE";
 }
@@ -237,6 +238,7 @@ export function computeStandingsData(params: {
         runsAgainst: rec.runsAgainst,
         ballsAgainst: rec.ballsAgainst,
         netRunRate: Number(nrr.toFixed(3)),
+        nrr: Number(nrr.toFixed(3)),
         position: 1,
         status: "ACTIVE" as StandingsCalculationResult["status"],
       };
@@ -678,12 +680,19 @@ export async function executeTournamentBrain(
 
   // 7. Check Grand Final completion & crown champion
   let crownedChampion: string | null = null;
-  const finalMatch = matches.find((m) => m.stage === "FINAL");
+  const finalMatch = matches.find((m) => m.stage === "FINAL" || m.stage === "GRAND_FINAL");
   if (finalMatch?.status === "COMPLETED" && finalMatch.winningTeamId) {
     crownedChampion = finalMatch.winningTeamId;
+  }
+  const allMatchesDone =
+    matches.length > 0 &&
+    matches.every((m) => m.status === "COMPLETED" || m.status === "ABANDONED" || m.status === "NO_RESULT");
+
+  if (allMatchesDone || crownedChampion) {
     const tourneyRef = firestore.collection("tournaments").doc(tournamentId);
+    const champId = crownedChampion || standings[0]?.teamId || null;
     batch.update(tourneyRef, {
-      championTeamId: finalMatch.winningTeamId,
+      ...(champId ? { championTeamId: champId } : {}),
       status: "COMPLETED",
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });

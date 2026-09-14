@@ -116,6 +116,7 @@ export interface Standing {
   runsAgainst: number;
   ballsAgainst: number;
   netRunRate: number;
+  nrr?: number;
   position: number;
   status: "QUALIFIED_PLAYOFF" | "ELIMINATED" | "ACTIVE";
   updatedAt: any;

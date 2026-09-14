@@ -137,6 +137,7 @@ export default function AdminPlayers() {
         designation: args.designation,
         battingStyle: args.player.battingStyle ?? undefined,
         bowlingStyle: args.player.bowlingStyle ?? undefined,
+        photoUrl: args.player.photoUrl ?? undefined,
       }),
     onSuccess: (_, variables) => {
       toast.success(

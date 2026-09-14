@@ -937,9 +937,10 @@ export async function syncKnockoutFixtures(
   // Case 5: Pure League format (NONE)
   if (playoffFormat === "NONE") {
     if (allLeagueDone && sortedRows[0]?.teamId) {
-      if (tournament?.championTeamId !== sortedRows[0].teamId) {
+      if (tournament?.championTeamId !== sortedRows[0].teamId || tournament?.status !== "COMPLETED") {
         await updateDoc(tournamentDoc(tId), {
           championTeamId: sortedRows[0].teamId,
+          status: "COMPLETED",
           updatedAt: now(),
         });
       }
@@ -1067,67 +1068,78 @@ export async function syncKnockoutFixtures(
 
     if (isDirectFinal) {
       await ensureKnockoutFixture("FINAL", a1Id, b1Id, "SUNDAY", "8:00 PM");
-      return;
+    } else {
+      // Default World Cup format: Semi 1 (A1 vs B2), Semi 2 (B1 vs A2), Final (Winner SF1 vs Winner SF2)
+      const sf1 = await ensureKnockoutFixture("SEMI_1", a1Id, b2Id, "SATURDAY", "4:00 PM");
+      const sf2 = await ensureKnockoutFixture("SEMI_2", b1Id, a2Id, "SATURDAY", "8:00 PM");
+
+      const sf1WinnerId = sf1.status === "COMPLETED" && sf1.winningTeamId ? sf1.winningTeamId : null;
+      const sf2WinnerId = sf2.status === "COMPLETED" && sf2.winningTeamId ? sf2.winningTeamId : null;
+
+      await ensureKnockoutFixture("FINAL", sf1WinnerId, sf2WinnerId, "SUNDAY", "8:00 PM");
     }
+  } else {
+    const rank1Id = sortedRows[0]?.teamId ?? null;
+    const rank2Id = sortedRows[1]?.teamId ?? null;
+    const rank3Id = sortedRows[2]?.teamId ?? null;
+    const rank4Id = sortedRows[3]?.teamId ?? null;
 
-    // Default World Cup format: Semi 1 (A1 vs B2), Semi 2 (B1 vs A2), Final (Winner SF1 vs Winner SF2)
-    const sf1 = await ensureKnockoutFixture("SEMI_1", a1Id, b2Id, "SATURDAY", "4:00 PM");
-    const sf2 = await ensureKnockoutFixture("SEMI_2", b1Id, a2Id, "SATURDAY", "8:00 PM");
+    // Case 1: DIRECT_TOP2
+    if (playoffFormat === "DIRECT_TOP2") {
+      await ensureKnockoutFixture("FINAL", rank1Id, rank2Id, "SUNDAY", "8:00 PM");
+    } else if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
+      // Case 2: PAGE_PLAYOFF_TOP3
+      const playoffMatch = await ensureKnockoutFixture("PLAYOFF", rank2Id, rank3Id, "SATURDAY", "6:00 PM");
+      const playoffWinnerId = playoffMatch.status === "COMPLETED" && playoffMatch.winningTeamId ? playoffMatch.winningTeamId : null;
+      await ensureKnockoutFixture("FINAL", rank1Id, playoffWinnerId, "SUNDAY", "8:00 PM");
+    } else if (playoffFormat === "IPL_TOP4") {
+      // Case 3: IPL_TOP4 (Qualifier 1, Eliminator, Qualifier 2, Final)
+      const q1 = await ensureKnockoutFixture("QUALIFIER_1", rank1Id, rank2Id, "FRIDAY", "8:00 PM");
+      const elim = await ensureKnockoutFixture("ELIMINATOR", rank3Id, rank4Id, "SATURDAY", "4:00 PM");
 
-    const sf1WinnerId = sf1.status === "COMPLETED" && sf1.winningTeamId ? sf1.winningTeamId : null;
-    const sf2WinnerId = sf2.status === "COMPLETED" && sf2.winningTeamId ? sf2.winningTeamId : null;
+      const q1WinnerId = q1.status === "COMPLETED" && q1.winningTeamId ? q1.winningTeamId : null;
+      const q1LoserId = q1.status === "COMPLETED" && q1.winningTeamId
+        ? (q1.winningTeamId === q1.teamAId ? q1.teamBId : q1.teamAId)
+        : null;
+      const elimWinnerId = elim.status === "COMPLETED" && elim.winningTeamId ? elim.winningTeamId : null;
 
-    await ensureKnockoutFixture("FINAL", sf1WinnerId, sf2WinnerId, "SUNDAY", "8:00 PM");
-    return;
+      const q2 = await ensureKnockoutFixture("QUALIFIER_2", q1LoserId, elimWinnerId, "SATURDAY", "8:00 PM");
+      const q2WinnerId = q2.status === "COMPLETED" && q2.winningTeamId ? q2.winningTeamId : null;
+
+      await ensureKnockoutFixture("FINAL", q1WinnerId, q2WinnerId, "SUNDAY", "8:00 PM");
+    } else if (playoffFormat === "SEMI_FINALS") {
+      // Case 4: SEMI_FINALS (Semi 1: 1 vs 4, Semi 2: 2 vs 3, Final: Winner SF1 vs Winner SF2)
+      const sf1 = await ensureKnockoutFixture("SEMI_1", rank1Id, rank4Id, "SATURDAY", "4:00 PM");
+      const sf2 = await ensureKnockoutFixture("SEMI_2", rank2Id, rank3Id, "SATURDAY", "8:00 PM");
+
+      const sf1WinnerId = sf1.status === "COMPLETED" && sf1.winningTeamId ? sf1.winningTeamId : null;
+      const sf2WinnerId = sf2.status === "COMPLETED" && sf2.winningTeamId ? sf2.winningTeamId : null;
+
+      await ensureKnockoutFixture("FINAL", sf1WinnerId, sf2WinnerId, "SUNDAY", "8:00 PM");
+    }
   }
 
-  const rank1Id = sortedRows[0]?.teamId ?? null;
-  const rank2Id = sortedRows[1]?.teamId ?? null;
-  const rank3Id = sortedRows[2]?.teamId ?? null;
-  const rank4Id = sortedRows[3]?.teamId ?? null;
+  // Check if Grand Final has been played or all matches are completed
+  const refreshedSnap = await getDocs(query(matchesCol(), where("tournamentId", "==", tId)));
+  const latestMatches = refreshedSnap.docs.map((d) => d.data() as Match);
+  const finalMatch = latestMatches.find(
+    (m) => (m.stage === "FINAL" || m.stage === "GRAND_FINAL") && (m.status === "COMPLETED" || !!m.winningTeamId),
+  );
+  const allMatchesDone =
+    latestMatches.length > 0 &&
+    latestMatches.every(
+      (m) => m.status === "COMPLETED" || m.status === "ABANDONED" || m.status === "NO_RESULT",
+    );
 
-  // Case 1: DIRECT_TOP2
-  if (playoffFormat === "DIRECT_TOP2") {
-    await ensureKnockoutFixture("FINAL", rank1Id, rank2Id, "SUNDAY", "8:00 PM");
-    return;
-  }
-
-  // Case 2: PAGE_PLAYOFF_TOP3
-  if (playoffFormat === "PAGE_PLAYOFF_TOP3") {
-    const playoffMatch = await ensureKnockoutFixture("PLAYOFF", rank2Id, rank3Id, "SATURDAY", "6:00 PM");
-    const playoffWinnerId = playoffMatch.status === "COMPLETED" && playoffMatch.winningTeamId ? playoffMatch.winningTeamId : null;
-    await ensureKnockoutFixture("FINAL", rank1Id, playoffWinnerId, "SUNDAY", "8:00 PM");
-    return;
-  }
-
-  // Case 3: IPL_TOP4 (Qualifier 1, Eliminator, Qualifier 2, Final)
-  if (playoffFormat === "IPL_TOP4") {
-    const q1 = await ensureKnockoutFixture("QUALIFIER_1", rank1Id, rank2Id, "FRIDAY", "8:00 PM");
-    const elim = await ensureKnockoutFixture("ELIMINATOR", rank3Id, rank4Id, "SATURDAY", "4:00 PM");
-
-    const q1WinnerId = q1.status === "COMPLETED" && q1.winningTeamId ? q1.winningTeamId : null;
-    const q1LoserId = q1.status === "COMPLETED" && q1.winningTeamId
-      ? (q1.winningTeamId === q1.teamAId ? q1.teamBId : q1.teamAId)
-      : null;
-    const elimWinnerId = elim.status === "COMPLETED" && elim.winningTeamId ? elim.winningTeamId : null;
-
-    const q2 = await ensureKnockoutFixture("QUALIFIER_2", q1LoserId, elimWinnerId, "SATURDAY", "8:00 PM");
-    const q2WinnerId = q2.status === "COMPLETED" && q2.winningTeamId ? q2.winningTeamId : null;
-
-    await ensureKnockoutFixture("FINAL", q1WinnerId, q2WinnerId, "SUNDAY", "8:00 PM");
-    return;
-  }
-
-  // Case 4: SEMI_FINALS (Semi 1: 1 vs 4, Semi 2: 2 vs 3, Final: Winner SF1 vs Winner SF2)
-  if (playoffFormat === "SEMI_FINALS") {
-    const sf1 = await ensureKnockoutFixture("SEMI_1", rank1Id, rank4Id, "SATURDAY", "4:00 PM");
-    const sf2 = await ensureKnockoutFixture("SEMI_2", rank2Id, rank3Id, "SATURDAY", "8:00 PM");
-
-    const sf1WinnerId = sf1.status === "COMPLETED" && sf1.winningTeamId ? sf1.winningTeamId : null;
-    const sf2WinnerId = sf2.status === "COMPLETED" && sf2.winningTeamId ? sf2.winningTeamId : null;
-
-    await ensureKnockoutFixture("FINAL", sf1WinnerId, sf2WinnerId, "SUNDAY", "8:00 PM");
-    return;
+  if (allMatchesDone || (finalMatch && finalMatch.winningTeamId)) {
+    const champId = tournament?.championTeamId || finalMatch?.winningTeamId || sortedRows[0]?.teamId || null;
+    if (tournament?.status !== "COMPLETED" || (champId && tournament?.championTeamId !== champId)) {
+      await updateDoc(tournamentDoc(tId), {
+        status: "COMPLETED",
+        ...(champId ? { championTeamId: champId } : {}),
+        updatedAt: now(),
+      });
+    }
   }
 }
 
@@ -1307,9 +1319,10 @@ export async function finalizeMatch(matchId: string) {
 
   const tId = match.tournamentId || TOURNAMENT_ID;
 
-  if (match.stage === "FINAL" && winningTeamId) {
+  if ((match.stage === "FINAL" || match.stage === "GRAND_FINAL") && winningTeamId) {
     await updateDoc(tournamentDoc(tId), {
       championTeamId: winningTeamId,
+      status: "COMPLETED",
       updatedAt: now(),
     });
   }

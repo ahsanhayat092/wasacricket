@@ -69,6 +69,10 @@ export type Tournament = {
   ownerId?: string | null;
   ownerEmail?: string | null;
   championTeamId?: string | null;
+  championTeamName?: string | null;
+  championTeamLogo?: string | null;
+  totalMatches?: number;
+  completedMatches?: number;
   config?: any;
   uiPresentation?: any;
   createdAt: string;
@@ -358,6 +362,7 @@ export type Standing = {
   runsAgainst: number;
   ballsAgainst: number;
   nrr: number;
+  netRunRate?: number;
   position: number;
   qualified: boolean;
   qualificationStatus?: QualificationStatusType;

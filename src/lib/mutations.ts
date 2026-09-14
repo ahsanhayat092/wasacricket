@@ -1767,25 +1767,35 @@ export async function updateMatchLineups(input: {
 // Admin tiebreak
 // ---------------------------------------------------------------------------
 
-export async function setTiebreak(input: { teamId: string; value: number }) {
-  const snap = await getDoc(standingDoc(input.teamId));
+export async function setTiebreak(input: { teamId: string; value: number; tournamentId?: string }) {
+  const tId = input.tournamentId || TOURNAMENT_ID;
+  const docId = tId === TOURNAMENT_ID ? input.teamId : `${tId}_${input.teamId}`;
+  const snap = await getDoc(standingDoc(docId));
   if (snap.exists()) {
-    await updateDoc(standingDoc(input.teamId), {
+    await updateDoc(standingDoc(docId), {
       adminTiebreak: input.value,
       updatedAt: now(),
     });
   } else {
-    await setDoc(standingDoc(input.teamId), {
-      tournamentId: TOURNAMENT_ID,
-      teamId: input.teamId,
-      played: 0, won: 0, lost: 0, tied: 0, noResult: 0,
-      points: 0, runsFor: 0, ballsFor: 0, runsAgainst: 0, ballsAgainst: 0,
-      nrr: 0, position: 0, qualified: false,
-      adminTiebreak: input.value,
-      updatedAt: now(),
-    });
+    const legacySnap = await getDoc(standingDoc(input.teamId));
+    if (legacySnap.exists()) {
+      await updateDoc(standingDoc(input.teamId), {
+        adminTiebreak: input.value,
+        updatedAt: now(),
+      });
+    } else {
+      await setDoc(standingDoc(docId), {
+        tournamentId: tId,
+        teamId: input.teamId,
+        played: 0, won: 0, lost: 0, tied: 0, noResult: 0,
+        points: 0, runsFor: 0, ballsFor: 0, runsAgainst: 0, ballsAgainst: 0,
+        nrr: 0, position: 0, qualified: false,
+        adminTiebreak: input.value,
+        updatedAt: now(),
+      });
+    }
   }
-  await recalculateStandings();
+  await recalculateStandings(tId);
 }
 
 // ---------------------------------------------------------------------------
