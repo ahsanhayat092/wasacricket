@@ -13,7 +13,7 @@ import {
   upsertPlayer as fbUpsertPlayer,
 } from "@/lib/mutations";
 import { useParams, Link, useNavigate, useLocation } from "react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -215,17 +215,24 @@ export default function AdminMatchControl() {
     onError: (e) => toast.error(e.message),
   });
 
-  // Sync tab when data loads or updates
+  // Sync default tab only on initial match load without overriding user's manual tab clicks
   const inn1 = data?.innings?.find((i) => i.inningsNumber === 1);
   const inn2 = data?.innings?.find((i) => i.inningsNumber === 2);
   const inn1Completed = inn1?.completed;
   const inn2Id = inn2?.id;
+  const initializedMatchIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (inn2Id && inn1Completed && activeInningsTab === "1") {
-      setActiveInningsTab("2");
+    if (data?.match?.id && initializedMatchIdRef.current !== data.match.id) {
+      initializedMatchIdRef.current = data.match.id;
+      // Default to 2nd innings initially only if 2nd innings is actively live/in progress; otherwise 1st innings
+      if (inn2Id && inn1Completed && (!inn2?.completed || data.match?.status === "LIVE")) {
+        setActiveInningsTab("2");
+      } else {
+        setActiveInningsTab("1");
+      }
     }
-  }, [inn2Id, inn1Completed, activeInningsTab]);
+  }, [data?.match?.id, data?.match?.status, inn2Id, inn1Completed, inn2?.completed]);
 
   const match = data?.match;
   const teams = data?.teams ?? [];

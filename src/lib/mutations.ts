@@ -1621,6 +1621,7 @@ export async function reopenMatch(matchId: string) {
   const snap = await getDoc(matchDoc(matchId));
   if (!snap.exists()) throw new Error("Match not found");
   const match = { id: snap.id, ...snap.data() } as Match;
+  const tId = match.tournamentId || TOURNAMENT_ID;
 
   await updateDoc(matchDoc(matchId), {
     status: "LIVE",
@@ -1630,13 +1631,14 @@ export async function reopenMatch(matchId: string) {
     updatedAt: now(),
   });
 
-  if (match.stage === "FINAL") {
-    await updateDoc(tournamentDoc(), {
+  if (match.stage === "FINAL" || match.stage === "GRAND_FINAL") {
+    await updateDoc(tournamentDoc(tId), {
       championTeamId: null,
+      status: "ACTIVE",
       updatedAt: now(),
     });
   }
-  await recalculateStandings();
+  await recalculateStandings(tId);
 }
 
 // ---------------------------------------------------------------------------
@@ -1647,6 +1649,7 @@ export async function resetMatch(matchId: string) {
   const snap = await getDoc(matchDoc(matchId));
   if (!snap.exists()) throw new Error("Match not found");
   const match = { id: snap.id, ...snap.data() } as Match;
+  const tId = match.tournamentId || TOURNAMENT_ID;
 
   // 1. Fetch all innings for this match (robust query + in-memory fallback)
   const [inningsSnap, allInningsSnap] = await Promise.all([
@@ -1703,15 +1706,16 @@ export async function resetMatch(matchId: string) {
 
   await batch.commit();
 
-  if (match.stage === "FINAL") {
-    await updateDoc(tournamentDoc(), {
+  if (match.stage === "FINAL" || match.stage === "GRAND_FINAL") {
+    await updateDoc(tournamentDoc(tId), {
       championTeamId: null,
+      status: "ACTIVE",
       updatedAt: now(),
     });
   }
 
   // 5. Recalculate standings so points table reflects the reset
-  await recalculateStandings();
+  await recalculateStandings(tId);
   return { ok: true };
 }
 
@@ -1725,6 +1729,8 @@ export async function setMatchStatus(input: {
 }) {
   const snap = await getDoc(matchDoc(input.matchId));
   if (!snap.exists()) throw new Error("Match not found");
+  const match = snap.data() as Match;
+  const tId = match.tournamentId || TOURNAMENT_ID;
 
   const extra =
     input.status === "NO_RESULT" || input.status === "ABANDONED"
@@ -1740,7 +1746,7 @@ export async function setMatchStatus(input: {
     ...extra,
     updatedAt: now(),
   });
-  await recalculateStandings();
+  await recalculateStandings(tId);
 }
 
 // ---------------------------------------------------------------------------
