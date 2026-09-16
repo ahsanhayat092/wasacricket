@@ -5,6 +5,7 @@ import { TeamBadge } from "@/components/TeamBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLink } from "@/components/PlayerLink";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Users, ArrowRight, Crown } from "lucide-react";
@@ -41,13 +42,39 @@ export default function Teams() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 space-y-8">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight uppercase">
-          Tournament Teams & Squads
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Explore all 6 WASA Premier League teams and their full 7-member squads.
-        </p>
+      {/* Top Header & Team Manager CTA Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight uppercase">
+            Tournament Teams & Squads
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Explore participating clubs and their official player rosters.
+          </p>
+        </div>
+
+        <Link to="/team">
+          <Button size="sm" className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl gap-1.5 shadow-sm">
+            <Users className="h-3.5 w-3.5" /> Team Manager Portal <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border border-sky-500/30 bg-sky-500/5">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Are you a Cricket Team or Club Manager?</h3>
+            <p className="text-xs text-muted-foreground">Register your club, maintain player squads, accept tournament invitations, or challenge other teams.</p>
+          </div>
+        </div>
+        <Link to="/team">
+          <Button size="sm" variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400 font-bold text-xs rounded-xl gap-1.5 shrink-0 hover:bg-sky-500/10">
+            Open Team Hub ↗
+          </Button>
+        </Link>
       </div>
 
       {(["A", "B"] as const).map((group) => (

@@ -264,6 +264,17 @@ export default function LandingHome() {
               </Button>
             </Link>
 
+            <Link to="/team" className="w-full sm:w-auto">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto h-12 sm:h-11 px-6 font-bold text-sm gap-2 rounded-xl border-sky-500/40 hover:border-sky-500 hover:text-sky-400 text-sky-500 bg-sky-500/5 transition-all duration-200"
+              >
+                <Users className="h-4 w-4 text-sky-400" />
+                <span>Team Manager Hub</span>
+              </Button>
+            </Link>
+
             <Link to="/live-scores" className="w-full sm:w-auto">
               <Button
                 size="lg"
@@ -271,7 +282,7 @@ export default function LandingHome() {
                 className="w-full sm:w-auto h-12 sm:h-11 px-6 font-bold text-sm gap-2 rounded-xl border-border/80 hover:border-emerald-500/60 hover:text-emerald-400 bg-card/60 backdrop-blur-sm transition-all duration-200"
               >
                 <Activity className="h-4 w-4 text-emerald-400 animate-pulse" />
-                <span>Browse Live Scores & Schedule</span>
+                <span>Live Scores</span>
               </Button>
             </Link>
           </div>

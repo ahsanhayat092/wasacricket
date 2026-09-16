@@ -34,6 +34,7 @@ import {
   Share2,
   LayoutDashboard,
   User,
+  ArrowRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ import { ShareTournamentModal } from "@/components/ShareTournamentModal";
 import { UniversalSearchDialog } from "@/components/UniversalSearchDialog";
 import { SystemHealthBadge } from "@/components/SystemHealthBadge";
 import { PitchPeLogo } from "@/components/PitchPeLogo";
+import { WorkspaceRoleSwitcher } from "@/components/WorkspaceRoleSwitcher";
 
 export function PublicLayout() {
   const { theme, toggle } = useTheme();
@@ -83,6 +85,7 @@ export function PublicLayout() {
     { to: "/", label: "Home" },
     { to: "/live-scores", label: "Live Scores", badge: "LIVE" },
     { to: "/tournaments", label: "Tournaments" },
+    { to: "/team", label: "Team Manager" },
     { to: "/#pricing", label: "Pricing" },
     { to: "/about", label: "How It Works" },
   ];
@@ -152,7 +155,20 @@ export function PublicLayout() {
 
           {/* Header Actions (Right) */}
           <div className="flex items-center gap-2.5">
-            {/* Create Tournament CTA (Immediate left of user avatar) */}
+            {/* Team Manager Direct Access */}
+            <Link to="/team">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs font-bold rounded-xl border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 h-9 px-3 shadow-sm"
+                title="Manage cricket club squads & accept tournament invites"
+              >
+                <Users className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Team Manager</span>
+              </Button>
+            </Link>
+
+            {/* Create Tournament CTA */}
             <Link to={createTournamentPath}>
               <Button
                 size="sm"
@@ -165,8 +181,10 @@ export function PublicLayout() {
 
             {/* Auth / Workspace Context Area */}
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <>
+                <WorkspaceRoleSwitcher className="hidden xl:flex" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl hover:bg-accent transition-colors focus:outline-none border border-border/60">
                     <Avatar className="h-7 w-7 border shrink-0">
                       <AvatarImage src={user.avatar || undefined} />
@@ -226,6 +244,7 @@ export function PublicLayout() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </>
             ) : (
               <Link to="/login">
                 <Button
@@ -325,6 +344,12 @@ export function PublicLayout() {
                       </div>
                     ) : (
                       <>
+                        <Link to="/team" onClick={() => setOpen(false)} className="block">
+                          <Button variant="outline" size="sm" className="w-full text-xs font-bold gap-1.5 border-sky-500/40 text-sky-600 dark:text-sky-400 bg-sky-500/5 hover:bg-sky-500/10">
+                            <Users className="h-3.5 w-3.5 text-sky-500" />
+                            Team Manager Portal
+                          </Button>
+                        </Link>
                         <Link to="/login" onClick={() => setOpen(false)} className="block">
                           <Button variant="outline" size="sm" className="w-full text-xs font-bold gap-1.5">
                             <LogIn className="h-3.5 w-3.5" />

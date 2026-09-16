@@ -12,9 +12,9 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 import { useFirebaseAuth } from "@/providers/AuthProvider";
-import { Trophy, Mail, Lock, KeyRound, ArrowRight, Loader2 } from "lucide-react";
+import { Trophy, Mail, Lock, KeyRound, ArrowRight, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { PitchPeLogo } from "@/components/PitchPeLogo";
 
@@ -389,6 +389,24 @@ export default function Login() {
               </TabsContent>
             </Tabs>
           )}
+
+          {/* Team Manager Quick Portal Card */}
+          <div className="p-3.5 rounded-2xl border border-sky-500/30 bg-sky-500/5 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-sky-500/15 text-sky-500 flex items-center justify-center shrink-0">
+                <Users className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="font-bold text-foreground">Club or Team Manager?</p>
+                <p className="text-[11px] text-muted-foreground">Manage your club squad & join tournaments</p>
+              </div>
+            </div>
+            <Link to="/team/login">
+              <Button size="sm" variant="outline" className="h-8 text-xs border-sky-500/40 text-sky-600 dark:text-sky-400 font-bold px-3 hover:bg-sky-500/10 shrink-0">
+                Team Portal ↗
+              </Button>
+            </Link>
+          </div>
 
           <div className="pt-2 text-center">
             <a

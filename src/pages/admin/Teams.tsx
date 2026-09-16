@@ -236,6 +236,15 @@ export default function AdminTeams() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link to="/team">
+            <Button
+              variant="outline"
+              className="h-9 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 font-bold text-xs rounded-xl gap-1.5 shadow-sm"
+              title="Open Team Manager Portal to manage club rosters and challenges"
+            >
+              <Users className="h-4 w-4" /> Team Manager Portal ↗
+            </Button>
+          </Link>
           <Button
             onClick={() => {
               setForm(emptyForm);
