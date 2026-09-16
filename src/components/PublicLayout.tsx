@@ -65,14 +65,25 @@ export function PublicLayout() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Smooth scroll to anchor on hash change
+  useEffect(() => {
+    if (location.hash) {
+      const el = document.getElementById(location.hash.slice(1));
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: "smooth" }), 100);
+      }
+    }
+  }, [location.pathname, location.hash]);
+
   const isTournamentSubpage = !!activeTournamentSlug;
   const basePrefix = activeTournamentSlug ? `/t/${activeTournamentSlug}` : "";
 
-  // 1. Clean Global Public Top Navigation
+  // 1. Clean Global Public Top Navigation (With direct Pricing anchor)
   const GLOBAL_NAV = [
     { to: "/", label: "Home" },
     { to: "/live-scores", label: "Live Scores", badge: "LIVE" },
     { to: "/tournaments", label: "Tournaments" },
+    { to: "/#pricing", label: "Pricing" },
     { to: "/about", label: "How It Works" },
   ];
 
@@ -87,13 +98,21 @@ export function PublicLayout() {
     { to: `${basePrefix}/rules`, label: "Rules", icon: BookOpen },
   ];
 
-  const globalNavLinkCls = ({ isActive }: { isActive: boolean }) =>
-    cn(
+  const globalNavLinkCls = (targetTo: string) => ({ isActive }: { isActive: boolean }) => {
+    const isTargetActive =
+      targetTo === "/#pricing"
+        ? location.pathname === "/" && location.hash === "#pricing"
+        : targetTo === "/"
+        ? location.pathname === "/" && !location.hash
+        : isActive;
+
+    return cn(
       "px-3 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-1.5",
-      isActive
+      isTargetActive
         ? "bg-emerald-500/10 text-emerald-500 font-bold"
         : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
     );
+  };
 
   const subNavLinkCls = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -120,7 +139,7 @@ export function PublicLayout() {
           {/* Desktop Public Navigation (Center) */}
           <nav className="hidden md:flex items-center gap-1 ml-4 flex-1">
             {GLOBAL_NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.to === "/"} className={globalNavLinkCls}>
+              <NavLink key={n.to} to={n.to} end={n.to === "/"} className={globalNavLinkCls(n.to)}>
                 {n.label}
                 {n.badge && (
                   <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-rose-500 text-white font-extrabold animate-pulse">
@@ -266,7 +285,7 @@ export function PublicLayout() {
                       to={n.to}
                       end={n.to === "/"}
                       onClick={() => setOpen(false)}
-                      className={globalNavLinkCls}
+                      className={globalNavLinkCls(n.to)}
                     >
                       {n.label}
                     </NavLink>
@@ -410,6 +429,7 @@ export function PublicLayout() {
               <ul className="space-y-1.5 text-muted-foreground">
                 <li><Link to="/live-scores" className="hover:text-emerald-500">PitchPe Live Scores</Link></li>
                 <li><Link to="/tournaments" className="hover:text-emerald-500">Browse Tournaments</Link></li>
+                <li><Link to="/#pricing" className="hover:text-emerald-500">Pricing & Plans</Link></li>
                 <li><Link to="/about" className="hover:text-emerald-500">How It Works Guide</Link></li>
               </ul>
             </div>
@@ -426,7 +446,8 @@ export function PublicLayout() {
             <div className="space-y-2 text-xs">
               <h4 className="font-bold text-foreground">For Organizers & Scorers</h4>
               <ul className="space-y-1.5 text-muted-foreground">
-                <li><Link to="/organizer/signup" className="hover:text-emerald-500">PitchPe Tournaments</Link></li>
+                <li><Link to="/organizer/signup" className="hover:text-emerald-500">Create Tournament (Free)</Link></li>
+                <li><Link to="/#pricing" className="hover:text-emerald-500">Premier & Pro Plans</Link></li>
                 <li><Link to="/scorer/login" className="hover:text-emerald-500">PitchPe Scoring Portal</Link></li>
                 <li><Link to="/admin" className="hover:text-emerald-500">Organizer Workspace</Link></li>
               </ul>
