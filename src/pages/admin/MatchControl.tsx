@@ -929,21 +929,27 @@ function PlayerCorrectionDialog({
 
   // Lineup state for Team A
   const [teamAPlayingVI, setTeamAPlayingVI] = useState<string[]>(() => {
-    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) return match.teamAPlayingVI;
+    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) {
+      const valid = match.teamAPlayingVI.filter((id) => teamAPlayers.some((p) => p.id === id));
+      if (valid.length > 0) return valid;
+    }
     return teamAPlayers.slice(0, 6).map((p) => p.id);
   });
   const [teamAReserveId, setTeamAReserveId] = useState<string>(() => {
-    if (match.teamAReserveId) return match.teamAReserveId;
+    if (match.teamAReserveId && teamAPlayers.some((p) => p.id === match.teamAReserveId)) return match.teamAReserveId;
     return teamAPlayers[6]?.id ?? "";
   });
 
   // Lineup state for Team B
   const [teamBPlayingVI, setTeamBPlayingVI] = useState<string[]>(() => {
-    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) return match.teamBPlayingVI;
+    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) {
+      const valid = match.teamBPlayingVI.filter((id) => teamBPlayers.some((p) => p.id === id));
+      if (valid.length > 0) return valid;
+    }
     return teamBPlayers.slice(0, 6).map((p) => p.id);
   });
   const [teamBReserveId, setTeamBReserveId] = useState<string>(() => {
-    if (match.teamBReserveId) return match.teamBReserveId;
+    if (match.teamBReserveId && teamBPlayers.some((p) => p.id === match.teamBReserveId)) return match.teamBReserveId;
     return teamBPlayers[6]?.id ?? "";
   });
 
@@ -952,8 +958,14 @@ function PlayerCorrectionDialog({
   const [wrongPlayerId, setWrongPlayerId] = useState<string>("");
   const [correctPlayerId, setCorrectPlayerId] = useState<string>("");
 
-  const activeBattingSquad = players.filter((p) => p.teamId === battingTeamId);
-  const activeBowlingSquad = players.filter((p) => p.teamId === bowlingTeamId);
+  const activeBattingSquad = useMemo(
+    () => players.filter((p) => p.teamId === battingTeamId),
+    [players, battingTeamId]
+  );
+  const activeBowlingSquad = useMemo(
+    () => players.filter((p) => p.teamId === bowlingTeamId && p.teamId !== battingTeamId),
+    [players, bowlingTeamId, battingTeamId]
+  );
 
   const togglePlayerA = (id: string) => {
     if (teamAPlayingVI.includes(id)) {
@@ -1008,6 +1020,11 @@ function PlayerCorrectionDialog({
     const correctPlayer = players.find((p) => p.id === correctPlayerId);
     if (!correctPlayer) {
       toast.error("Replacement player not found.");
+      return;
+    }
+
+    if (swapType === "bowling" && battingTeamId && correctPlayer.teamId === battingTeamId) {
+      toast.error("A player from the batting team cannot bowl against their own team.");
       return;
     }
 
@@ -1367,21 +1384,27 @@ function StartMatchCard({
 
   // Lineup state for Team A
   const [teamAPlayingVI, setTeamAPlayingVI] = useState<string[]>(() => {
-    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) return match.teamAPlayingVI;
+    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) {
+      const valid = match.teamAPlayingVI.filter((id) => teamAPlayers.some((p) => p.id === id));
+      if (valid.length > 0) return valid;
+    }
     return teamAPlayers.slice(0, 6).map((p) => p.id);
   });
   const [teamAReserveId, setTeamAReserveId] = useState<string>(() => {
-    if (match.teamAReserveId) return match.teamAReserveId;
+    if (match.teamAReserveId && teamAPlayers.some((p) => p.id === match.teamAReserveId)) return match.teamAReserveId;
     return teamAPlayers[6]?.id ?? "";
   });
 
   // Lineup state for Team B
   const [teamBPlayingVI, setTeamBPlayingVI] = useState<string[]>(() => {
-    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) return match.teamBPlayingVI;
+    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) {
+      const valid = match.teamBPlayingVI.filter((id) => teamBPlayers.some((p) => p.id === id));
+      if (valid.length > 0) return valid;
+    }
     return teamBPlayers.slice(0, 6).map((p) => p.id);
   });
   const [teamBReserveId, setTeamBReserveId] = useState<string>(() => {
-    if (match.teamBReserveId) return match.teamBReserveId;
+    if (match.teamBReserveId && teamBPlayers.some((p) => p.id === match.teamBReserveId)) return match.teamBReserveId;
     return teamBPlayers[6]?.id ?? "";
   });
 
@@ -1740,19 +1763,34 @@ function InningsLiveConsole({
   let battingTeamId: string | null = existing?.battingTeamId ?? null;
   let bowlingTeamId: string | null = existing?.bowlingTeamId ?? null;
 
+  // Sanitize: ensure team IDs belong to current match teams
+  if (battingTeamId && battingTeamId !== match.teamAId && battingTeamId !== match.teamBId) {
+    battingTeamId = null;
+  }
+  if (bowlingTeamId && bowlingTeamId !== match.teamAId && bowlingTeamId !== match.teamBId) {
+    bowlingTeamId = null;
+  }
+
   if (inningsNumber === 2) {
     if (!battingTeamId && inn1) {
-      battingTeamId = inn1.bowlingTeamId || (inn1.battingTeamId === match.teamAId ? match.teamBId : match.teamAId);
+      const inn1Bowl = inn1.bowlingTeamId;
+      const inn1Bat = inn1.battingTeamId;
+      battingTeamId = (inn1Bowl === match.teamAId || inn1Bowl === match.teamBId)
+        ? inn1Bowl
+        : (inn1Bat === match.teamAId ? match.teamBId : match.teamAId);
     }
     if (!battingTeamId) {
       battingTeamId = match.teamBId ?? null;
     }
     if (!bowlingTeamId) {
-      bowlingTeamId = inn1?.battingTeamId || (battingTeamId === match.teamAId ? match.teamBId : match.teamAId) || (match.teamAId ?? null);
+      const inn1Bat = inn1?.battingTeamId;
+      bowlingTeamId = (inn1Bat === match.teamAId || inn1Bat === match.teamBId)
+        ? inn1Bat
+        : (battingTeamId === match.teamAId ? match.teamBId : match.teamAId) || (match.teamAId ?? null);
     }
   } else if (inningsNumber === 1) {
     if (!battingTeamId) {
-      if (match.tossWinnerId && match.tossDecision) {
+      if (match.tossWinnerId && match.tossDecision && (match.tossWinnerId === match.teamAId || match.tossWinnerId === match.teamBId)) {
         battingTeamId =
           match.tossDecision === "BAT"
             ? match.tossWinnerId
@@ -1768,20 +1806,28 @@ function InningsLiveConsole({
     }
   }
 
+  // Hard guarantee: Batting team and Bowling team can NEVER be the same
+  if (battingTeamId && bowlingTeamId && battingTeamId === bowlingTeamId) {
+    bowlingTeamId = battingTeamId === match.teamAId ? (match.teamBId ?? null) : (match.teamAId ?? null);
+  }
+
   // Filter squad to only active Playing Squad, strictly excluding benched/reserve player unless subbed for injury
   const getPlayingSquad = (teamId: string | null) => {
     if (!teamId) return [];
     const teamSquad = players.filter((p) => p.teamId === teamId);
 
     const isTeamA = teamId === match.teamAId;
-    const playingVI = isTeamA ? match.teamAPlayingVI : match.teamBPlayingVI;
-    const reserveId = isTeamA ? match.teamAReserveId : match.teamBReserveId;
+    const isTeamB = teamId === match.teamBId;
+    const playingVI = isTeamA ? match.teamAPlayingVI : isTeamB ? match.teamBPlayingVI : undefined;
+    const reserveId = isTeamA ? match.teamAReserveId : isTeamB ? match.teamBReserveId : undefined;
 
     if (playingVI && playingVI.length > 0) {
-      return teamSquad.filter((p) => playingVI.includes(p.id));
+      const validPlaying = teamSquad.filter((p) => playingVI.includes(p.id));
+      if (validPlaying.length > 0) return validPlaying;
     }
     if (reserveId) {
-      return teamSquad.filter((p) => p.id !== reserveId);
+      const withoutReserve = teamSquad.filter((p) => p.id !== reserveId);
+      if (withoutReserve.length > 0) return withoutReserve.slice(0, squadLimit);
     }
     if (teamSquad.length > squadLimit) {
       return teamSquad.slice(0, squadLimit);
@@ -1794,8 +1840,10 @@ function InningsLiveConsole({
   }, [players, battingTeamId, squadLimit, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
 
   const bowlingPlayers = useMemo(() => {
-    return getPlayingSquad(bowlingTeamId).slice(0, squadLimit);
-  }, [players, bowlingTeamId, squadLimit, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
+    return getPlayingSquad(bowlingTeamId)
+      .filter((p) => p.teamId !== battingTeamId)
+      .slice(0, squadLimit);
+  }, [players, bowlingTeamId, battingTeamId, squadLimit, match.teamAId, match.teamBId, match.teamAPlayingVI, match.teamBPlayingVI, match.teamAReserveId, match.teamBReserveId]);
 
   const battingPlayerIdsKey = useMemo(() => battingPlayers.map((p) => p.id).join(","), [battingPlayers]);
   const bowlingPlayerIdsKey = useMemo(() => bowlingPlayers.map((p) => p.id).join(","), [bowlingPlayers]);
@@ -4344,21 +4392,27 @@ function PlayingVIEditor({
 
   // Lineup state for Team A
   const [teamAPlayingVI, setTeamAPlayingVI] = useState<string[]>(() => {
-    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) return match.teamAPlayingVI;
+    if (match.teamAPlayingVI && match.teamAPlayingVI.length > 0) {
+      const valid = match.teamAPlayingVI.filter((id) => teamAPlayers.some((p) => p.id === id));
+      if (valid.length > 0) return valid;
+    }
     return teamAPlayers.slice(0, 6).map((p) => p.id);
   });
   const [teamAReserveId, setTeamAReserveId] = useState<string>(() => {
-    if (match.teamAReserveId) return match.teamAReserveId;
+    if (match.teamAReserveId && teamAPlayers.some((p) => p.id === match.teamAReserveId)) return match.teamAReserveId;
     return teamAPlayers[6]?.id ?? "";
   });
 
   // Lineup state for Team B
   const [teamBPlayingVI, setTeamBPlayingVI] = useState<string[]>(() => {
-    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) return match.teamBPlayingVI;
+    if (match.teamBPlayingVI && match.teamBPlayingVI.length > 0) {
+      const valid = match.teamBPlayingVI.filter((id) => teamBPlayers.some((p) => p.id === id));
+      if (valid.length > 0) return valid;
+    }
     return teamBPlayers.slice(0, 6).map((p) => p.id);
   });
   const [teamBReserveId, setTeamBReserveId] = useState<string>(() => {
-    if (match.teamBReserveId) return match.teamBReserveId;
+    if (match.teamBReserveId && teamBPlayers.some((p) => p.id === match.teamBReserveId)) return match.teamBReserveId;
     return teamBPlayers[6]?.id ?? "";
   });
 

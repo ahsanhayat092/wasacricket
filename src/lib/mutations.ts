@@ -683,28 +683,77 @@ export async function updateMatchDetails(input: {
   // Open-ended tournament organizer management:
   // An organizer has full authority to set, change, or swap competing teams on any fixture.
   if (input.teamAId !== undefined || input.teamBId !== undefined) {
+    const finalTeamAId = input.teamAId !== undefined ? input.teamAId : match.teamAId;
+    const finalTeamBId = input.teamBId !== undefined ? input.teamBId : match.teamBId;
+
     if (input.teamAId !== undefined) set.teamAId = input.teamAId;
     if (input.teamBId !== undefined) set.teamBId = input.teamBId;
     set.isManualTeams = input.isManualTeams !== undefined ? input.isManualTeams : true;
     set.manualTeamsOverride = true;
 
-    // If innings exist for this match with 0 balls bowled (e.g. pre-match toss or early setup),
-    // sync the batting/bowling team assignments to the new teams to avoid orphaned team IDs
+    // Check if team A lineup has players not belonging to the new team A
+    if (finalTeamAId && match.teamAId !== finalTeamAId) {
+      try {
+        const pSnapA = await getDocs(query(playersCol(), where("teamId", "==", finalTeamAId)));
+        const newAPlayers = pSnapA.docs.map((d) => d.id);
+        const validLineupA = (match.teamAPlayingVI || []).filter((id) => newAPlayers.includes(id));
+        set.teamAPlayingVI = validLineupA.length >= 6 ? validLineupA.slice(0, 6) : newAPlayers.slice(0, 6);
+        set.teamAReserveId = newAPlayers[6] || null;
+      } catch (e) {
+        console.warn("Could not sync team A lineup:", e);
+      }
+    }
+
+    // Check if team B lineup has players not belonging to the new team B
+    if (finalTeamBId && match.teamBId !== finalTeamBId) {
+      try {
+        const pSnapB = await getDocs(query(playersCol(), where("teamId", "==", finalTeamBId)));
+        const newBPlayers = pSnapB.docs.map((d) => d.id);
+        const validLineupB = (match.teamBPlayingVI || []).filter((id) => newBPlayers.includes(id));
+        set.teamBPlayingVI = validLineupB.length >= 6 ? validLineupB.slice(0, 6) : newBPlayers.slice(0, 6);
+        set.teamBReserveId = newBPlayers[6] || null;
+      } catch (e) {
+        console.warn("Could not sync team B lineup:", e);
+      }
+    }
+
+    // Check tossWinnerId: ensure it belongs to one of the competing teams
+    if (match.tossWinnerId && match.tossWinnerId !== finalTeamAId && match.tossWinnerId !== finalTeamBId) {
+      set.tossWinnerId = finalTeamAId || finalTeamBId || null;
+    }
+
+    // Synchronize ALL innings of this match so battingTeamId and bowlingTeamId always reflect the actual teams
     try {
       const innSnap = await getDocs(query(inningsCol(), where("matchId", "==", input.matchId)));
       for (const d of innSnap.docs) {
         const inn = d.data();
-        if (!inn.balls || inn.balls === 0) {
-          const innUpdates: Record<string, unknown> = {};
-          if (inn.battingTeamId === match.teamAId && input.teamAId) innUpdates.battingTeamId = input.teamAId;
-          else if (inn.battingTeamId === match.teamBId && input.teamBId) innUpdates.battingTeamId = input.teamBId;
+        const innUpdates: Record<string, unknown> = {};
 
-          if (inn.bowlingTeamId === match.teamAId && input.teamAId) innUpdates.bowlingTeamId = input.teamAId;
-          else if (inn.bowlingTeamId === match.teamBId && input.teamBId) innUpdates.bowlingTeamId = input.teamBId;
+        let updatedBatting = inn.battingTeamId;
+        let updatedBowling = inn.bowlingTeamId;
 
-          if (Object.keys(innUpdates).length > 0) {
-            await updateDoc(doc(inningsCol(), d.id), innUpdates);
-          }
+        if (inn.battingTeamId === match.teamAId && finalTeamAId) updatedBatting = finalTeamAId;
+        else if (inn.battingTeamId === match.teamBId && finalTeamBId) updatedBatting = finalTeamBId;
+        else if (finalTeamAId && finalTeamBId && updatedBatting !== finalTeamAId && updatedBatting !== finalTeamBId) {
+          updatedBatting = finalTeamAId;
+        }
+
+        if (inn.bowlingTeamId === match.teamAId && finalTeamAId) updatedBowling = finalTeamAId;
+        else if (inn.bowlingTeamId === match.teamBId && finalTeamBId) updatedBowling = finalTeamBId;
+        else if (finalTeamAId && finalTeamBId && updatedBowling !== finalTeamAId && updatedBowling !== finalTeamBId) {
+          updatedBowling = updatedBatting === finalTeamAId ? finalTeamBId : finalTeamAId;
+        }
+
+        // Batting and Bowling CANNOT be the same team!
+        if (updatedBatting && updatedBowling && updatedBatting === updatedBowling) {
+          updatedBowling = updatedBatting === finalTeamAId ? finalTeamBId : finalTeamAId;
+        }
+
+        if (updatedBatting && updatedBatting !== inn.battingTeamId) innUpdates.battingTeamId = updatedBatting;
+        if (updatedBowling && updatedBowling !== inn.bowlingTeamId) innUpdates.bowlingTeamId = updatedBowling;
+
+        if (Object.keys(innUpdates).length > 0) {
+          await updateDoc(doc(inningsCol(), d.id), innUpdates);
         }
       }
     } catch (err) {
@@ -1501,9 +1550,17 @@ export async function saveInnings(input: {
     return { ...b, isOut };
   });
 
-  // Process bowling records (saving active bowlers who delivered balls/extras/runs/wickets)
+  // Batter IDs who have batted or are active in this innings (cannot bowl against their own team)
+  const battingPlayerIds = new Set(
+    input.batting
+      .filter((b) => b.runs > 0 || b.balls > 0 || b.isOut)
+      .map((b) => b.playerId)
+  );
+
+  // Process bowling records (saving active bowlers who delivered balls/extras/runs/wickets, excluding same-team batsmen)
   let accumulatedBalls = 0;
   const clampedBowling = input.bowling
+    .filter((b) => !battingPlayerIds.has(b.playerId))
     .filter((b) => b.balls > 0 || b.wides > 0 || b.noBalls > 0 || b.runs > 0 || b.wickets > 0)
     .map((b) => {
       let balls = Math.max(0, b.balls);
@@ -1519,17 +1576,28 @@ export async function saveInnings(input: {
     outCount >= maxWickets ||
     accumulatedBalls >= maxBalls;
 
-  const inferredBattingTeamId =
-    inn.battingTeamId ||
-    (input.inningsNumber === 1
-      ? (match.tossWinnerId && match.tossDecision
-          ? (match.tossDecision === "BAT" ? match.tossWinnerId : (match.tossWinnerId === match.teamAId ? match.teamBId : match.teamAId))
-          : match.teamAId)
-      : (existingList.find((i) => i.inningsNumber === 1)?.bowlingTeamId || match.teamBId));
+  let inferredBattingTeamId = inn.battingTeamId;
+  if (match.teamAId && match.teamBId) {
+    if (!inferredBattingTeamId || (inferredBattingTeamId !== match.teamAId && inferredBattingTeamId !== match.teamBId)) {
+      inferredBattingTeamId =
+        input.inningsNumber === 1
+          ? (match.tossWinnerId && match.tossDecision && (match.tossWinnerId === match.teamAId || match.tossWinnerId === match.teamBId)
+              ? (match.tossDecision === "BAT" ? match.tossWinnerId : (match.tossWinnerId === match.teamAId ? match.teamBId : match.teamAId))
+              : match.teamAId)
+          : (existingList.find((i) => i.inningsNumber === 1)?.bowlingTeamId || match.teamBId);
+    }
+  } else {
+    inferredBattingTeamId = inferredBattingTeamId || match.teamAId || "";
+  }
 
-  const inferredBowlingTeamId =
-    inn.bowlingTeamId ||
-    (inferredBattingTeamId === match.teamAId ? match.teamBId : match.teamAId);
+  let inferredBowlingTeamId = inn.bowlingTeamId;
+  if (match.teamAId && match.teamBId) {
+    if (!inferredBowlingTeamId || inferredBowlingTeamId !== match.teamAId && inferredBowlingTeamId !== match.teamBId || inferredBowlingTeamId === inferredBattingTeamId) {
+      inferredBowlingTeamId = inferredBattingTeamId === match.teamAId ? match.teamBId : match.teamAId;
+    }
+  } else {
+    inferredBowlingTeamId = inferredBowlingTeamId || (inferredBattingTeamId === match.teamAId ? match.teamBId : match.teamAId) || "";
+  }
 
   const totalBatRuns = clampedBatting.reduce((s, b) => s + (Number(b.runs) || 0), 0);
   const totalExtras =
@@ -1545,8 +1613,8 @@ export async function saveInnings(input: {
   // Update innings extras + completed flag + recent deliveries + FOW & partnerships + total runs/wickets/balls
   await updateDoc(inningsDoc(inn.id), {
     tournamentId: match.tournamentId || TOURNAMENT_ID,
-    ...(!inn.battingTeamId && inferredBattingTeamId ? { battingTeamId: inferredBattingTeamId } : {}),
-    ...(!inn.bowlingTeamId && inferredBowlingTeamId ? { bowlingTeamId: inferredBowlingTeamId } : {}),
+    battingTeamId: inferredBattingTeamId,
+    bowlingTeamId: inferredBowlingTeamId,
     ...(input.strikerId !== undefined ? { strikerId: input.strikerId } : {}),
     ...(input.nonStrikerId !== undefined ? { nonStrikerId: input.nonStrikerId } : {}),
     ...(input.currentBowlerId !== undefined ? { currentBowlerId: input.currentBowlerId } : {}),
