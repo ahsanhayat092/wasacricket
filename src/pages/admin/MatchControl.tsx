@@ -121,6 +121,10 @@ export default function AdminMatchControl() {
   const [modalOvers, setModalOvers] = useState<number>(10);
   const [modalMaxBowler, setModalMaxBowler] = useState<number>(2);
 
+  const [openTeamsModal, setOpenTeamsModal] = useState(false);
+  const [modalTeamA, setModalTeamA] = useState<string | null>(null);
+  const [modalTeamB, setModalTeamB] = useState<string | null>(null);
+
   useEffect(() => {
     if (data?.match) {
       const curOvers = Number(data.match.oversPerSide || data.tournament?.oversPerSide || 10);
@@ -131,10 +135,14 @@ export default function AdminMatchControl() {
       );
       setModalOvers(curOvers);
       setModalMaxBowler(curMax);
+      setModalTeamA(data.match.teamAId ?? null);
+      setModalTeamB(data.match.teamBId ?? null);
     }
   }, [
     data?.match?.oversPerSide,
     data?.match?.maxOverPerBowler,
+    data?.match?.teamAId,
+    data?.match?.teamBId,
     data?.tournament?.oversPerSide,
     data?.tournament?.maxOverPerBowler,
   ]);
@@ -149,6 +157,23 @@ export default function AdminMatchControl() {
     onSuccess: () => {
       toast.success(`Match updated: ${modalOvers} overs per side, ${modalMaxBowler} max per bowler`);
       setOpenOversModal(false);
+      refetch();
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const saveTeamsMutation = useMutation({
+    mutationFn: () =>
+      fbUpdateMatchDetails({
+        matchId: id!,
+        teamAId: modalTeamA,
+        teamBId: modalTeamB,
+        isManualTeams: true,
+      }),
+    onSuccess: () => {
+      toast.success("Match teams updated successfully!");
+      setOpenTeamsModal(false);
       refetch();
       invalidate();
     },
@@ -316,6 +341,19 @@ export default function AdminMatchControl() {
                 onClick={() => setOpenOversModal(true)}
               >
                 <Sliders className="h-3 w-3" /> Edit Match Overs
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] gap-1 px-2 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 font-bold"
+                onClick={() => {
+                  setModalTeamA(match.teamAId ?? null);
+                  setModalTeamB(match.teamBId ?? null);
+                  setOpenTeamsModal(true);
+                }}
+                title="Change competing teams for this match"
+              >
+                <Users className="h-3 w-3" /> Change Teams
               </Button>
             </div>
           </div>
@@ -608,6 +646,76 @@ export default function AdminMatchControl() {
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
             >
               {saveOversMutation.isPending ? "Saving..." : "Save Match Rules"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Teams Modal */}
+      <Dialog open={openTeamsModal} onOpenChange={setOpenTeamsModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Users className="h-5 w-5 text-sky-500" />
+              Change Match Teams
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Update the participating teams for Match #{match.matchNumber} ({match.stage ?? "Match"}). The organizer has full control over matchups.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">Team 1 (Team A)</Label>
+              <Select
+                value={modalTeamA ?? "none"}
+                onValueChange={(val) => setModalTeamA(val === "none" ? null : val)}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select Team A (or TBD)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- TBD / Unassigned --</SelectItem>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} ({t.shortName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">Team 2 (Team B)</Label>
+              <Select
+                value={modalTeamB ?? "none"}
+                onValueChange={(val) => setModalTeamB(val === "none" ? null : val)}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select Team B (or TBD)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- TBD / Unassigned --</SelectItem>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} ({t.shortName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setOpenTeamsModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={saveTeamsMutation.isPending}
+              onClick={() => saveTeamsMutation.mutate()}
+              className="bg-sky-600 hover:bg-sky-500 text-white font-bold"
+            >
+              {saveTeamsMutation.isPending ? "Saving..." : "Update Teams"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -762,6 +762,9 @@ function ScheduleRow({
     venue?: string;
     teamAId?: string | null;
     teamBId?: string | null;
+    oversPerSide?: number;
+    maxOverPerBowler?: number;
+    isManualTeams?: boolean;
   }) => void;
   onDelete: () => void;
 }) {
@@ -773,8 +776,8 @@ function ScheduleRow({
   const [date, setDate] = useState(match.date ?? "");
   const [time, setTime] = useState(match.time ?? "");
   const [venue, setVenue] = useState(match.venue ?? "");
-  const [teamAId, setTeamAId] = useState<string | null>(match.teamA?.id ?? null);
-  const [teamBId, setTeamBId] = useState<string | null>(match.teamB?.id ?? null);
+  const [teamAId, setTeamAId] = useState<string | null>(match.teamAId ?? match.teamA?.id ?? null);
+  const [teamBId, setTeamBId] = useState<string | null>(match.teamBId ?? match.teamB?.id ?? null);
   const [oversPerSide, setOversPerSide] = useState<number>(match.oversPerSide || 10);
   const [maxOverPerBowler, setMaxOverPerBowler] = useState<number>(match.maxOverPerBowler || 3);
 
@@ -785,11 +788,11 @@ function ScheduleRow({
     setDate(match.date ?? "");
     setTime(match.time ?? "");
     setVenue(match.venue ?? "");
-    setTeamAId(match.teamA?.id ?? null);
-    setTeamBId(match.teamB?.id ?? null);
+    setTeamAId(match.teamAId ?? match.teamA?.id ?? null);
+    setTeamBId(match.teamBId ?? match.teamB?.id ?? null);
     setOversPerSide(match.oversPerSide || 10);
     setMaxOverPerBowler(match.maxOverPerBowler || 3);
-  }, [match.id, match.matchNumber, match.stage, match.day, match.date, match.time, match.venue, match.teamA?.id, match.teamB?.id, match.oversPerSide, match.maxOverPerBowler]);
+  }, [match.id, match.matchNumber, match.stage, match.day, match.date, match.time, match.venue, match.teamAId, match.teamBId, match.teamA?.id, match.teamB?.id, match.oversPerSide, match.maxOverPerBowler]);
 
   const computedDayLabel = useMemo(() => {
     return computeDayLabel(date, allMatches);
@@ -798,7 +801,8 @@ function ScheduleRow({
   const isPlayoff = stage === "PLAYOFF";
   const isSemi = stage.startsWith("SEMI");
   const isFinal = stage === "FINAL";
-  const teamsEditable = match.status === "UPCOMING";
+  // Open-ended tournament organizer management: Organizer can always adjust teams
+  const teamsEditable = true;
 
   return (
     <TableRow>
@@ -1015,7 +1019,9 @@ function ScheduleRow({
                 venue,
                 oversPerSide,
                 maxOverPerBowler,
-                ...(teamsEditable ? { teamAId, teamBId } : {}),
+                teamAId,
+                teamBId,
+                isManualTeams: true,
               })
             }
           >

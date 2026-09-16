@@ -655,6 +655,7 @@ export async function updateMatchDetails(input: {
   teamBId?: string | null;
   oversPerSide?: number;
   maxOverPerBowler?: number;
+  isManualTeams?: boolean;
 }) {
   const snap = await getDoc(matchDoc(input.matchId));
   if (!snap.exists()) throw new Error("Match not found");
@@ -679,9 +680,36 @@ export async function updateMatchDetails(input: {
     set["rules.maxOverPerBowler"] = input.maxOverPerBowler;
   }
 
-  if (match.status === "UPCOMING") {
+  // Open-ended tournament organizer management:
+  // An organizer has full authority to set, change, or swap competing teams on any fixture.
+  if (input.teamAId !== undefined || input.teamBId !== undefined) {
     if (input.teamAId !== undefined) set.teamAId = input.teamAId;
     if (input.teamBId !== undefined) set.teamBId = input.teamBId;
+    set.isManualTeams = input.isManualTeams !== undefined ? input.isManualTeams : true;
+    set.manualTeamsOverride = true;
+
+    // If innings exist for this match with 0 balls bowled (e.g. pre-match toss or early setup),
+    // sync the batting/bowling team assignments to the new teams to avoid orphaned team IDs
+    try {
+      const innSnap = await getDocs(query(inningsCol(), where("matchId", "==", input.matchId)));
+      for (const d of innSnap.docs) {
+        const inn = d.data();
+        if (!inn.balls || inn.balls === 0) {
+          const innUpdates: Record<string, unknown> = {};
+          if (inn.battingTeamId === match.teamAId && input.teamAId) innUpdates.battingTeamId = input.teamAId;
+          else if (inn.battingTeamId === match.teamBId && input.teamBId) innUpdates.battingTeamId = input.teamBId;
+
+          if (inn.bowlingTeamId === match.teamAId && input.teamAId) innUpdates.bowlingTeamId = input.teamAId;
+          else if (inn.bowlingTeamId === match.teamBId && input.teamBId) innUpdates.bowlingTeamId = input.teamBId;
+
+          if (Object.keys(innUpdates).length > 0) {
+            await updateDoc(doc(inningsCol(), d.id), innUpdates);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Innings team sync notice after team change:", err);
+    }
   }
 
   await updateDoc(matchDoc(input.matchId), set);

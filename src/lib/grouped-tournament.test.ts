@@ -252,5 +252,32 @@ describe("Grouped Tournament System (World Cup Format)", () => {
       expect(finalMatch.teamAId).toBe("pak");
       expect(finalMatch.teamBId).toBe("sa");
     });
+
+    it("respects organizer manual team assignments on semifinals and never overwrites them", async () => {
+      const manualSF1: Match = {
+        id: "m_sf1_manual",
+        matchNumber: 10,
+        stage: "SEMI_1",
+        status: "UPCOMING",
+        teamAId: "eng", // Organizer manually swapped England and Pakistan
+        teamBId: "ind",
+        isManualTeams: true,
+      } as Match;
+
+      const tournament: Tournament = {
+        id: "t_wc",
+        stageFormat: "GROUPS_AND_KNOCKOUT",
+        groupPlayoffFormat: "GROUP_SEMI_FINALS",
+        teamsPerGroupAdvance: 2,
+      } as Tournament;
+
+      await syncKnockoutFixtures([...groupMatchesCompleted, manualSF1], groupStandings, tournament);
+
+      // Automated seeding would have tried pak vs eng, but manual override preserves eng vs ind!
+      expect(manualSF1.teamAId).toBe("eng");
+      expect(manualSF1.teamBId).toBe("ind");
+      expect(manualSF1.isManualTeams).toBe(true);
+    });
   });
 });
+

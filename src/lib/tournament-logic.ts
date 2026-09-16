@@ -12,6 +12,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  addDoc,
   writeBatch,
   query,
   where,
@@ -977,22 +978,30 @@ export async function syncKnockoutFixtures(
     const existing = allMatches.find((m) => m.stage?.toUpperCase() === stage.toUpperCase());
     if (existing) {
       if (existing.status !== "COMPLETED" && existing.status !== "LIVE") {
-        const needsA = existing.teamAId !== (desiredTeamA ?? null);
-        const needsB = existing.teamBId !== (desiredTeamB ?? null);
+        // Respect tournament organizer authority:
+        // If the match was manually configured (isManualTeams or manualTeamsOverride),
+        // NEVER let automated calculations wipe out or overwrite the organizer's team selections!
+        const isManualTeams = Boolean((existing as any).isManualTeams || (existing as any).manualTeamsOverride);
+
+        const targetTeamA = isManualTeams ? existing.teamAId : (desiredTeamA ?? existing.teamAId ?? null);
+        const targetTeamB = isManualTeams ? existing.teamBId : (desiredTeamB ?? existing.teamBId ?? null);
+
+        const needsA = existing.teamAId !== targetTeamA;
+        const needsB = existing.teamBId !== targetTeamB;
         const needsOvers = existing.oversPerSide !== oversPerSide;
         const needsBowlerQuota = existing.maxOverPerBowler !== maxOverPerBowler;
         if (needsA || needsB || needsOvers || needsBowlerQuota) {
           await updateDoc(matchDoc(existing.id), {
-            teamAId: desiredTeamA ?? null,
-            teamBId: desiredTeamB ?? null,
+            teamAId: targetTeamA,
+            teamBId: targetTeamB,
             oversPerSide,
             maxOverPerBowler,
             "rules.oversPerSide": oversPerSide,
             "rules.maxOverPerBowler": maxOverPerBowler,
             updatedAt: now(),
           });
-          existing.teamAId = desiredTeamA ?? null;
-          existing.teamBId = desiredTeamB ?? null;
+          existing.teamAId = targetTeamA;
+          existing.teamBId = targetTeamB;
           existing.oversPerSide = oversPerSide;
           existing.maxOverPerBowler = maxOverPerBowler;
         }

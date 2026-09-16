@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/providers/trpc";
-import { getSchedule } from "@/lib/queries";
+import { getSchedule, getTeams } from "@/lib/queries";
 import { updateMatchDetails, setMatchStatus, resetMatch as fbResetMatch, deleteMatch as fbDeleteMatch } from "@/lib/mutations";
 import { Link } from "react-router";
 import { useState } from "react";
@@ -17,6 +17,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -26,7 +33,7 @@ import {
 } from "@/components/ui/table";
 import { statusBadgeClass, formatMatchDay, type MatchStatus } from "@/lib/cricket";
 import { toast } from "sonner";
-import { RotateCcw, Trophy, Trash2, Sliders, AlertTriangle, Loader2 } from "lucide-react";
+import { RotateCcw, Trophy, Trash2, Sliders, AlertTriangle, Loader2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HydratedMatch } from "@/lib/firestore";
 
@@ -36,10 +43,20 @@ export default function AdminMatches() {
   const { tournamentId } = useTournament();
 
   const [openOversDialog, setOpenOversDialog] = useState(false);
+  const [openTeamsDialog, setOpenTeamsDialog] = useState(false);
   const [matchToDelete, setMatchToDelete] = useState<HydratedMatch | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<HydratedMatch | null>(null);
+  const [matchForTeams, setMatchForTeams] = useState<HydratedMatch | null>(null);
   const [editOvers, setEditOvers] = useState<number>(4);
   const [editMaxBowler, setEditMaxBowler] = useState<number>(1);
+  const [editTeamAId, setEditTeamAId] = useState<string | null>(null);
+  const [editTeamBId, setEditTeamBId] = useState<string | null>(null);
+
+  const { data: teams = [] } = useQuery({
+    queryKey: ["teams", tournamentId],
+    queryFn: () => getTeams(tournamentId),
+    enabled: !!tournamentId,
+  });
 
   const { data: matches, isLoading } = useQuery({
     queryKey: ["schedule", tournamentId],
@@ -95,6 +112,25 @@ export default function AdminMatches() {
     onSuccess: () => {
       toast.success(`Match updated: ${editOvers} overs per side, ${editMaxBowler} max per bowler`);
       setOpenOversDialog(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const saveTeamsMutation = useMutation({
+    mutationFn: () => {
+      if (!matchForTeams) throw new Error("No match selected");
+      return updateMatchDetails({
+        matchId: matchForTeams.id,
+        teamAId: editTeamAId,
+        teamBId: editTeamBId,
+        isManualTeams: true,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Match teams updated successfully!");
+      setOpenTeamsDialog(false);
+      setMatchForTeams(null);
       invalidate();
     },
     onError: (e) => toast.error(e.message),
@@ -179,6 +215,20 @@ export default function AdminMatches() {
                       title="Change match overs & bowler quota"
                     >
                       <Sliders className="h-3 w-3 text-emerald-500" /> Overs
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs gap-1 border-border/80 font-medium"
+                      onClick={() => {
+                        setMatchForTeams(m);
+                        setEditTeamAId(m.teamAId ?? m.teamA?.id ?? null);
+                        setEditTeamBId(m.teamBId ?? m.teamB?.id ?? null);
+                        setOpenTeamsDialog(true);
+                      }}
+                      title="Change teams playing this match"
+                    >
+                      <Users className="h-3 w-3 text-sky-500" /> Teams
                     </Button>
                     {(m.status === "UPCOMING" || m.status === "LIVE") && (
                       <>
@@ -331,6 +381,76 @@ export default function AdminMatches() {
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
             >
               {saveOversMutation.isPending ? "Saving..." : "Save Match Rules"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Match Teams Dialog */}
+      <Dialog open={openTeamsDialog} onOpenChange={setOpenTeamsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Users className="h-5 w-5 text-sky-500" />
+              Change Match Teams
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Select or change the competing teams for Match #{matchForTeams?.matchNumber} ({matchForTeams?.stage ?? "Match"}). The organizer has full control over matchups.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">Team 1 (Team A)</Label>
+              <Select
+                value={editTeamAId ?? "none"}
+                onValueChange={(val) => setEditTeamAId(val === "none" ? null : val)}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select Team A (or TBD)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- TBD / Unassigned --</SelectItem>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} ({t.shortName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">Team 2 (Team B)</Label>
+              <Select
+                value={editTeamBId ?? "none"}
+                onValueChange={(val) => setEditTeamBId(val === "none" ? null : val)}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select Team B (or TBD)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- TBD / Unassigned --</SelectItem>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} ({t.shortName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setOpenTeamsDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={saveTeamsMutation.isPending}
+              onClick={() => saveTeamsMutation.mutate()}
+              className="bg-sky-600 hover:bg-sky-500 text-white font-bold"
+            >
+              {saveTeamsMutation.isPending ? "Saving..." : "Update Teams"}
             </Button>
           </DialogFooter>
         </DialogContent>
